@@ -1,0 +1,1878 @@
+<!doctype html>
+<html lang="zh" data-page-node-id="oF6fkJIl5ZwqSJegmwV5dQ">
+<head data-page-node-id="0W1AaMhNQx8yMRXAUt7kvL">
+<meta charset="utf-8" data-page-node-id="1ealKhvEv6En2OECMDeMen">
+<meta name="theme-color" content="#635bff">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AI教练">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" data-page-node-id="s6hzW6AwapZNdIEsv9nzHL">
+<meta name="theme-color" content="#185FA5" data-page-node-id="O1i7C5BMsha72kj2rB8ZFh">
+<title>AI 学习教练 · 双学段</title>
+<style>
+:root{
+  --bg:#f5f7fa; --card:#ffffff; --line:#e6eaf0;
+  --txt:#1a2233; --muted:#8a94a6; --hint:#b3bac7;
+  --blue:#185FA5; --blue-bg:#E6F1FB; --blue-800:#0C447C;
+  --amber:#BA7517; --amber-bg:#FAEEDA; --amber-800:#633806;
+  --teal:#0F6E56; --teal-bg:#E1F5EE; --teal-800:#085041;
+  --red:#dc2626; --green:#0F766E;
+  --radius:14px;
+  --accent:var(--blue); --accent-bg:var(--blue-bg); --accent-800:var(--blue-800);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg); color:var(--txt); font-size:14px; line-height:1.6;
+  padding-bottom:72px;
+}
+header{
+  position:sticky; top:0; z-index:20; background:var(--card);
+  padding:12px 16px 10px; border-bottom:1px solid var(--line);
+}
+.top{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.logo{font-size:16px; font-weight:600;}
+.logo span{color:var(--accent);}
+.pick{display:flex; gap:8px;}
+.pick button{
+  border:1px solid var(--line); background:#fff; color:var(--muted);
+  border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer;
+  transition:all .15s;
+}
+.pick button.on{border-color:var(--accent); background:var(--accent-bg); color:var(--accent-800); font-weight:600;}
+main{max-width:560px; margin:0 auto; padding:14px 14px 0;}
+section{display:none;}
+section.active{display:block;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+h3{font-size:14px; font-weight:600; margin:0 0 12px; color:var(--txt);}
+.muted{color:var(--muted); font-size:13px;}
+.hint{color:var(--hint); font-size:12px;}
+.chip{display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px;}
+.chip.b{background:var(--blue-bg); color:var(--blue-800);}
+.chip.a{background:var(--amber-bg); color:var(--amber-800);}
+.chip.t{background:var(--teal-bg); color:var(--teal-800);}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  border:none; border-radius:10px; padding:10px 16px; font-size:14px; font-weight:500;
+  cursor:pointer; transition:opacity .15s;
+}
+.btn:active{opacity:.75;}
+.btn-p{background:var(--accent); color:#fff;}
+.btn-ghost{background:#f1f3f7; color:#5f6673;}
+.btn-sm{padding:6px 12px; font-size:13px; border-radius:8px;}
+.btn-block{width:100%;}
+input,textarea,select{
+  width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+  font-size:14px; font-family:inherit; color:var(--txt); background:#fff;
+}
+input:focus,textarea:focus,select:focus{outline:none; border-color:var(--accent);}
+textarea{resize:vertical; min-height:72px;}
+.mic-mini{float:right;background:#fff;border:1px solid #d7dce4;border-radius:8px;padding:1px 8px;font-size:12px;cursor:pointer;color:var(--txt)}
+.mic-mini.rec{background:var(--red);color:#fff;border-color:var(--red);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+label{display:block; font-size:13px; color:var(--muted); margin:12px 0 6px;}
+nav{
+  position:fixed; bottom:0; left:0; right:0; background:var(--card);
+  border-top:1px solid var(--line); display:flex; z-index:20;
+}
+nav button{
+  flex:1; background:none; border:none; padding:9px 0 10px; cursor:pointer;
+  font-size:11px; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:2px;
+}
+nav button .ic{font-size:20px; line-height:1;}
+nav button.on{color:var(--accent); font-weight:600;}
+.chat{display:flex; flex-direction:column; gap:10px; max-height:46vh; overflow-y:auto; padding:2px;}
+.msg{max-width:82%; padding:10px 13px; border-radius:14px; font-size:14px; white-space:pre-wrap; word-break:break-word; line-height:1.55;}
+.msg.user{align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px;}
+.msg.ai{align-self:flex-start; background:#f1f3f7; color:var(--txt); border-bottom-left-radius:4px;}
+.msg.sys{align-self:center; background:none; color:var(--hint); font-size:12px; max-width:96%; text-align:center; padding:2px;}
+.typing{align-self:flex-start; background:#f1f3f7; color:var(--muted); border-radius:14px; padding:10px 13px; font-size:13px;}
+.modebar{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+.modebar button{flex:1 1 calc(33.33% - 4px); min-width:90px; padding:8px 4px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--muted); font-size:12px; cursor:pointer;}
+.modebar button.on{border-color:var(--accent); background:var(--accent-bg); color:var(--accent-800); font-weight:600;}
+.inputbar{display:flex; gap:6px; margin-top:10px;}
+.inputbar textarea{min-height:44px; flex:1;}
+.inputbar .send{flex-shrink:0; height:44px; padding:0 14px; border-radius:10px;}
+.wrong-item{border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;}
+.wrong-item.mastered{opacity:.6; background:#fafbfc;}
+.wrong-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+.wrong-q{font-size:14px; font-weight:500;}
+.wrong-m{color:var(--muted); font-size:13px; margin-top:4px;}
+.wrong-due{font-size:12px; color:var(--teal); margin-top:6px;}
+.wrong-due.today{color:var(--red); font-weight:600;}
+.wrong-acts{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+.stats{display:flex; gap:10px; margin-bottom:12px;}
+.stat{flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
+.stat b{font-size:22px; display:block;}
+.stat span{font-size:12px; color:var(--muted);}
+.heat{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;}
+.heat i{width:13px; height:13px; border-radius:3px; background:#eef1f5;}
+.heat i.l1{background:#c5e0f7;} .heat i.l2{background:#85b7eb;} .heat i.l3{background:#378add;} .heat i.l4{background:#185FA5;}
+.task{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #f0f2f6;}
+.task:last-child{border-bottom:none;}
+.task .box{width:22px; height:22px; border:2px solid #cfd6e0; border-radius:6px; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; transition:all .15s;}
+.task .box.done{background:var(--accent); border-color:var(--accent);}
+.task .tname{flex:1; font-size:14px;}
+.task .tname small{color:var(--muted); display:block; font-size:12px;}
+.task-go{border:none; background:var(--accent-bg,#eef4ff); color:var(--accent-800,#2f5fd0); font-size:12px; padding:5px 9px; border-radius:999px; cursor:pointer; flex-shrink:0; white-space:nowrap;}
+.task-go:active{transform:scale(.95);}
+.flash-hl{animation:cardFlash 1.6s ease;}
+@keyframes cardFlash{0%,100%{box-shadow:none;} 25%,65%{box-shadow:0 0 0 3px rgba(47,95,208,.35);} }
+.due-card{border:1px solid #f6c5c5; background:#fdf2f2; border-radius:12px; padding:12px; margin-bottom:12px;}
+.due-card h4{margin:0 0 6px; font-size:13px; color:var(--red);}
+.due-card.rec{border-color:#f0c674; background:#fdf6e3;}
+.due-card.rec h4{color:var(--amber);}
+.pill{display:inline-block; padding:3px 9px; border-radius:999px; font-size:12px; background:#f1f3f7; color:#5f6673; margin:2px 4px 2px 0;}
+.pill.on{background:var(--accent-bg); color:var(--accent-800);}
+.toast{position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:rgba(26,34,51,.92); color:#fff; padding:10px 18px; border-radius:999px; font-size:13px; z-index:99; opacity:0; pointer-events:none; transition:opacity .2s;}
+.toast.show{opacity:1;}
+.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0;}
+</style>
+</head>
+<body data-page-node-id="q3GfFqBZ3Yt6npcLN4tKLs">
+<h2 class="sr-only" data-page-node-id="BTGHHIldglCchwtSLGkib9">AI 学习教练：为初一和四年级两个孩子分别定制的真 AI 陪伴式学习助手</h2>
+<header data-page-node-id="UCqsV3XLQ5J0WVMoBGss2e">
+  <div class="top" data-page-node-id="Ci0sg25xFtBCdzKXZaymgk">
+    <div class="logo" data-page-node-id="TMRRFBHyLkrXYnvz1kLyCk">AI 学习教练 <span data-page-node-id="M3w6KKEvleIMte6srSinds">· 双学段</span></div>
+    <div class="pick" id="profilePick" data-page-node-id="TFHVunkoqm8h3FT3ASnCUr">
+      <button data-grade="初一" class="on" data-page-node-id="tHo5kb06jCGzDfSuN3TEEF">大宝 · 初一</button>
+      <button data-grade="四年级" data-page-node-id="odWe3ZmJD3rRbWluV318tf">小宝 · 四年级</button>
+    </div>
+  </div>
+</header>
+
+<main data-page-node-id="mUxlHmWLBGb2x5CvN5vASM">
+  <!-- 今日 -->
+  <section id="tab-today" class="active" data-page-node-id="02VZXynaFjeglrG5EfS1H3">
+    <div class="card" id="streakCard" data-page-node-id="uWfd995raEsnIr9A5eeEzX">
+      <h3 data-page-node-id="idp2wXgTD9MppLeiy8P0He">今日碎片任务</h3>
+      <div id="taskList" data-page-node-id="zYGDIA9FxMQ2HCh9WYcNhf"></div>
+      <div class="hint" style="margin-top:10px" data-page-node-id="Yl7mROAP0DCovH6jEWF3Gf">完成一项点一下，睡前复盘自动计入连续打卡</div>
+    </div>
+    <div id="dueCard" data-page-node-id="Aqq8glCc36RVWRpJ8JHMS1"></div>
+    <div class="card" data-page-node-id="ra5dCOl4R7S8eiSeOHj38n">
+      <h3 data-page-node-id="kD8LlcjiphBEshRtuu7tGJ" id="rvTitle">🌙 睡前 15 分钟复盘</h3>
+      <button class="btn btn-p btn-sm btn-block" id="btnVoiceReview" onclick="voiceReview()">🎤 语音说一遍，AI 自动帮你填</button>
+      <div id="vrStatus" class="hint" style="display:none;margin:6px 0"></div>
+      <label data-page-node-id="APw0aHlUTlIJfzEgDOtTiV">① 今天学了哪几科？核心是什么？<button class="mic-mini" onclick="voiceToField('rvLearned',this)">🎤</button></label>
+      <textarea id="rvLearned" placeholder="例如：数学一元一次方程、英语现在完成时…（也可以点 🎤 直接说）"></textarea>
+      <label data-page-node-id="rP49acPkaLx7JKzvcIx3ed">② 哪里卡住了？<button class="mic-mini" onclick="voiceToField('rvStuck',this)">🎤</button></label>
+      <textarea id="rvStuck" placeholder="写一句"卡在哪"，这是明天要攻的点"></textarea>
+      <label data-page-node-id="9rM284gYlZWtPKcmmLX3Q2">③ 明日最重要 3 件事<button class="mic-mini" onclick="voiceToField('rvTomorrow',this)">🎤</button></label>
+      <textarea id="rvTomorrow" placeholder="①②③，或点下方按钮让 AI 根据卡点生成"></textarea>
+      <div style="display:flex; gap:8px; margin-top:10px" data-page-node-id="hhChTMDMUnu0IeeP8BvIuD">
+        <button class="btn btn-ghost btn-sm" id="btnGenPlan" data-page-node-id="u7vh1BPINAp5LkEWW2SV3t">✨ 根据卡点生成明日计划</button>
+        <button class="btn btn-p btn-sm" id="btnSaveReview" style="margin-left:auto" data-page-node-id="sS1MHP4bh0s5abZiELwhbi">保存复盘 ✅</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 搭子 -->
+  <section id="tab-buddy" data-page-node-id="9BSVNo60lutBZSgongzoV7">
+    <div class="card" data-page-node-id="kzLZm38uXTVIEtk56uFUjH">
+      <h3 data-page-node-id="ujOaH6rdB8Fq73s2IFXDGf">🤖 AI 搭子</h3>
+      <div class="modebar" id="modebar">
+        <button data-mode="socratic" class="on">苏格拉底答疑</button>
+        <button data-mode="feynman">费曼小课堂</button>
+        <button data-mode="recite">🧠 背诵</button>
+        <button data-mode="reading">📖 阅读</button>
+        <button data-mode="thinking">🧩 思维</button>
+        <button data-mode="english">🌍 英语</button>
+        <button data-mode="interest">🌱 兴趣</button>
+      </div>
+      <div class="muted" id="modeDesc" style="margin-bottom:8px">卡壳了就来问我，我不会直接给答案，会一步步引导你自己想出来。</div>
+      <div class="chat" id="chatBox"></div>
+      <div id="modeShortcuts" style="display:none; margin-top:8px"></div>
+      <div class="inputbar">
+        <button class="btn btn-ghost" id="btnSnapChat" title="拍照判题" style="flex-shrink:0;height:44px;width:46px;padding:0;font-size:20px">📷</button>
+        <button class="btn btn-ghost" id="btnVoice" title="语音输入" style="flex-shrink:0;height:44px;width:46px;padding:0;font-size:20px">🎤</button>
+        <textarea id="chatInput" placeholder="说出你的问题…（点左边🎤直接说话）" rows="1"></textarea>
+        <button class="btn btn-ghost" id="btnTTS" title="朗读 AI 回复" style="flex-shrink:0;height:44px;width:46px;padding:0;font-size:20px">🔊</button>
+        <button class="btn btn-p send" id="btnSend">发送</button>
+      </div>
+      <input type="file" id="chatFile" accept="image/*" capture="environment" style="display:none" data-page-node-id="DAitHMrXsINQF6HwLqpNNc">
+    </div>
+  </section>
+
+  <!-- 错题 + 背诵 -->
+  <section id="tab-wrong" data-page-node-id="oN663AqtrWMnCs8TkoTeXt">
+    <div class="card" data-page-node-id="5zMqNEpSTdW0SKOrB7P25f">
+      <h3 data-page-node-id="Yuj7r4AqZALqYNO6VNBADu">记一道错题</h3>
+      <label data-page-node-id="IS6OtwTQ3VN1qDw6FQnYyl">科目</label>
+      <select id="wSubject" data-page-node-id="CYNp87l0xdo8uLIIXzvb4r">
+        <option value="math" data-page-node-id="foz0dtkkfYurGmLk5wHoSz">数学</option><option value="chinese" data-page-node-id="zS5t4R9nH3XMfMq7cEIJJs">语文</option><option value="english" data-page-node-id="eX3PQrjGijUcPHGYIj2U0k">英语</option>
+        <option value="physics" data-page-node-id="60i1YjuK0xClFHN020GXTa">物理</option><option value="chem" data-page-node-id="4TFL6HV31a6j0IfT4kmOKD">化学</option><option value="bio" data-page-node-id="MI0g5pKVr8WBwBTxyAPdNO">生物</option>
+        <option value="hist" data-page-node-id="aZ6SUMs31gCTpsmwQquEHU">历史</option><option value="geo" data-page-node-id="RNBPybS7ZhcCbBGGRAQx8f">地理</option><option value="politics" data-page-node-id="B3x15vDDmFEDCFIzTOiWST">道法</option>
+        <option value="other" data-page-node-id="fkb1dGPJaK7LUtXfGmMguh">其他</option>
+      </select>
+      <label data-page-node-id="GfjUz8ps6dnlDyU3OIDWuq">题目 / 知识点（一句话）</label>
+      <input id="wDesc" placeholder="例如：一元一次方程去分母" data-page-node-id="tsnU80CqLokxdZlQOvlFxn">
+      <label data-page-node-id="XKiZ4EAiu2dhTSNWFT5Izn">我错在哪（可选）</label>
+      <input id="wMistake" placeholder="例如：忘给不含分母的项也乘公倍数" data-page-node-id="MwVKdAAP0gZY7h2aTQPZzj">
+      <label data-page-node-id="J6FVQT80DRTtSSV4HBU4EW">错因分类</label>
+      <select id="wCause" data-page-node-id="CpWDl9BDtxDFgJKj4AIE9a">
+        <option value="concept" data-page-node-id="XZx49ahX4Ik0pRcX2vLahp">概念不清</option><option value="careless" data-page-node-id="FUPIFEe1Ef1al9Dmzgb18w">粗心</option>
+        <option value="method" data-page-node-id="8FXm2qBENXRH1uTQyDjKTS">方法不会</option><option value="forget" data-page-node-id="wM9PsUVQYnZ50GETlTL4EK">忘了</option><option value="other" data-page-node-id="htd9imazNCKhHeRleQIJsw">其他</option>
+      </select>
+      <button class="btn btn-ghost btn-block" id="btnSnap" style="margin-top:10px" data-page-node-id="zmXepEzzIsewa7rS80QWeW">📷 拍照识别错题</button>
+      <button class="btn btn-p btn-block" id="btnAddWrong" style="margin-top:10px" data-page-node-id="O4SZTpiDcysIKiDCEletsk">保存错题</button>
+      <input type="file" id="wrongFile" accept="image/*" capture="environment" style="display:none" data-page-node-id="go3F79QbOEGXUqcBCthIRV">
+    </div>
+
+    <div class="card" data-page-node-id="LnHBrpGsDq9uWI7zey60QQ">
+      <h3 data-page-node-id="AYVNUqaqTRA207VloVeSIV">📚 添加一段要背诵的内容</h3>
+      <label data-page-node-id="cy42bKbfIOLTMUeN36GJ1j">科目</label>
+      <select id="rSubject" data-page-node-id="9a5arGCX320YwmgWWFetaQ">
+        <option value="hist" data-page-node-id="KmL0szCdVAFsXqGzPH02F7">历史</option><option value="chinese" data-page-node-id="4dwi68QKYyJQfvwzqB7UL5">语文（古诗/文言文）</option>
+        <option value="english" data-page-node-id="ZtiBjFE5DIT43hnTWl1Kdl">英语（单词/短语）</option><option value="geo" data-page-node-id="C9cdXH8h7LZCRg3S90xQ7X">地理</option>
+        <option value="politics" data-page-node-id="a6d22Dt6gVWDCTFPcJLAvF">道法</option><option value="bio" data-page-node-id="i41t8f6nbElsMnc4Pt1bP5">生物</option><option value="chem" data-page-node-id="KzfokiAU2fni8HmP11Sp8H">化学</option>
+        <option value="math" data-page-node-id="IYmJCoR7VYAuK2YKvRHtFA">数学（公式）</option><option value="physics" data-page-node-id="hxFsBkTNnEzw78cE8HVEFa">物理</option>
+        <option value="other" data-page-node-id="SE7z4CsgBYNKYuWOcrOWni">其他</option>
+      </select>
+      <label data-page-node-id="0IXfm0WlmspXgxowfrx8N0">要背的主题（一句话）</label>
+      <input id="rTopic" placeholder="例如：战国七雄 / 元素周期表前 20 / 现在完成时标志词" data-page-node-id="GRbL8OAxY4HmAcEmPgh5B3">
+      <button class="btn btn-p btn-block" id="btnAddRecite" style="margin-top:10px" data-page-node-id="jZQqgt7sMtFoTw4xtSBWLM">📚 开始背诵（口诀+导图+自测）</button>
+    </div>
+
+    <div class="card" data-page-node-id="MbRflGXFzBCHkh9B5jqaNV">
+      <h3 data-page-node-id="rbExAi00gx40WiCA6k9CpU">📚 我的背诵内容（艾宾浩斯复习）</h3>
+      <div id="reciteList" data-page-node-id="PhVZrpeiIzKfENwWy9jNQv"></div>
+    </div>
+
+    <div class="card">
+      <h3>⏱️ 限时纸笔自测</h3>
+      <div class="hint" style="margin-bottom:8px">AI 出一份小卷子 → 抄在纸上限时做 → 拍照交卷自动批改 → 错题自动进错题本。练的就是考场上的手写和速度。</div>
+      <div style="display:flex;gap:8px">
+        <select id="tSubject" style="flex:1">
+          <option value="math">数学</option><option value="chinese">语文</option><option value="english">英语</option>
+          <option value="physics">物理</option><option value="chem">化学</option><option value="hist">历史</option>
+          <option value="geo">地理</option><option value="bio">生物</option><option value="politics">道法</option>
+        </select>
+        <select id="tCount" style="flex:1">
+          <option value="4">4 题</option><option value="6" selected>6 题</option><option value="8">8 题</option>
+        </select>
+        <select id="tMins" style="flex:1">
+          <option value="10">10 分钟</option><option value="15" selected>15 分钟</option><option value="20">20 分钟</option><option value="30">30 分钟</option>
+        </select>
+      </div>
+      <button class="btn btn-p btn-block" id="btnGenPaper" style="margin-top:10px" onclick="genPaper()">✨ AI 出卷，开始计时</button>
+      <div id="paperBox"></div>
+      <input type="file" id="paperFile" accept="image/*" capture="environment" style="display:none">
+    </div>
+
+    <div id="wrongList" data-page-node-id="Y8dKKDLzOlHB3CgrzR3Cx2"></div>
+  </section>
+
+  <!-- 成长 -->
+  <section id="tab-growth" data-page-node-id="F8N2fD69C8t03MfYGuS9WO">
+    <div class="stats" data-page-node-id="bLVRbTdmKN4ZorT8nSe6PQ">
+      <div class="stat" data-page-node-id="8lTX0yI1qKGEXWDmdROcbt"><b id="gStreak" data-page-node-id="YOyb0FWNyg5yiAuQOr4FSC">0</b><span data-page-node-id="SRCFJ8N0h8BKGIpSTjGIVK">连续打卡(天)</span></div>
+      <div class="stat" data-page-node-id="fGmEeONhGR3gid893apDBL"><b id="gMastered" data-page-node-id="M1nTgvDGaaJrh5tpYNrA2j">0</b><span data-page-node-id="NnbwVX5rkPsiM1eANaLzoB">已掌握错题</span></div>
+      <div class="stat" data-page-node-id="zOFZBFCA9G0L3Wss1JriD6"><b id="gRecMastered" data-page-node-id="lNHq6VnOzGSnLeRGNCn2IH">0</b><span data-page-node-id="S4b5DBD8f9ifqplT6EuKlv">已掌握背诵</span></div>
+    </div>
+    <div class="card" data-page-node-id="4CPSYhOxGorz6S96q8pgvp">
+      <h3 data-page-node-id="IIFBlhHSCUpQqgVZ2GcJQl">近 30 天学习热力图</h3>
+      <div class="heat" id="heatMap" data-page-node-id="aBfaY4OoyuPceccPE2BtbZ"></div>
+      <div class="hint" style="margin-top:8px" data-page-node-id="GIGD1QodstnPAj1fwacFCa">每天完成复盘或复习，就点亮一格；颜色越深，那天越用功</div>
+    </div>
+    <div class="card" data-page-node-id="X7elDVnxJwwLcET9AMSPVt">
+      <h3 data-page-node-id="zdhChctf3VboMviEuqu6Rb">成长小结</h3>
+      <div id="gSummary" class="muted" data-page-node-id="Fv4Ywkko1EU0n4x9iC9c6E">还没有记录，先完成一次睡前复盘吧。</div>
+    </div>
+  </section>
+
+  <!-- 我的 -->
+  <section id="tab-me" data-page-node-id="F6zDR9FFEv3EQYJTHAaFkA">
+    <div class="card" data-page-node-id="42A48VOYqM73x1oAUdKHb6">
+      <h3 data-page-node-id="lBgBE0hNhUkvtZecXAUwxJ">当前档案</h3>
+      <div id="meProfile" class="muted" data-page-node-id="VoOuVYnpOt5QCTUZEVHqPa"></div>
+    </div>
+    <div class="card">
+      <h3>📚 教材进度卡</h3>
+      <div class="hint" style="margin-bottom:6px">不用导入课本！只填教材版本和正在学的单元，AI 出题、讲解、背单词就会贴合同步进度。每学完一个单元花 5 秒更新一次即可。</div>
+      <label>数学 · 教材版本</label>
+      <input id="tbMathVer" placeholder="如：人教版七上 / 北师大版七上">
+      <label>数学 · 当前单元</label>
+      <input id="tbMathUnit" placeholder="如：第3章 一元一次方程">
+      <label>语文 · 教材版本</label>
+      <input id="tbChiVer" placeholder="如：部编版七上（语文基本都是统编版）">
+      <label>语文 · 当前单元</label>
+      <input id="tbChiUnit" placeholder="如：第一单元（第1~4课）">
+      <label>英语 · 教材版本</label>
+      <input id="tbEngVer" placeholder="如：人教版新目标 / 外研版 / 译林版">
+      <label>英语 · 当前单元</label>
+      <input id="tbEngUnit" placeholder="如：Unit 5 / Module 4">
+      <button class="btn btn-p btn-block" style="margin-top:12px" onclick="saveTextbooks()">保存教材进度</button>
+    </div>
+    <div class="card" data-page-node-id="uqdTl4N34AjhhkWL5rr6Bt">
+      <h3 data-page-node-id="lW6D1lIvLNzyyP7HDcqdeV">AI 接入设置</h3>
+      <label data-page-node-id="MFWMGzVF2RxTdfevvL8GEP">API 中转地址</label>
+      <input id="setBase" value="https://autorouter.top/v1" data-page-node-id="xs2QHJHavADpyZltLTg6Wi">
+      <label data-page-node-id="NFWHQ0RxAfbyNYrnmrAiXN">主力模型（日常辅导对话）</label>
+      <input id="setModel" value="deepseek-v4-flash" data-page-node-id="cWHwtDPKmkV3dpTbXQQHx0">
+      <label>攻坚模型（数学难题等自动切换，留空=始终用主力模型）</label>
+      <input id="setProModel" value="glm-5" placeholder="如 glm-5 / kimi-k2.6">
+      <label data-page-node-id="TApSfGMgKkEHX9Pg3qiyIn">API Key</label>
+      <input id="setKey" type="password" placeholder="sk-..." data-page-node-id="qNp6amgEbKbAZDpBrb5y6O">
+      <div class="hint" id="aiUsageHint" style="margin-top:6px">今日 AI 用量：统计中…</div>
+      <button class="btn btn-block" id="btnTestAI" style="margin-top:8px" onclick="testAI()">🔍 一键测试模型连通</button>
+      <div class="hint" style="margin-top:6px" data-page-node-id="Za7TTABZqUMnTzzzpkb5nF">Key 不写入网页源码；在任一设备填一次，会经你的私有云同步（家庭码保护）自动下发到其他设备。</div>
+      <button class="btn btn-p btn-block" id="btnSaveSet" style="margin-top:12px" data-page-node-id="eeyroVLL1ZpxHNydjlfL61">保存设置</button>
+    </div>
+    <div class="card" data-page-node-id="LkBL5p1TRtbpgWyKDuDsDV">
+      <h3 data-page-node-id="rQX5pq0hGBbdZLoBkolXf4">☁️ 云端同步（给家长看）</h3>
+      <label data-page-node-id="A2ixXkZ5RrJHJBdimI919g">家庭码（家长和孩子填同一个）</label>
+      <input id="setFamily" type="password" autocomplete="off" placeholder="例如 XM5201314（输入后打码显示，防截图泄露）" data-page-node-id="onW5oXTLeBiduF7av2omSS">
+      <label data-page-node-id="4VcBAsYmTpY1kLLuVrCxBE">Supabase 项目地址</label>
+      <input id="setSbUrl" placeholder="https://xxxx.supabase.co" data-page-node-id="AGDEUa92xCJzwYZTPROMmy">
+      <label data-page-node-id="BwFnezWQCATxlcdAdioB7A">Supabase anon key</label>
+      <input id="setSbKey" type="password" placeholder="eyJ..." data-page-node-id="ifTvvJ0H0YID7shm8ikcII">
+      <div class="hint" style="margin-top:6px" data-page-node-id="ehP7zQQLQSkmjsPn87TeHE">填好后数据会自动同步到云端，家长端（另一个 App 页面）就能看到成长看板。</div>
+      <button class="btn btn-p btn-block" id="btnSaveCloud" style="margin-top:12px" data-page-node-id="KcRjEtkW021UO0k0NlfuZ4">保存并测试同步</button>
+    </div>
+    <div class="card" data-page-node-id="LDFF9eXX5MiQGFZd4AviVR">
+      <h3 data-page-node-id="EJLNdViD65QBDAQIE4R3oE">数据</h3>
+      <div class="wrong-acts" data-page-node-id="hunWkEQHDOPXTebOKk5dLs">
+        <button class="btn btn-ghost btn-sm" id="btnExport" data-page-node-id="RFf11vuF9ZRIPSh7mPwLM5">导出备份</button>
+        <button class="btn btn-ghost btn-sm" id="btnClear" style="color:var(--red)" data-page-node-id="3duh3IZDVMFaJqyxKRQFFw">清空当前档案</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔒 家长口令</h3>
+      <div class="hint">保护范围：AI 接入设置、云端同步、导出备份、清空档案。口令只在本机加密存储，不进备份、不上云。连错 3 次锁定 30 秒，忘记可用安全问题找回。</div>
+      <div class="wrong-acts">
+        <button class="btn btn-ghost btn-sm" id="btnGuardSet">设置 / 修改口令</button>
+        <button class="btn btn-ghost btn-sm" id="btnGuardOff" style="color:var(--red)">关闭保护</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav data-page-node-id="jQvE9w2PesPTvqTKWJmX4Y">
+  <button data-tab="today" class="on" data-page-node-id="Tp2y2avjcwQBpsMH6L9kqU"><span class="ic" data-page-node-id="hmbcR7OPMa2cJiABHuYkzN">🏠</span>今日</button>
+  <button data-tab="buddy" data-page-node-id="m8wJBwIJfZY9DnAHGCYmb5"><span class="ic" data-page-node-id="UwwJfaZNFY8fgbSHR7CUin">🤖</span>搭子</button>
+  <button data-tab="wrong" data-page-node-id="2whgQ8EPr3kAz48nXrmVve"><span class="ic" data-page-node-id="klXELm3E4iRMjeKpKP4nyg">🗂️</span>错题</button>
+  <button data-tab="growth" data-page-node-id="xZh0TvBojCGBFG7AAjUUmc"><span class="ic" data-page-node-id="EhKKVXuBPMiD9dPZD3ZQzP">📈</span>成长</button>
+  <button data-tab="me" data-page-node-id="ov6WWNUnrItCHtrPVHYqcP"><span class="ic" data-page-node-id="W7jkTNZ4kduBEWYkd3xDQE">👤</span>我的</button>
+</nav>
+
+<div class="toast" id="toast" data-page-node-id="XQHXScDbFT08nLBINfpsH8"></div>
+
+<script>
+const LS_KEY = 'aiCoachData_v2';
+const BASE = 'https://autorouter.top/v1';
+const DEFAULT_KEY = ''; /* 安全：Key 不写入网页源码，由云同步加密下发（见 cloudAdoptKey） */
+const DEFAULT_MODEL = 'deepseek-v4-flash';
+const VISION_MODEL = 'glm-5v-turbo';
+
+const GRADES = ['初一','四年级'];
+const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
+const CAUSE = {concept:['概念不清','a'],careless:['粗心','a'],method:['方法不会','b'],forget:['忘了','b'],other:['其他','t']};
+const INTERVALS = [1,2,4,7,15,30];
+
+const GRADE_STYLE = {'初一':{accent:'#185FA5',accentBg:'#E6F1FB',accent800:'#0C447C',emoji:'📘',label:'大宝 · 双十中学初一'},
+                     '四年级':{accent:'#BA7517',accentBg:'#FAEEDA',accent800:'#633806',emoji:'🟡',label:'小宝 · 思明区四年级'}};
+
+// 学籍：恒定锚点，注入所有 AI 模式（长期目标仅作为难度标尺，绝不向孩子提及）
+const SCHOOL_CTX = {'初一':'福建省厦门市双十中学七年级（初一）',
+                    '四年级':'福建省厦门市思明区小学四年级'};
+
+const TASKS = {
+  '初一':[
+    {id:'word',name:'背单词 20 个',desc:'英语记忆卡',go:'buddy:english',goTip:'去英语搭子背单词'},
+    {id:'wrong',name:'整理今日错题',desc:'拍照/一句话入库',go:'wrong',goTip:'去错题本'},
+    {id:'review',name:'复习到期错题',desc:'艾宾浩斯排期',go:'wrong',goTip:'去错题本复习'},
+    {id:'review15',name:'睡前 15 分钟复盘',desc:'三问 + 明日计划',go:'review',goTip:'去写复盘'},
+    {id:'read',name:'课外阅读 30 分钟',desc:'语文童子功',go:'buddy:reading',goTip:'去阅读搭子聊书'},
+    {id:'outdoor',name:'户外运动 1 小时',desc:'跑步/跳绳/球类，护住精力和好心情'}
+  ],
+  '四年级':[
+    {id:'read',name:'读一本喜欢的书',desc:'读完讲给 AI 听',go:'buddy:reading',goTip:'去阅读搭子'},
+    {id:'think',name:'玩一道思维题',desc:'不刷题，练思维',go:'buddy:thinking',goTip:'去思维搭子出题'},
+    {id:'english',name:'英语听说跟读',desc:'语感黄金期',go:'buddy:english',goTip:'去英语搭子练口语'},
+    {id:'review15',name:'睡前 10 分钟聊一聊',desc:'今天有什么新发现',go:'review',goTip:'去写复盘'},
+    {id:'hobby',name:'探索一个小兴趣',desc:'科学/历史/天文',go:'buddy:interest',goTip:'去兴趣搭子探索'},
+    {id:'outdoor',name:'户外疯玩 1 小时',desc:'跑跳/骑车/球类，晒太阳长个子'}
+  ]
+};
+
+function blankProfile(){
+  return {name:'', wrongs:[], recites:[], reviews:{}, streak:0, lastDate:'', heat:{}, mastered:0, recMastered:0, tasks:{}, chat:{socratic:[],feynman:[],recite:[],reading:[],thinking:[],english:[],interest:[]}, books:[], interests:[], thinkingStats:{level:1,solved:0,history:[]}, lastReview:'', textbook:{}};
+}
+function defaultState(){
+  const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null};
+  GRADES.forEach(g=>{ s.profiles[g]=blankProfile(); });
+  s.profiles['初一'].name='大宝'; s.profiles['四年级'].name='小宝';
+  return s;
+}
+let state = load();
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY) || localStorage.getItem('aiCoachData_v1');
+    if(raw){
+      const s = JSON.parse(raw); if(s && s.profiles){
+        const def = defaultState();
+        const merged = Object.assign(def, s);
+        /* Key 不再内置：本地没有时由 cloudAdoptKey 从私有云同步自动获取 */
+        if(!merged.proModel || merged.proModel==='deepseek-v4') merged.proModel='glm-5'; /* deepseek-v4在中转站无可用渠道，自动迁移到glm-5 */
+        GRADES.forEach(g=>{
+          const pf = merged.profiles[g];
+          pf.recites = pf.recites || [];
+          pf.recMastered = pf.recMastered || 0;
+          pf.chat = pf.chat || {};
+          ['socratic','feynman','recite','reading','thinking','english','interest'].forEach(k=>{ pf.chat[k]=pf.chat[k]||[]; });
+          pf.books = pf.books || [];
+          pf.interests = pf.interests || [];
+          pf.thinkingStats = pf.thinkingStats || {level:1,solved:0,history:[]};
+        });
+        return merged;
+      }
+    }
+  }catch(e){}
+  return defaultState();
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); cloudAutoPush(); }
+function p(){ return state.profiles[state.active]; }
+
+function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function addDays(dateStr,n){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+
+function applyGradeStyle(){
+  const st = GRADE_STYLE[state.active];
+  document.documentElement.style.setProperty('--accent', st.accent);
+  document.documentElement.style.setProperty('--accent-bg', st.accentBg);
+  document.documentElement.style.setProperty('--accent-800', st.accent800);
+}
+
+function switchProfile(g){
+  state.active = g; save(); applyGradeStyle(); renderAll();
+  document.querySelectorAll('#profilePick button').forEach(b=>b.classList.toggle('on', b.dataset.grade===g));
+}
+
+function switchTab(t){
+  document.querySelectorAll('main section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===t));
+}
+
+/* ===== 今日 ===== */
+function renderTasks(){
+  const box = document.getElementById('taskList');
+  const tasks = TASKS[state.active];
+  const rvTitle = document.getElementById('rvTitle');
+  if(rvTitle) rvTitle.textContent = state.active==='初一' ? '🌙 睡前 15 分钟复盘' : '🌙 睡前 10 分钟聊一聊';
+  box.innerHTML = tasks.map(t=>{
+    const done = p().tasks[t.id] === today();
+    return `<div class="task">
+      <div class="box ${done?'done':''}" onclick="toggleTask('${t.id}')">${done?'✓':''}</div>
+      <div class="tname" onclick="goTask('${t.id}')" style="cursor:pointer">${t.name}<small>${t.desc}</small></div>
+      ${t.go?`<button class="task-go" onclick="goTask('${t.id}')">${t.goTip||'去完成'} ›</button>`:''}
+    </div>`;
+  }).join('');
+}
+/* 点任务直达对应功能模块：buddy:模式 → 搭子对应聊天；wrong → 错题本；review → 今日复盘卡 */
+function goTask(id){
+  const t = (TASKS[state.active]||[]).find(x=>x.id===id);
+  if(!t || !t.go) return;
+  if(t.go.startsWith('buddy:')){
+    const mode = t.go.split(':')[1];
+    switchTab('buddy'); setBuddyMode(mode);
+    window.scrollTo(0,0);
+    /* 阅读任务：没有在读的书时，自动展开「添加一本书」表单，少点一步 */
+    if(mode==='reading' && !(p().books||[]).some(b=>b.status==='reading')){
+      const f = document.getElementById('readingForm');
+      if(f){ f.style.display='block'; const bt=document.getElementById('bTitle'); if(bt) setTimeout(()=>bt.focus(),150); }
+    }
+    /* 英语任务：首次进入自动开一场情景口语，大宝小宝都不用手动再点 */
+    if(mode==='english' && !(p().chat.english||[]).length){ englishTrain('oral'); }
+  }else if(t.go==='wrong'){
+    switchTab('wrong');
+  }else if(t.go==='review'){
+    switchTab('today');
+    const card = document.getElementById('rvTitle');
+    if(card){
+      card.closest('.card').scrollIntoView({behavior:'smooth',block:'center'});
+      card.closest('.card').classList.add('flash-hl');
+      setTimeout(()=>card.closest('.card').classList.remove('flash-hl'), 1800);
+      const ta = document.getElementById('rvLearned');
+      if(ta && window.innerWidth>700) ta.focus();
+    }
+  }
+  cloudAutoPush();
+}
+function toggleTask(id){
+  const key = today();
+  if(p().tasks[id]===key){ delete p().tasks[id]; } else { p().tasks[id]=key; }
+  save(); renderTasks();
+}
+
+function renderDue(){
+  const box = document.getElementById('dueCard');
+  const wrongDue = p().wrongs.filter(w=>w.status==='redo' && w.nextDate && w.nextDate <= today());
+  const recDue = (p().recites||[]).filter(r=>r.status==='redo' && r.nextDate && r.nextDate <= today());
+  if(!wrongDue.length && !recDue.length){ box.innerHTML=''; return; }
+  let html = '';
+  if(wrongDue.length){
+    html += `<div class="due-card">
+      <h4>📌 今日待复习错题（${wrongDue.length} 道）</h4>
+      ${wrongDue.map(w=>`<div style="margin:6px 0;font-size:13px">
+        <span class="chip ${SUBJECT[w.subject]?SUBJECT[w.subject][1]:'b'}">${SUBJECT[w.subject]?SUBJECT[w.subject][0]:'其他'}</span>
+        <b>${esc(w.desc)}</b>
+        <div class="wrong-acts" style="margin-top:4px">
+          <button class="btn btn-sm btn-p" onclick="reviewWrong('${w.id}')">复习 ✓</button>
+          <button class="btn btn-sm btn-ghost" onclick="askAI('${w.id}')">出变式题</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+  if(recDue.length){
+    html += `<div class="due-card rec">
+      <h4>📚 今日待复习背诵（${recDue.length} 项）</h4>
+      ${recDue.map(r=>`<div style="margin:6px 0;font-size:13px">
+        <span class="chip ${SUBJECT[r.subject]?SUBJECT[r.subject][1]:'b'}">${SUBJECT[r.subject]?SUBJECT[r.subject][0]:'其他'}</span>
+        <b>📚 ${esc(r.topic)}</b>
+        <div class="wrong-acts" style="margin-top:4px">
+          <button class="btn btn-sm btn-p" onclick="reviewRecite('${r.id}')">复习 ✓</button>
+          <button class="btn btn-sm btn-ghost" onclick="reviewReciteAI('${r.id}')">复习一下</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+  box.innerHTML = html;
+}
+
+function submitReview(){
+  const learned = document.getElementById('rvLearned').value.trim();
+  const stuck = document.getElementById('rvStuck').value.trim();
+  const tomorrow = document.getElementById('rvTomorrow').value.trim();
+  if(!learned && !stuck){ toast('先填一下今天学了什么吧'); return; }
+  const key = today();
+  p().lastReview = {date:key, learned, stuck, tomorrow};
+  if(!p().reviews[key]) p().reviews[key] = {learned, stuck, tomorrow};
+  p().heat[key] = (p().heat[key]||0)+1;
+  if(p().lastDate===key){ /* 同日不重复加 */ }
+  else if(p().lastDate===addDays(key,-1)){ p().streak++; }
+  else { p().streak=1; }
+  p().lastDate = key;
+  p().tasks['review15'] = key;
+  save(); renderTasks(); renderGrowth(); renderMe();
+  toast('复盘已保存，明天继续加油 🌙');
+}
+async function genPlan(){
+  const stuck = document.getElementById('rvStuck').value.trim();
+  if(!stuck){ toast('先填"哪里卡住了"'); return; }
+  const btn = document.getElementById('btnGenPlan'); btn.disabled=true; btn.textContent='生成中…';
+  try{
+    const sys = `你是孩子的学习教练。请根据孩子今天"卡住"的知识点，给出明日最重要的 3 件可执行的小事，用于复习巩固。要求：简短，用"① ② ③"编号，每件一句话，可量化（如"重做3道去分母方程"）。`;
+    const r = await callAI([{role:'system',content:sys},{role:'user',content:'我今天卡在：'+stuck}],{tier:'light',maxTokens:500});
+    document.getElementById('rvTomorrow').value = r.trim();
+    toast('已生成，可再微调');
+  }catch(e){ toast('生成失败：'+e.message); }
+  btn.disabled=false; btn.textContent='✨ 根据卡点生成明日计划';
+}
+
+/* ===== 搭子（真 AI） ===== */
+let buddyMode = 'socratic';
+let practiceWrongId = null;
+let activeReciteId = null;
+let readingFocus = 'chat'; /* 阅读搭子聚焦：chat=聊书 / deep=精读一章 / essay=读后感（主要给大宝用） */
+const MODE_DESC = {
+  socratic:'卡壳了就来问我，我不会直接给答案，会一步步引导你自己想出来。',
+  feynman:'把你今天学会的讲给我听，我当"没听懂的同学"追问你，讲得清才算真会。',
+  recite:'一次给一个动作：口诀 → 导图 → 5题 → 评分 → 复习计划，6 次按艾宾浩斯曲线复习。',
+  reading:'聊你正在读的书。你说一段我追问一段，把好句摘进来，完读后会自动排期复习。',
+  thinking:'思维搭子：小宝玩巧算/图形/侦探逻辑，大宝练代数变形/数论/组合。连对升级、连错降级，还能发现特长种子。',
+  english:'小宝练语感（情景/绘本/单词），大宝直通考试四件套（口语/阅读/句型）。点下方按钮选训练；练出错的地方会自动收进错题本、按遗忘曲线复习。',
+  interest:'聊聊你最近好奇的事，我会给你一个有趣的小知识或延伸问题。'
+};
+function socraticSystem(){
+  if(state.active==='初一'){
+    return `你是孩子的「AI 学习教练」，正在辅导一名初一学生。
+你的铁律：
+1. 绝不直接给出答案、解题步骤或最终结论，只通过提问引导孩子自己思考。
+2. 每次只问一个问题，等孩子回答后再问下一个，绝不一次抛一堆。
+3. 孩子卡住时给"提示"，而不是答案。
+4. 语气平等、简短，像靠谱的学长学姐，不居高临下、不啰嗦。
+5. 孩子答对时，具体表扬他的思路和方法（如"你这个画图法很聪明"），不要空洞夸"真聪明"。
+6. 全程用中文。`;
+  }
+  return `你是孩子的「AI 学习搭子」，正在陪伴一名四年级小学生。
+你的特点：
+1. 语气温暖、亲切、有趣，多用具体的鼓励（表扬努力和好奇心）。
+2. 把学习做成"玩中学"，引导孩子享受"自己想出来"的快乐。
+3. 同样不直接给答案，用提问和小游戏一步步引导。
+4. 每次只问一个简单的问题，句子短，孩子一听就懂。
+5. 涉及阅读时，引导孩子复述故事、联想生活、提出自己的问题。
+6. 用中文，可以适当用表情符号活跃气氛。`;
+}
+function feynmanSystem(){
+  return `现在孩子要当"小老师"，把今天学的一个知识点讲给你听。你扮演一个"没听懂、爱追问的学生"：
+1. 认真听孩子讲，然后针对他讲得含糊、跳步、说不清的地方提问。
+2. 每次只提一个追问，比如"为什么是这样？""这里能不能举个例子？""如果换成XX呢？"
+3. 孩子讲清楚了，就真诚肯定，并指出他讲得特别好的地方。
+4. 语气友好、好奇，像认真听课的同学。
+5. 用中文。`;
+}
+function memorizeSystem(){
+  if(state.active==='初一'){
+    return `你是孩子的「背诵搭子」，负责按记忆科学帮孩子高效记住一段知识。
+你的铁律（一次只做一个动作，绝不一次给完）：
+1. 听到"我要背 XXX"后，**只**给一个记忆口诀（押韵/有节奏/不超过 30 字），等孩子复述。
+2. 孩子复述后，给思维导图（Markdown 缩进表示层级，4~7 个节点），等孩子说看完了。
+3. 孩子看完导图后，给 5 道自测题（先给题不答），等孩子做完。
+4. 孩子做完，逐题评分，错题一句话点拨，不直接给答案。
+5. 最后给复习计划：1/2/4/7/15/30 天后各复习一次（共 6 次）。
+语气：平等、简洁、靠谱学长学姐风格。`;
+  }
+  return `你是孩子的「背诵搭子」，陪一名四年级小学生背东西。
+特点：
+1. 一次只做一个动作，节奏慢一点、句子短。
+2. 听到"我要背 XXX"后，给一个有趣的口诀（可以拟声/拟物/有节奏感），等孩子复述。
+3. 孩子复述后，用简单的思维导图（3~5 个节点），可用比喻帮助理解，等孩子说看完了。
+4. 给孩子 5 道自测题（填空/选择/小问答），题型适合小学生，等孩子做完。
+5. 做完逐题表扬+评分，错题用"再想想"引导。
+6. 给复习计划时用孩子能懂的话。
+语气：温暖、亲切、有趣。`;
+}
+function reciteReviewSystem(rec){
+  return `今天是孩子背诵"${rec.topic}"的第 N 次复习（按艾宾浩斯曲线）。
+上次的内容回顾：
+${(rec.content||'').slice(0,800)}
+你的任务：
+1. 用一句话开场，提醒今天该复习"${rec.topic}"了。
+2. 让孩子先自测一遍（不直接给答案），针对他回答的模糊点用提问引导。
+3. 孩子答错了就点拨思路，答对就具体表扬他的记忆点。
+4. 复习完一句话总结，让他点"✅ 复习完成"按钮（系统会自动排到下一个复习时间点）。
+语气：${state.active==='初一'?'平等、简洁、靠谱':'温暖、亲切、有趣'}。`;
+}
+
+/* ===== 阅读搭子 ===== */
+function readingSystem(){
+  const grade = state.active;
+  const stage = grade==='初一' ? '初中生，语文要求深度理解和长篇精读' : '四年级小学生，处于大量阅读、培养语感和好词好句摘抄习惯的黄金期';
+  const tone = grade==='初一' ? '平等、简洁、像读书会主持人' : '温暖、亲切、热情、像陪读的哥哥姐姐';
+  const base = `你是孩子的「阅读搭子」，正在陪一名${stage}聊一本正在读的书。`;
+  const commonRules = `你的通用规则：
+1. 孩子说书名或正在读的内容后，先用一句话确认你"懂这本书"，再开始讨论。
+2. 用提问引导孩子讲出他自己的理解：你最喜欢谁/哪一段？为什么？如果是你会怎么做？这段让你想到了什么？
+3. 当孩子讲得好时，具体指出好在哪（如"你把这个人物的心理抓得很准"），不要空洞夸。
+4. 当孩子讲得含糊时，追问一句让他再想，而不是替他总结。
+5. 引导孩子主动说出"想记下来的好句"，用 📝 开头的一句话标记；如果他已经说了一段，可以直接帮他提炼成一句金句。
+6. 一次只问一个问题，等孩子回答再问下一个，不要一次抛一堆。`;
+  /* 初一专属聚焦模式：精读一章 / 读后感（对齐中考阅读写作要求） */
+  let focus = '';
+  if(grade==='初一' && readingFocus==='deep'){
+    focus = `【本次是「精读一章」模式】聚焦孩子最近读的那一章/那一节，做三层拆解：
+1. 细节层：让孩子复述关键情节或描述（"这一章里最让你意外的一个细节是什么？"）。
+2. 写法层：追问作者是怎么写的（"作者这里为什么只写动作不写心理？换成你会怎么写？"），点出1个可以borrow到作文里的写作手法。
+3. 主旨层：追问这一章想表达什么、和前面的情节有什么呼应。
+每层一次只问一个问题；孩子讲得好就具体表扬；适时提醒他把值得记的句子用 📝 摘进来。`;
+  } else if(grade==='初一' && readingFocus==='essay'){
+    focus = `【本次是「读后感」模式】按「引—议—联—结」四步，引导孩子口述一篇读后感：
+1. 引：让他用3句话概括最打动他的情节（问："如果只挑一个片段讲给没读过的人听，你挑哪个？"）。
+2. 议：追问他对这个片段的看法（"你觉得作者想说什么？你同意吗？"）。
+3. 联：让他联系自己的生活/学校/新闻里的一件事（"这让你想起你经历过的哪件事？"）。
+4. 结：让他用一两句话说收尾的感受或决心。
+四步聊完后，把他口述的内容整理成一份**读后感提纲**（标题建议 + 开头怎么写 + 中间两段各写什么 + 结尾一句），控制在他能抄写完成的长度，并提醒他把提纲记到本子上、课后再扩写成文。`;
+  } else {
+    focus = `6. 当孩子说"我读完了"或"读完了"：进入**读后检测**——一次只给一道理解题（共 3 道，从"人物/情节/想法"三个角度出，如"如果换成你，你会像主角那样做吗？"），孩子答一题你评一题（具体指出好在哪/哪里可以再想深一点），3 题评完后：给一句总结表扬 + 推荐一本同类型的好书 + 提醒他点「✅ 我读完了」按钮完成打卡。`;
+  }
+  return `${base}
+【本次任务】
+${focus}
+【通用规则】
+${commonRules}
+语气：${tone}。用中文。`;
+}
+
+/* ===== 思维游戏 ===== */
+function thinkingSystem(){
+  const ts = p().thinkingStats||{level:1};
+  const grade = state.active;
+  const isG7 = grade==='初一';
+  // 难度标尺（内部参考，不向孩子提及）：四年级=思维启蒙；初一=中考压轴+理科纵深
+  const topics = isG7
+    ? ['代数变形与方程巧解','数论初步（整除/奇偶性/余数）','组合与计数（搭配/最值/抽屉原理）','几何直观与图形推理']
+    : ['巧算与数字规律','图形与空间想象','生活数学（统筹/年龄/间隔问题）','侦探逻辑（说谎/推理）'];
+  const band = isG7
+    ? (ts.level<=2?'课内拓展题':ts.level<=4?'中考中等偏难题':'中考压轴/竞赛入门题')
+    : (ts.level<=2?'课内趣味题':ts.level<=4?'思维拓展题（小奥入门）':'小奥提高题');
+  const goalLine = isG7
+    ? '难度设计对齐福建中考与思维拓展（内部标尺，不向孩子提及）。孩子表现出好思路时要具体点名（"这个设未知数的方法很高级"），只谈方法与进步。'
+    : '重在有趣和自信，难度控制在跳一跳够得着，不超前灌输超纲知识，护住数感和逻辑直觉的种子（内部标尺，不向孩子提及）。';
+  const tone = isG7 ? '平等、像有趣的学长学姐' : '温暖、像玩游戏的大朋友';
+  // 关键：第一轮随机选题，之后粘住当前题，防止每轮换类别把孩子带跑
+  let topicLine;
+  if(!(p().chat.thinking||[]).length){
+    const topic = topics[Math.floor(Math.random()*topics.length)];
+    topicLine = `这是本轮对话的开始，请你**先出一道 ${topic} 类别的题**，难度对应：${band}（题目要有趣、贴近生活，用 2~4 句话把题讲清楚）。`;
+  } else {
+    topicLine = `继续你们正在进行的对话：如果当前题孩子还没答对，**继续引导当前这道题，绝不换题、绝不出新题**；如果孩子刚答对，先给一句具体表扬（点名他用的好方法），再出一道同类别、难度对应 ${band} 的新题。`;
+  }
+  return `你是孩子的「思维训练搭子」，正在陪一名${isG7?'初一学生':'四年级小学生'}做思维题。
+当前难度等级：L${ts.level}。${topicLine}
+${goalLine}
+你的铁律：
+1. 一次只出一道题，**绝对不要给答案**。
+2. 题目讲完后只用一句"你打算先从哪里下手？"引孩子思考，等他说思路再追问下一步。
+3. 当孩子答对了：先给一句具体表扬（点名他用的方法，如"画图法/设未知数/从特殊情况入手"），再出一道同类别的新题。
+4. 当孩子答错了：不要直接给答案，用提问引导他重新观察/换一个思路（"你再看看第2个条件，是不是漏了？"）。
+5. 当孩子连续 2 次答错：自动降一档难度，换一道更简单的题。
+6. 当孩子连续 3 次答对：自动升一档难度，换一道更难的题。
+7. 不要一次抛多个追问，节奏要慢，让孩子有思考空间。
+8. 如果孩子对某一类题表现出强烈兴趣或天赋，可以多出这一类的题，并告诉他"这方面你有天赋"——帮他找到特长种子（家长周报里会提到）。
+语气：${tone}。用中文。`;
+}
+function recordThinkingResult(ok){
+  const ts = p().thinkingStats || (p().thinkingStats={level:1,solved:0,history:[]});
+  ts.history = ts.history || [];
+  ts.history.push({date:today(), ok, level:ts.level});
+  if(ok){
+    ts.solved = (ts.solved||0)+1;
+    // 检查最近 3 次
+    const recent3 = ts.history.slice(-3).map(x=>x.ok);
+    if(recent3.length>=3 && recent3.every(x=>x===true) && ts.level<10){
+      ts.level += 1; toast('难度升级 → L'+ts.level+' 🎉');
+      /* 竞赛试探提示：等级到 6 说明有好苗头，引导家长关注（试探不押注） */
+      if(ts.level===6) setTimeout(()=>toast('思维等级到 L6！可以让爸爸妈妈在家长端看看你的表现 🌟'), 1600);
+    }
+  } else {
+    // 检查最近 2 次
+    const recent2 = ts.history.slice(-2).map(x=>x.ok);
+    if(recent2.length>=2 && recent2.every(x=>x===false) && ts.level>1){ ts.level -= 1; toast('难度降到 L'+ts.level+' 试试'); }
+  }
+  save(); renderShortcuts();
+}
+
+/* ===== 英语搭子 ===== */
+function englishSystem(){
+  const grade = state.active;
+  const isG7 = grade==='初一';
+  const tone = isG7 ? '随和、平等、可以略带幽默' : '热情、夸张鼓励、用很多表情和简单句';
+  let plan, rules;
+  if(isG7){
+    plan = `训练方向（按对话开始时第一条消息选定一种，之后粘住不要换；孩子说"换一个"才换）：
+A. 情景口语：贴近中考听说考试的日常情景（校园生活、问路、购物、点餐、谈论爱好/计划/观点），练完整对话。
+B. 迷你阅读理解：出一篇 60~120 词的英文小短文 + 1~2 道题（细节题/推断题/主旨题/猜词义，按中考→高考阅读题型出），孩子作答后逐题批改讲评。
+C. 写作句型操练：给一个中考/高考高频句型（如 not only...but also / It is + adj + to do / there be 句型），让孩子在你的语境里造 2 个句子，你按考试标准批改（语法/拼写/句式），指出怎么改更好。`;
+    rules = `1. 默认用英文对话；孩子词汇目标 = 中考1600词 → 逐步引入高考高频词（每次最多教 1 个新词并给例句）。
+2. 孩子用英文回时：先肯定，纠错温柔但按考试标准（"Good try! 考试中这里要用第三人称单数：goes"）。
+3. 孩子用中文回时：用英文重复一遍，再说"（中文翻译：……）"，慢慢把他带回英文。
+4. 阅读理解出题时：短文主题选孩子可能感兴趣的（科技/体育/动物/校园故事），生词量控制在 2~3 个以内，生词处可加中文括号注释。
+5. 孩子说"翻译"或"中文意思"：立即给出中文翻译。
+6. 一次只推进一小步（一篇短文/一道题/一个句型），不要一次抛一堆。`;
+  } else {
+    plan = `训练方向（四年级·语感童子功，按对话开始时第一条消息选定一种，之后粘住；孩子说"换一个"才换）：
+A. 情景口语：简单日常对话（自我介绍、今天做了什么、喜欢的动物/食物/游戏），鼓励开口。
+B. 绘本小问答：像读绘本一样给 2~3 句简单英文小故事，配一个"看懂了没"的小问题。
+C. 单词小老师：每次教 1~2 个新单词（用自然拼读提示发音规律），再用小问题帮孩子把词用起来。`;
+    rules = `1. 默认用**简单英文**，句长不超过 12 个单词；可适度用 emoji。
+2. 孩子用英文回时：热烈肯定，纠错极温柔（"Good try! 'I goed' 可以说 'I went'~"）。
+3. 孩子用中文回时：用英文重复一遍，再说"（中文翻译：……）"。
+4. 保护"敢开口"是第一位的：说错也先夸敢说，再轻轻纠。
+5. 孩子说"翻译"或"中文意思"：立即给中文翻译。
+6. 一次只问一个问题。`;
+  }
+  return `你是孩子的「英语搭子」，正在陪一名${isG7?'初一学生':'四年级小学生'}练英语。
+长远目标：英语是高考的拉分主科，也是强基/综评面试的加分能力——初一要练"词汇+阅读+口语+写作"四件套，四年级要打"语感和敢开口"的童子功，为初中快节奏蓄力。
+${plan}
+错题入本规则（重要）：当孩子真实犯了错（语法/拼写/用词/搭配错误，或阅读理解/练习题答错），你纠错讲评完后，在回复的**最后另起一行**写：
+【记入错题】错误点：<用一句中文说清他错在哪、正确说法是什么，不超过 40 字>
+只在孩子真实出错时写这一行；答对、单纯跟读或自由聊天没出错时**不要**写。系统会自动把它收进错题本、按遗忘曲线安排复习。
+你的铁律：
+${rules}
+语气：${tone}。`;
+}
+
+/* ===== 兴趣探索 ===== */
+function interestSystem(){
+  const grade = state.active;
+  const tone = grade==='初一' ? '像好奇的学长学姐，认真倾听' : '像陪玩的大朋友，热情且惊讶';
+  return `你是孩子的「兴趣搭子」，正在陪一名${grade==='初一'?'初一学生':'四年级小学生'}探索他最近好奇的东西。
+你的任务：
+1. 用一个问题开场："最近有没有什么让你好奇的事？什么都行——看到的、听到的、想到的都算。" 等孩子回答。
+2. 孩子说了一个兴趣后：先**认真倾听并复述**（让他感到被重视），再追问一两个细节（如"为什么是这个？""它让你想到了什么？"）。
+3. 给孩子一个**有趣的小知识/延伸问题**作为回报（如"你知道吗，章鱼的血液是蓝色的！"或"那如果恐龙没灭绝，现在会怎样？试着想3个可能性"）。
+5. 引导他主动"记录这个兴趣"——如果他点头或同意，你会帮他存进兴趣本（家长会在周末周报里看到）。
+6. 不要打断、不要急于给答案、不要否定任何奇思妙想，先接住孩子的兴奋点。
+7. 一个兴趣聊深一些（5-10 个来回），不要蜻蜓点水。
+语气：${tone}。用中文。`;
+}
+function recordInterest(){
+  const last = p().chat[buddyMode] && p().chat[buddyMode].slice(-6) || [];
+  // 简单摘要（最近 AI/用户 文本拼接）
+  const summary = last.filter(m=>!m.type).map(m=>(m.role==='user'?'TA':'AI')+':'+m.content.slice(0,40)).join('\n').slice(0,200);
+  p().interests = p().interests || [];
+  p().interests.unshift({id:uid(), date:today(), note:summary, followUp:''});
+  save(); toast('已记录到兴趣本 🌱'); renderGrowth();
+}
+function addBookFromForm(){
+  const f = document.getElementById('readingForm');
+  f.style.display = f.style.display==='none' ? 'block':'none';
+}
+/* 切换阅读聚焦模式：chat=聊书 / deep=精读一章 / essay=读后感（切换后立即生效，下一句回复就按新模式走） */
+function setReadingFocus(k){
+  readingFocus = k;
+  renderShortcuts();
+  const tip = k==='deep' ? '已切换到「精读一章」🔍：告诉我你最近读到哪一章，我们把它读透' : k==='essay' ? '已切换到「读后感」✍️：跟着我的四步问题走，聊完帮你整理提纲' : '已切换到「聊书」💬';
+  pushChat('sys', tip); renderChat();
+}
+function submitBook(){
+  const title = document.getElementById('bTitle').value.trim();
+  if(!title){ toast('填一下书名'); return; }
+  const author = document.getElementById('bAuthor').value.trim();
+  p().books = p().books || [];
+  p().books.unshift({id:uid(), date:today(), title, author, status:'reading', reviews:0, nextDate:addDays(today(), INTERVALS[0]), quotes:[]});
+  document.getElementById('bTitle').value=''; document.getElementById('bAuthor').value='';
+  document.getElementById('readingForm').style.display='none';
+  save(); toast('已添加：《'+title+'》📖');
+  // 自动发一条开场
+  pushChat('user', `我开始读《${title}》${author?'（作者：'+author+'）':''}`);
+  renderChat();
+  setTimeout(()=>sendChat(), 100);
+}
+function finishBook(){
+  const book = (p().books||[]).find(b=>b.status==='reading');
+  if(!book){ toast('还没有在读的书'); return; }
+  book.status='finished'; book.finishedDate=today();
+  save(); renderShortcuts();
+  switchTab('buddy'); setBuddyMode('reading');
+  pushChat('user', `我把《${book.title}》读完了！来考考我吧`);
+  renderChat();
+  setTimeout(()=>sendChat(), 100);
+}
+function recordQuote(){
+  const last = (p().chat[buddyMode]||[]).slice(-4);
+  // 让孩子输入好句
+  const quote = prompt('把喜欢的好句抄进来（可粘贴长按输入框）：');
+  if(!quote) return;
+  const book = (p().books||[])[0];
+  if(book){
+    book.quotes = book.quotes||[];
+    book.quotes.push({date:today(), text:quote});
+    save(); toast('好句已存到《'+book.title+'》');
+  } else {
+    toast('先添加一本书才能记录好句');
+  }
+}
+function renderShortcuts(){
+  const box = document.getElementById('modeShortcuts');
+  if(!box) return;
+  const m = buddyMode;
+  let html = '';
+  if(m==='reading'){
+    const readingBook = (p().books||[]).find(b=>b.status==='reading');
+    /* 初一专属：聊书/精读一章/读后感 三种聚焦 */
+    const focusRow = state.active==='初一'
+      ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+
+        [['chat','💬 聊书'],['deep','🔍 精读一章'],['essay','✍️ 读后感']].map(([k,label])=>
+          `<button class="btn btn-sm ${readingFocus===k?'btn-p':'btn-ghost'}" onclick="setReadingFocus('${k}')">${label}</button>`).join('')+
+        '</div><div style="font-size:12px;color:var(--muted);padding:4px 0 0">'+
+        (readingFocus==='deep'?'聚焦最近读的一章：细节→写法→主旨 三层拆解，还能学一手作文技巧':
+         readingFocus==='essay'?'四步口述一篇读后感，最后帮你整理成提纲':'自由聊这本书，说"我读完了"会进入读后检测')+'</div>'
+      : '';
+    html = '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      '<button class="btn btn-sm btn-p" onclick="addBookFromForm()">➕ 添加一本书</button>'+
+      '<button class="btn btn-sm btn-ghost" onclick="recordQuote()">📝 记录好句</button>'+
+      (readingBook?'<button class="btn btn-sm btn-ghost" onclick="finishBook()" style="background:#e4f7ef;color:#0f766e;">✅ 我读完了</button>':'')+
+      '</div>'+ focusRow +
+      (readingBook?`<div style="font-size:12px;color:var(--muted);padding:6px 0 0">正在读：《${esc(readingBook.title)}》· 已摘 ${ (readingBook.quotes||[]).length } 句好句</div>`:'')+
+      '<div id="readingForm" style="display:none;margin-top:8px">'+
+      '<input id="bTitle" placeholder="书名" style="width:100%;padding:6px;margin-bottom:4px">'+
+      '<input id="bAuthor" placeholder="作者（选填）" style="width:100%;padding:6px;margin-bottom:4px">'+
+      '<button class="btn btn-sm btn-p btn-block" onclick="submitBook()">保存这本书</button></div>';
+  } else if(m==='thinking'){
+    const ts = p().thinkingStats||{level:1,solved:0};
+    const isG7 = state.active==='初一';
+    const track = isG7 ? '代数变形 · 数论初步 · 组合计数 · 几何直观' : '巧算规律 · 图形空间 · 生活数学 · 侦探逻辑';
+    const band = isG7 ? (ts.level<=2?'课内拓展':ts.level<=4?'中考偏难':'压轴/竞赛入门') : (ts.level<=2?'课内趣味':ts.level<=4?'小奥入门':'小奥提高');
+    html = '<div style="font-size:12px;color:var(--muted);padding:6px 0;line-height:1.6">'+
+      '🧩 难度：<b style="color:var(--accent-800)">L'+ts.level+'</b>（'+band+'）　已攻克：<b>'+ts.solved+'</b> 题<br>'+
+      '🎯 赛道：'+track+'</div>'+
+      '<button class="btn btn-sm btn-p" onclick="quickSend(\'出题\')">⚡ 出题</button>';
+  } else if(m==='english'){
+    html = '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      '<button class="btn btn-sm btn-p" onclick="englishTrain(\'oral\')">🗣️ 情景口语</button>'+
+      '<button class="btn btn-sm btn-p" onclick="englishTrain(\'read\')">📖 阅读理解</button>'+
+      '<button class="btn btn-sm btn-p" onclick="englishTrain(\'write\')">✍️ 句型操练</button>'+
+      '</div>'+
+      (state.active==='初一'?'<div style="font-size:12px;color:var(--muted);padding:6px 0 0">考试四件套轮着练：口语 → 阅读 → 句型，词汇沿中考1600 → 高考3500 推进</div>'
+        :'<div style="font-size:12px;color:var(--muted);padding:6px 0 0">语感童子功：敢开口第一，词汇量第二</div>');
+  } else if(m==='interest'){
+    html = '<button class="btn btn-sm btn-p" onclick="recordInterest()">🌱 记录这个兴趣</button>';
+  }
+  box.innerHTML = html;
+  box.style.display = html ? 'block':'none';
+}
+function setBuddyMode(m){
+  buddyMode = m;
+  document.querySelectorAll('#modebar button').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
+  document.getElementById('modeDesc').textContent = MODE_DESC[m];
+  renderShortcuts();
+  renderChat();
+}
+function quickSend(q){
+  const input = document.getElementById('chatInput');
+  input.value = q; sendChat();
+}
+function englishTrain(kind){
+  setBuddyMode('english');
+  const q = kind==='oral' ? '我们练情景口语吧，请开始。'
+    : kind==='read' ? '来一篇迷你阅读理解吧，请出短文和题目。'
+    : '我们练写作句型操练吧，请给我一个句型。';
+  quickSend(q);
+}
+function renderChat(){
+  const box = document.getElementById('chatBox');
+  const msgs = p().chat[buddyMode]||[];
+  if(!msgs.length){
+    let hint = '';
+    if(buddyMode==='socratic') hint = '来，说说你哪道题不会，或者哪个知识点没懂？';
+    else if(buddyMode==='feynman') hint = '今天学了什么？当小老师讲给我听听吧 👂';
+    else if(buddyMode==='thinking') hint = '准备好了就点「⚡ 出题」，我来出第一道！答对会升级、答错会降级，别怕错。';
+    else if(buddyMode==='english') hint = state.active==='初一' ? '点下方「情景口语 / 阅读理解 / 句型操练」开始训练，或者直接用英文跟我打招呼！练出错的地方我会自动帮你记进错题本 📚' : '用英文跟我说句 Hello 吧！说错了也没关系，敢开口最棒 🌟 我会悄悄把错的地方记进错题本，过几天带你再练~';
+    else if(buddyMode==='reading') hint = '点「➕ 添加一本书」告诉我你在读什么，我们就开始聊！';
+    else if(buddyMode==='interest') hint = '最近有没有什么让你好奇的事？什么都行，说给我听听 🌱';
+    else hint = '在错题页点"📚 添加一段要背诵的内容"，AI 会按口诀+导图+自测题帮你掌握。';
+    box.innerHTML = `<div class="msg sys">${hint}</div>`;
+    return;
+  }
+  box.innerHTML = msgs.map(m=>{
+    if(m.type==='image') return `<div class="msg user" style="padding:4px;background:transparent;max-width:76%"><img src="${m.content}" style="max-width:100%;border-radius:10px;display:block"></div>`;
+    return `<div class="msg ${m.role}">${esc(m.content)}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+function pushChat(role, content, type){
+  const msgs = p().chat[buddyMode]||[];
+  msgs.push({role, content, type, t:Date.now()});
+  p().chat[buddyMode]=msgs; save();
+}
+async function sendChat(){
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value='';
+  /* 主动提问计数（内驱力温度计，随云同步给家长端） */
+  const ak = p().asks = p().asks||{};
+  ak[today()] = (ak[today()]||0)+1;
+  pushChat('user', text); renderChat();
+  const box = document.getElementById('chatBox');
+  box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">正在想…</div>');
+  box.scrollTop = box.scrollHeight;
+  try{
+    let sys;
+    if(buddyMode==='socratic') sys = socraticSystem();
+    else if(buddyMode==='feynman') sys = feynmanSystem();
+    else if(buddyMode==='recite') sys = memorizeSystem();
+    else if(buddyMode==='reading') sys = readingSystem();
+    else if(buddyMode==='thinking') sys = thinkingSystem();
+    else if(buddyMode==='english') sys = englishSystem();
+    else sys = interestSystem();
+    sys += contextLine() + textbookLine();
+    const history = (p().chat[buddyMode]||[]).filter(m=>!m.type).slice(-10).map(m=>({role:m.role, content:m.content}));
+    const reply = await callAI([{role:'system',content:sys}, ...history]);
+    const t = document.getElementById('typing'); if(t) t.remove();
+    // 英语模式特殊处理：AI 纠错后，错误点自动收入错题本（艾宾浩斯排期）
+    let shown = reply;
+    if(buddyMode==='english'){
+      const mm = reply.match(/【记入错题】\s*错误点[:：]?\s*([\s\S]+)/);
+      if(mm && mm[1].trim()){
+        const point = mm[1].trim().split('\n')[0].slice(0,120);
+        const dup = (p().wrongs||[]).some(w=>w.subject==='english' && w.desc===point && w.date===today());
+        if(!dup){
+          p().wrongs.unshift({id:uid(), date:today(), subject:'english', desc:point, mistake:'', cause:'other', status:'redo', reviews:0, nextDate:addDays(today(),1)});
+          save(); renderWrong(); renderDue(); renderGrowth();
+          toast('英语错题已自动收入错题本 📚 明天开始按遗忘曲线复习');
+        }
+        shown = reply.replace(/【记入错题】[\s\S]*$/,'').trim() || reply;
+      }
+    }
+    pushChat('assistant', shown); renderChat(); speak(shown);
+
+    // 背诵模式特殊处理：第一次回复保存为 recite.content
+    if(buddyMode==='recite' && activeReciteId){
+      const r = p().recites.find(x=>x.id===activeReciteId);
+      if(r && !r.content){ r.content = reply; save(); renderRecite(); renderDue(); }
+    }
+    // 思维模式特殊处理：从 AI 回复中识别对错
+    if(buddyMode==='thinking'){
+      const ok = /答对了|做对了|对了|✓|🎉|👍/.test(reply);
+      if(/答错了|做错了|错了|再想想|差一点|✗/.test(reply)) recordThinkingResult(false);
+      else if(ok) recordThinkingResult(true);
+    }
+  }catch(e){
+    const t = document.getElementById('typing'); if(t) t.remove();
+    pushChat('assistant','（出错了：'+e.message+'）'); renderChat();
+  }
+}
+async function askAI(wrongId){
+  const w = p().wrongs.find(x=>x.id===wrongId); if(!w) return;
+  practiceWrongId = wrongId; activeReciteId = null;
+  switchTab('buddy');
+  let q;
+  if(w.subject==='english'){
+    setBuddyMode('english');
+    q = `我之前英语出了个错：${w.desc}。请围绕这个错点出一道同类型的小练习让我巩固（一个句型改写/一个单词用法/一道小题都可以，先别告诉我答案），等我答完再批改讲评。`;
+  } else {
+    setBuddyMode('socratic');
+    q = `我之前这道题错了：${w.desc}${w.mistake?'，我错在：'+w.mistake:''}。请出一道同类型的变式题让我练（先别告诉我答案）。出完题后提醒我："做完把解题过程拍张照发给我（点输入框左边的📷），我帮你判对错、一步步引导。"`;
+  }
+  const input = document.getElementById('chatInput'); input.value=q;
+  sendChat();
+}
+
+/* ===== 错题 ===== */
+function addWrong(){
+  const desc = document.getElementById('wDesc').value.trim();
+  if(!desc){ toast('填一下题目或知识点'); return; }
+  p().wrongs.unshift({
+    id:uid(), date:today(), subject:document.getElementById('wSubject').value,
+    desc, mistake:document.getElementById('wMistake').value.trim(),
+    cause:document.getElementById('wCause').value,
+    status:'redo', reviews:0, nextDate:addDays(today(),1)
+  });
+  document.getElementById('wDesc').value=''; document.getElementById('wMistake').value='';
+  save(); renderWrong(); toast('已保存，明天开始按遗忘曲线复习');
+}
+function reviewWrong(id){
+  const w = p().wrongs.find(x=>x.id===id); if(!w) return;
+  practiceWrongId = null;
+  w.reviews = (w.reviews||0)+1;
+  if(w.reviews >= 6){ w.status='done'; p().mastered=(p().mastered||0)+1; toast('6 次复习完成，已掌握 🎉'); }
+  else { w.nextDate = addDays(today(), INTERVALS[w.reviews]); toast(`已复习第 ${w.reviews}/6 次，下次 ${w.nextDate.slice(5)}`); }
+  const key=today(); p().heat[key]=(p().heat[key]||0)+1;
+  save(); renderWrong(); renderDue(); renderGrowth();
+  document.querySelectorAll('.practice-done').forEach(el=>el.remove());
+  if(document.getElementById('tab-buddy').classList.contains('active')){ pushChat('sys','✅ 本次复习已完成'); renderChat(); }
+}
+function markMastered(id){
+  const w = p().wrongs.find(x=>x.id===id); if(!w) return;
+  if(w.status==='done'){ w.status='redo'; p().mastered=Math.max(0,(p().mastered||0)-1); }
+  else { w.status='done'; p().mastered=(p().mastered||0)+1; }
+  save(); renderWrong(); renderGrowth();
+}
+function delWrong(id){
+  const i = p().wrongs.findIndex(x=>x.id===id); if(i>=0) p().wrongs.splice(i,1);
+  save(); renderWrong();
+}
+function renderWrong(){
+  const box = document.getElementById('wrongList');
+  const list = p().wrongs;
+  if(!list.length){ box.innerHTML='<div class="card muted">还没有错题。做错的题记下来，AI 会按遗忘曲线提醒你复习。</div>'; return; }
+  box.innerHTML = list.map(w=>{
+    const [sn,sc] = SUBJECT[w.subject]||['其他','b'];
+    const [cn,cc] = CAUSE[w.cause]||['其他','t'];
+    const dueSoon = w.status==='redo' && w.nextDate && w.nextDate<=today();
+    return `<div class="wrong-item ${w.status==='done'?'mastered':''}">
+      <div class="wrong-head">
+        <span><span class="chip ${sc}">${sn}</span> <span class="chip ${cc}">${cn}</span></span>
+        <span class="hint">${w.date.slice(5)}</span>
+      </div>
+      <div class="wrong-q">${esc(w.desc)}</div>
+      ${w.mistake?`<div class="wrong-m">我错在：${esc(w.mistake)}</div>`:''}
+      ${w.status==='done'
+        ? `<div class="wrong-due">已掌握 ✓</div>`
+        : `<div class="wrong-due ${dueSoon?'today':''}">${dueSoon?'⏰ 今天到期':'下次复习 '+w.nextDate.slice(5)+' · 已复习 '+(w.reviews||0)+'/6'}</div>`}
+      <div class="wrong-acts">
+        <button class="btn btn-sm btn-ghost" onclick="askAI('${w.id}')">🤖 出变式题</button>
+        ${w.status!=='done'?`<button class="btn btn-sm btn-p" onclick="reviewWrong('${w.id}')">复习 ✓</button>`:''}
+        <button class="btn btn-sm btn-ghost" onclick="markMastered('${w.id}')">${w.status==='done'?'恢复':'标记掌握'}</button>
+        <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="delWrong('${w.id}')">删</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ===== 背诵 ===== */
+function addRecite(){
+  const topic = document.getElementById('rTopic').value.trim();
+  if(!topic){ toast('填一下要背的主题'); return; }
+  const subject = document.getElementById('rSubject').value;
+  const rec = {
+    id: uid(), date: today(), subject, topic,
+    content: '', reviews: 0, nextDate: addDays(today(), 1), status: 'redo'
+  };
+  p().recites.unshift(rec);
+  save(); renderRecite(); renderDue();
+  document.getElementById('rTopic').value='';
+  activeReciteId = rec.id; practiceWrongId = null;
+  switchTab('buddy'); setBuddyMode('recite');
+  document.getElementById('chatInput').value = `我要背：${topic}`;
+  sendChat();
+}
+function reviewRecite(id){
+  const r = p().recites.find(x=>x.id===id); if(!r) return;
+  practiceWrongId = null; activeReciteId = null;
+  r.reviews = (r.reviews||0)+1;
+  if(r.reviews >= 6){ r.status='done'; p().recMastered=(p().recMastered||0)+1; toast('6 次复习完成，已掌握 🎉'); }
+  else { r.nextDate = addDays(today(), INTERVALS[r.reviews]); toast(`已复习第 ${r.reviews}/6 次，下次 ${r.nextDate.slice(5)}`); }
+  const key=today(); p().heat[key]=(p().heat[key]||0)+1;
+  save(); renderRecite(); renderDue(); renderGrowth();
+  document.querySelectorAll('.practice-done').forEach(el=>el.remove());
+  if(document.getElementById('tab-buddy').classList.contains('active')){ pushChat('sys','✅ 本次背诵复习完成'); renderChat(); }
+}
+function reviewReciteAI(id){
+  const r = p().recites.find(x=>x.id===id); if(!r) return;
+  activeReciteId = r.id; practiceWrongId = null;
+  switchTab('buddy'); setBuddyMode('recite');
+  const sys = reciteReviewSystem(r) + contextLine() + textbookLine();
+  const ctx = r.content ? r.content.slice(0,800) : '（暂无内容回顾）';
+  const q = `今天该复习背诵"${r.topic}"。请用一句话开场提醒我，然后让我先自测一遍。`;
+  pushChat('user', q);
+  renderChat();
+  const box = document.getElementById('chatBox');
+  box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">复习中…</div>');
+  box.scrollTop = box.scrollHeight;
+  callAI([{role:'system',content:sys},{role:'user',content:q}],{tier:'light',maxTokens:400}).then(reply=>{
+    const t = document.getElementById('typing'); if(t) t.remove();
+    pushChat('assistant', reply); renderChat(); speak(reply);
+    // 复习完按钮
+    box.insertAdjacentHTML('beforeend', `<div class="practice-done" style="text-align:center;margin-top:8px"><button class="btn btn-sm btn-p" onclick="reviewRecite('${r.id}')">✅ 复习完成</button></div>`);
+    box.scrollTop = box.scrollHeight;
+  }).catch(err=>{
+    const t = document.getElementById('typing'); if(t) t.remove();
+    pushChat('assistant','（出错了：'+err.message+'）'); renderChat();
+  });
+}
+function delRecite(id){
+  const i = (p().recites||[]).findIndex(x=>x.id===id); if(i>=0) p().recites.splice(i,1);
+  save(); renderRecite(); renderDue();
+}
+function renderRecite(){
+  const box = document.getElementById('reciteList');
+  const list = p().recites || [];
+  if(!list.length){
+    box.innerHTML = '<div class="muted" style="padding:6px 0">还没有背诵内容。点上方"开始背诵"，AI 会按口诀+导图+自测题帮你掌握。</div>';
+    return;
+  }
+  box.innerHTML = list.map(r=>{
+    const [sn,sc] = SUBJECT[r.subject]||['其他','b'];
+    const dueSoon = r.status==='redo' && r.nextDate && r.nextDate<=today();
+    return `<div class="wrong-item ${r.status==='done'?'mastered':''}">
+      <div class="wrong-head">
+        <span><span class="chip ${sc}">${sn}</span> <span class="chip b">📚 背诵</span></span>
+        <span class="hint">${r.date.slice(5)}</span>
+      </div>
+      <div class="wrong-q">📚 ${esc(r.topic)}</div>
+      ${r.status==='done'
+        ? `<div class="wrong-due">已掌握 ✓</div>`
+        : `<div class="wrong-due ${dueSoon?'today':''}">${dueSoon?'⏰ 今天到期':'下次复习 '+r.nextDate.slice(5)+' · 已复习 '+(r.reviews||0)+'/6'}</div>`}
+      <div class="wrong-acts">
+        <button class="btn btn-sm btn-ghost" onclick="reviewReciteAI('${r.id}')">🤖 复习一下</button>
+        ${r.status!=='done'?`<button class="btn btn-sm btn-p" onclick="reviewRecite('${r.id}')">复习 ✓</button>`:''}
+        <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="delRecite('${r.id}')">删</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ===== 成长 ===== */
+function renderGrowth(){
+  document.getElementById('gStreak').textContent = p().streak||0;
+  document.getElementById('gMastered').textContent = p().mastered||0;
+  document.getElementById('gRecMastered').textContent = p().recMastered||0;
+  const heat = document.getElementById('heatMap');
+  let cells='';
+  for(let i=29;i>=0;i--){
+    const d = addDays(today(),-i);
+    const v = p().heat[d]||0;
+    const lvl = v>=4?'l4':v>=3?'l3':v>=2?'l2':v>=1?'l1':'';
+    cells += `<i class="${lvl}" title="${d}"></i>`;
+  }
+  heat.innerHTML = cells;
+  const s = document.getElementById('gSummary');
+  const msgs=[];
+  if(p().streak) msgs.push(`已连续坚持 ${p().streak} 天`);
+  if(p().mastered) msgs.push(`已攻克 ${p().mastered} 道错题`);
+  if(p().recMastered) msgs.push(`已掌握 ${p().recMastered} 段背诵`);
+  const due = p().wrongs.filter(w=>w.status==='redo'&&w.nextDate&&w.nextDate<=today()).length;
+  const recDue = (p().recites||[]).filter(r=>r.status==='redo'&&r.nextDate&&r.nextDate<=today()).length;
+  if(due) msgs.push(`今天有 ${due} 道错题等你复习`);
+  if(recDue) msgs.push(`今天有 ${recDue} 段背诵等你复习`);
+  if(p().lastReview) msgs.push(`上次复盘：${p().lastReview.date.slice(5)}`);
+  s.textContent = msgs.length ? msgs.join(' · ') : '还没有记录，先完成一次睡前复盘吧。';
+}
+
+/* ===== 我的 ===== */
+function renderMe(){
+  const st = GRADE_STYLE[state.active];
+  document.getElementById('meProfile').innerHTML = `当前使用：<b>${st.emoji} ${st.label}</b>（切换在顶部）<br><span class="hint">🎯 学籍：${SCHOOL_CTX[state.active]} · AI 已对齐学籍、教材进度与福建省考试要求</span>`;
+  document.getElementById('setBase').value = state.base||BASE;
+  document.getElementById('setModel').value = state.model||DEFAULT_MODEL;
+  document.getElementById('setKey').value = state.key||'';
+  document.getElementById('setFamily').value = state.familyCode||'';
+  document.getElementById('setSbUrl').value = (state.supabase&&state.supabase.url)||'';
+  document.getElementById('setSbKey').value = (state.supabase&&state.supabase.key)||'';
+  const tb = p().textbook||{};
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.value=v||'';};
+  set('tbMathVer',(tb.math||{}).ver); set('tbMathUnit',(tb.math||{}).unit);
+  set('tbChiVer',(tb.chinese||{}).ver); set('tbChiUnit',(tb.chinese||{}).unit);
+  set('tbEngVer',(tb.english||{}).ver); set('tbEngUnit',(tb.english||{}).unit);
+  const ttsBtn = document.getElementById('btnTTS'); if(ttsBtn) ttsBtn.textContent = state.tts ? '🔊' : '🔇';
+}
+function saveTextbooks(){
+  const v=id=>document.getElementById(id).value.trim();
+  p().textbook = {
+    math:{ver:v('tbMathVer'),unit:v('tbMathUnit')},
+    chinese:{ver:v('tbChiVer'),unit:v('tbChiUnit')},
+    english:{ver:v('tbEngVer'),unit:v('tbEngUnit')}
+  };
+  save(); toast('教材进度已保存，AI 出题会对齐这个进度 📚');
+}
+// 把学籍+培养方向、教材进度注入所有 AI 搭子的系统提示
+// 原则：清北/强基/竞赛等长期目标只作为「家长内部的难度标尺」，绝不向孩子提及——对孩子只谈方法、进步和下一步
+function contextLine(){
+  const goal = state.active==='初一'
+    ? '培养路径（内部参考，禁止向孩子提及）：按"福建中考高分 → 高中理科纵深发展"倒推，练习和讲解对齐福建省中考的难度与命题风格；孩子有好苗头（如竞赛思维）就具体表扬并自然加深。'
+    : '培养路径（内部参考，禁止向孩子提及）：小学阶段按"习惯与兴趣 → 数感语感英语童子功 → 顺利衔接优质初中"倒推，难度控制在跳一跳够得着，重点护住自驱力和自信心。';
+  return `\n【学籍与教学要求】孩子在${SCHOOL_CTX[state.active]}。${goal}
+【对孩子的语言铁律】全程只使用成长型语言：只谈方法、进步、好奇心和下一步的小目标；绝不主动提"清华/北大/名校/排名/清北"这类词，也不拿孩子和别人比较；孩子自己问到时，温和地把话题拉回"我们怎么把眼前这道题/这本书弄明白"。出题和讲解可结合厦门本地的教学节奏与福建省考试要求。`;
+}
+function textbookLine(){
+  const t = p().textbook;
+  if(!t) return '';
+  const joinOne=o=>o?(o.ver||'')+(o.ver&&o.unit?' · ':'')+(o.unit||''):'';
+  const parts=[];
+  if(t.math&&(t.math.ver||t.math.unit)) parts.push('数学 '+joinOne(t.math));
+  if(t.chinese&&(t.chinese.ver||t.chinese.unit)) parts.push('语文 '+joinOne(t.chinese));
+  if(t.english&&(t.english.ver||t.english.unit)) parts.push('英语 '+joinOne(t.english));
+  if(!parts.length) return '';
+  return `\n【孩子的教材进度】${parts.join('；')}。出题、举例、讲解、背单词都要贴合这个同步进度，优先用教材里的术语和表述习惯；孩子问到超前的内容时可以讲，但练习题以当前进度为主。`;
+}
+function saveSettings(){
+  state.base = document.getElementById('setBase').value.trim()||BASE;
+  state.model = document.getElementById('setModel').value.trim()||DEFAULT_MODEL;
+  state.proModel = (document.getElementById('setProModel')||{value:''}).value.trim();
+  state.proCooldown = 0; /* 改了配置就清掉降级冷却，立即生效 */
+  const k = document.getElementById('setKey').value.trim();
+  if(k) state.key = k;
+  save(); updateUsageHint(); toast('设置已保存');
+}
+function exportData(){
+  const out = JSON.parse(JSON.stringify(state)); delete out.guard; /* 口令哈希不进备份 */
+  const blob = new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='学习教练备份-'+today()+'.json'; a.click();
+}
+function clearData(){
+  if(!confirm('确定清空当前档案（'+state.active+'）的所有记录？此操作不可恢复。')) return;
+  state.profiles[state.active]=blankProfile();
+  state.profiles[state.active].name = state.active==='初一'?'大宝':'小宝';
+  save(); renderAll(); toast('已清空');
+}
+
+/* ===== 家长口令门 ===== */
+async function sha256hex(s){
+  try{
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){ /* 非安全上下文兜底：仍是单向混淆，非明文 */
+    let h=5381; for(let i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0;}
+    return 'fb'+(h>>>0).toString(16)+'.'+s.length;
+  }
+}
+function guardReady(){ return !!(state.guard && state.guard.pin); }
+function setupGuard(){
+  const p1 = prompt('设置家长口令（4-6位字母或数字），孩子不知道这道门：');
+  if(p1===null) return false;
+  if(!/^[A-Za-z0-9]{4,6}$/.test(p1)){ alert('口令需为 4-6 位字母或数字'); return false; }
+  const p2 = prompt('再输入一遍确认：');
+  if(p2!==p1){ alert('两次不一致，未设置'); return false; }
+  const q = prompt('安全问题（忘记口令时找回用，例如：妈妈的生日是几月几号）：');
+  if(q===null||!q.trim()){ alert('需要安全问题用于找回，未设置'); return false; }
+  const a = prompt('安全问题答案：');
+  if(a===null||!a.trim()){ alert('需要答案用于找回，未设置'); return false; }
+  const salt = Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+  state.guard = {salt, pin: null, q: q.trim(), a: null, fails:0, lockUntil:0};
+  return sha256hex(salt+p1).then(hp=>sha256hex(salt+a.trim()).then(ha=>{
+    state.guard.pin=hp; state.guard.a=ha; save(); toast('家长口令已设置 ✅'); return true;
+  }));
+}
+async function askGuard(what, fn){
+  if(!guardReady()){
+    if(confirm('「'+what+'」受家长口令保护。\n现在设置一个家长口令吗？（设置后本次操作继续执行）')){
+      const ok = await setupGuard(); if(ok) fn();
+    } else toast('已取消，操作未执行');
+    return;
+  }
+  if(state.guard.lockUntil && state.guard.lockUntil > Date.now()){
+    alert('试错次数过多，请 '+Math.ceil((state.guard.lockUntil-Date.now())/1000)+' 秒后再试'); return;
+  }
+  const pin = prompt('家长口令（'+what+'）：');
+  if(pin===null) return;
+  const h = await sha256hex(state.guard.salt+pin);
+  if(h===state.guard.pin){ state.guard.fails=0; state.guard.lockUntil=0; save(); fn(); return; }
+  state.guard.fails=(state.guard.fails||0)+1;
+  if(state.guard.fails>=3){
+    state.guard.lockUntil=Date.now()+30000; state.guard.fails=0; save();
+    alert('连续 3 次错误，锁定 30 秒'); return;
+  }
+  save();
+  if(confirm('口令不对（还剩 '+(3-state.guard.fails)+' 次机会）。\n忘记口令了？点确定用安全问题找回：')){
+    const a = prompt(state.guard.q);
+    if(a===null) return;
+    const ah = await sha256hex(state.guard.salt+a.trim());
+    if(ah===state.guard.a){ const ok = await setupGuard(); if(ok) fn(); }
+    else alert('答案不对，操作未执行');
+  }
+}
+
+/* ===== AI 调用（智能分流：省钱但不牺牲学习质量） ===== */
+const PRO_HINT = /(方程|几何|证明|应用题|百分数|比例|周长|面积|体积|因式|开方|平方根|不等式|质数|约分|通分|鸡兔|行程|追及|相遇|利率|浓度|配比|求.*值|计算|推导|画图)/;
+function aiTier(messages, opts){
+  if(opts && opts.tier) return opts.tier;
+  const text = messages.map(m=>typeof m.content==='string'?m.content:'').join(' ');
+  return PRO_HINT.test(text) ? 'pro' : 'standard';
+}
+function aiModel(tier){
+  if(tier==='pro'){
+    const pm=(state.proModel||'').trim();
+    if(pm && pm!==(state.model||DEFAULT_MODEL) && (!state.proCooldown || Date.now()>state.proCooldown)) return pm;
+  }
+  return state.model||DEFAULT_MODEL;
+}
+async function aiFetch(base, key, payload){
+  const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(()=>ctrl.abort(), 60000) : null; /* 60秒超时，防止"正在想…"永远转下去 */
+  try{
+    const res = await fetch(base+'/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify(payload),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || data.error){ throw new Error(data.error?.message || ('HTTP '+res.status)); }
+    return data;
+  }catch(e){
+    if(e && (e.name==='AbortError' || String(e.message||'').includes('aborted'))) throw new Error('请求超时了（60秒），网络或模型繁忙，请重试一次');
+    throw e;
+  }finally{
+    if(timer) clearTimeout(timer);
+  }
+}
+function aiCountTokens(data){
+  try{
+    const u=data.usage;
+    if(u && u.total_tokens){
+      const t=today();
+      if(!state.usage || state.usage.d!==t) state.usage={d:t,t:0,c:0};
+      state.usage.t+=u.total_tokens; state.usage.c++;
+      save();
+    }
+  }catch(_){}
+}
+function aiContent(data){
+  const m = data && data.choices && data.choices[0] && data.choices[0].message || {};
+  const c = (typeof m.content==='string') ? m.content.trim() : '';
+  if(c) return c;
+  const r = (typeof m.reasoning_content==='string') ? m.reasoning_content.trim() : ''; /* 推理模型把答案放进思考字段时兜底 */
+  return r;
+}
+async function callAI(messages, opts){
+  opts=opts||{};
+  let key = state.key;
+  if(!key){ await cloudAdoptKey(true); key = state.key; } /* 本地没Key时自动从云端获取 */
+  if(!key) throw new Error('请先在"我的"页填写 API Key');
+  const base = (state.base||BASE).replace(/\/$/,'');
+  const tier = aiTier(messages, opts);
+  const main = state.model||DEFAULT_MODEL;
+  const model = aiModel(tier);
+  const payload = {messages, stream:false,
+    max_tokens: opts.maxTokens || (tier==='pro'?2000:(tier==='light'?600:1200)),
+    temperature: opts.temp!=null ? opts.temp : (tier==='pro'?0.4:(tier==='light'?0.3:0.7))};
+  let data;
+  try{
+    data = await aiFetch(base, key, Object.assign({model}, payload));
+  }catch(e){
+    if(model===main) throw e; /* 主力模型本身失败，直接报错 */
+    state.proCooldown = Date.now()+10*60*1000; save(); /* 攻坚模型异常：10分钟内自动用主力顶上，之后自动恢复 */
+    data = await aiFetch(base, key, Object.assign({model:main}, payload));
+  }
+  let reply = aiContent(data);
+  /* 空回复兜底：攻坚模型思考耗尽token时 content 可能为空 → 换主力重试一次 */
+  if(!reply && model!==main){
+    state.proCooldown = Date.now()+10*60*1000; save();
+    data = await aiFetch(base, key, Object.assign({model:main}, payload));
+    reply = aiContent(data);
+  }
+  if(!reply) throw new Error('AI 走神了没说上来（空回复），再发一次就好');
+  aiCountTokens(data);
+  return reply;
+}
+function updateUsageHint(){
+  const el=document.getElementById('aiUsageHint'); if(!el) return;
+  const t=today(), u=state.usage||{};
+  const tot=(u.d===t)?u.t:0, c=(u.d===t)?u.c:0;
+  el.textContent='今日 AI 用量：'+c+' 次调用，约 '+tot+' tokens';
+}
+setInterval(updateUsageHint,5000);
+async function testAI(){
+  const btn=document.getElementById('btnTestAI'), el=document.getElementById('aiUsageHint');
+  if(!btn||!el) return;
+  btn.disabled=true; const orig=btn.textContent; btn.textContent='测试中，约几秒…';
+  let key=state.key;
+  if(!key){ el.textContent='⏳ 正在从云端获取 AI 配置…'; await cloudAdoptKey(true); key=state.key; }
+  if(!key){ el.textContent='❌ 未获取到 Key：请先在常用设备填一次 API Key 并保存（会自动云同步下发），或手动填写'; btn.disabled=false; btn.textContent=orig; return; }
+  const base=(state.base||BASE).replace(/\/$/,'');
+  const main=state.model||DEFAULT_MODEL, pro=(state.proModel||'').trim();
+  async function probe(m){
+    try{ await aiFetch(base,key,{model:m,messages:[{role:'user',content:'回复OK'}],max_tokens:10,temperature:0,stream:false}); return '✅ '+m; }
+    catch(e){ return '❌ '+m+'（'+String(e.message||'失败').slice(0,60)+'）'; }
+  }
+  const out=['主力: '+await probe(main)];
+  if(pro && pro!==main) out.push('攻坚: '+await probe(pro));
+  out.push('拍照: '+await probe(VISION_MODEL));
+  el.textContent=out.join(' ｜ ');
+  btn.disabled=false; btn.textContent=orig;
+}
+if(!state.key) cloudAdoptKey(true); /* 启动时本地无Key则自动从云端获取 */
+
+/* ===== 视觉模型（拍照识别） ===== */
+async function callVision(base64DataUrl, prompt){
+  const key = state.key; if(!key) throw new Error('请先在"我的"页填写 API Key');
+  const base = (state.base||BASE).replace(/\/$/,'');
+  const data = await aiFetch(base, key, {model:VISION_MODEL, messages:[{role:'user', content:[
+    {type:'text', text:prompt},
+    {type:'image_url', image_url:{url:base64DataUrl}}
+  ]}], max_tokens:2000, temperature:0.3, stream:false});
+  const msg = data.choices && data.choices[0] && data.choices[0].message;
+  return (msg && (msg.content || msg.reasoning_content)) || '';
+}
+
+/* ===== 错题拍照 ===== */
+function snapWrong(){ document.getElementById('wrongFile').click(); }
+function onWrongFile(e){
+  const file = e.target.files[0]; if(!file) return;
+  e.target.value='';
+  compressImage(file, 900, async (dataUrl)=>{
+    const btn = document.getElementById('btnSnap');
+    btn.disabled=true; btn.textContent='🔍 识别中…';
+    try{
+      const prompt = `请识别这张图片里的题目。用 JSON 格式返回（不要多余文字、不要 markdown 代码块），字段如下：
+{"subject":"科目（数学/语文/英语/物理/化学/生物/历史/地理/道法/其他，用中文）","desc":"题目或知识点的一句话概括","mistake":"如果图中看得出孩子做错的地方或可能的错因就写出来；没有就填空字符串","cause":"concept/careless/method/forget/other 之一"}
+如果图片里没有题目，subject 返回"其他"，desc 返回"未识别到题目"。`;
+      const raw = await callVision(dataUrl, prompt);
+      let obj=null;
+      try{ obj = JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(_){}
+      if(obj){
+        const subMap = {'数学':'math','语文':'chinese','英语':'english','物理':'physics','化学':'chem','生物':'bio','历史':'hist','地理':'geo','道法':'politics','其他':'other'};
+        if(subMap[obj.subject]) document.getElementById('wSubject').value = subMap[obj.subject];
+        if(obj.desc && obj.desc!=='未识别到题目') document.getElementById('wDesc').value = obj.desc;
+        if(obj.mistake) document.getElementById('wMistake').value = obj.mistake;
+        if(['concept','careless','method','forget','other'].includes(obj.cause)) document.getElementById('wCause').value = obj.cause;
+        toast('识别完成，请核对后保存 ✓');
+      } else {
+        document.getElementById('wDesc').value = raw.trim().slice(0,200);
+        toast('已识别（未结构化），请核对');
+      }
+    }catch(err){ toast('识别失败：'+err.message); }
+    btn.disabled=false; btn.textContent='📷 拍照识别错题';
+  });
+}
+function compressImage(file, maxW, cb){
+  const reader = new FileReader();
+  reader.onload = function(){
+    const img = new Image();
+    img.onload = function(){
+      let w=img.width, h=img.height;
+      const scale = Math.min(1, maxW/Math.max(w,h));
+      w=Math.round(w*scale); h=Math.round(h*scale);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      cb(cv.toDataURL('image/jpeg',0.8));
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ===== 拍照判题（复习闭环） ===== */
+function snapChat(){ document.getElementById('chatFile').click(); }
+function onChatFile(e){
+  const file = e.target.files[0]; if(!file) return;
+  e.target.value='';
+  compressImage(file, 900, async (dataUrl)=>{
+    pushChat('user', dataUrl, 'image'); renderChat();
+    const box = document.getElementById('chatBox');
+    box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">判题中…</div>');
+    box.scrollTop = box.scrollHeight;
+    try{
+      const w = practiceWrongId ? p().wrongs.find(x=>x.id===practiceWrongId) : null;
+      const raw = await callVision(dataUrl, buildJudgePrompt(w));
+      const t = document.getElementById('typing'); if(t) t.remove();
+      pushChat('assistant', raw); renderChat(); speak(raw);
+      if(practiceWrongId){
+        document.querySelectorAll('.practice-done').forEach(el=>el.remove());
+        box.insertAdjacentHTML('beforeend', `<div class="practice-done" style="text-align:center;margin-top:8px"><button class="btn btn-sm btn-p" onclick="reviewWrong('${practiceWrongId}')">✅ 我练会了，完成本次复习</button></div>`);
+        box.scrollTop = box.scrollHeight;
+      }
+    }catch(err){
+      const t = document.getElementById('typing'); if(t) t.remove();
+      pushChat('assistant','（判题失败：'+err.message+'）'); renderChat();
+    }
+  });
+}
+function buildJudgePrompt(w){
+  let ctx = '';
+  if(w){
+    ctx = '\n这道题的原题是：「' + w.desc + '」' + (w.mistake ? '，孩子之前错在「' + w.mistake + '」' : '') + '。';
+  }
+  return `你是孩子的学习教练。孩子发来一张手写解题过程的照片，请帮他批改。${ctx}
+请严格按下面三步，用中文，语气平等、先肯定再引导：
+1. 判对错：先明确写"答案对 ✓"或"答案错 ✗"。
+2. 诊步骤：如果错了，指出具体是哪一步、什么原因（尽量结合他之前的错因）。
+3. 引导：不要直接给出正确答案或完整步骤，用一两个提问引导他自己发现并改正。
+如果图片看不清、或拍的不是解题过程，就请他重拍一张。`;
+}
+
+/* ===== 睡前复盘·语音 ===== */
+// 逐栏小麦克风：识别结果追加进指定输入框
+function voiceToField(fieldId, btn){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('当前浏览器不支持语音识别，建议用 Safari 或 Chrome'); return; }
+  if(btn._rec){ try{ btn._rec.stop(); }catch(_){} return; } // onend 里复位按钮
+  const ta = document.getElementById(fieldId);
+  const rec = new SR();
+  rec.lang='zh-CN'; rec.continuous=true; rec.interimResults=true;
+  let base = ta.value.trim();
+  if(base) base += /[。！？!?.\n]$/.test(base) ? '\n' : '。\n';
+  let finalTxt='';
+  btn._rec = rec; btn.classList.add('rec'); btn.textContent='⏹️';
+  rec.onresult = e=>{
+    let interim='';
+    for(let i=0;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) finalTxt += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    ta.value = base + finalTxt + interim;
+  };
+  rec.onerror = e=>{ if(e.error!=='aborted' && e.error!=='no-speech') toast('识别出错了，再试一次？'); };
+  rec.onend = ()=>{
+    btn._rec=null; btn.classList.remove('rec'); btn.textContent='🎤';
+    if(!finalTxt.trim()) toast('没听到内容，靠近一点再说一次？');
+  };
+  try{ rec.start(); }catch(_){ btn._rec=null; btn.classList.remove('rec'); btn.textContent='🎤'; toast('语音启动失败'); }
+}
+// 语音复盘主流程：孩子自由说 → 停止后 AI 自动整理成三栏
+function voiceReview(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('当前浏览器不支持语音识别，建议用 Safari 或 Chrome'); return; }
+  const btn = document.getElementById('btnVoiceReview');
+  const st = document.getElementById('vrStatus');
+  if(btn._rec){ try{ btn._rec.stop(); }catch(_){} return; }
+  const rec = new SR();
+  rec.lang='zh-CN'; rec.continuous=true; rec.interimResults=true;
+  let finalTxt='';
+  btn._rec = rec;
+  btn.textContent='⏹️ 说完了点这里，AI 开始整理';
+  st.style.display='block'; st.textContent='正在听…想到哪说到哪，不用管顺序';
+  rec.onresult = e=>{
+    let interim='';
+    for(let i=0;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) finalTxt += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    const all = finalTxt + interim;
+    st.textContent = all.length>60 ? `正在听…已说 ${all.length} 字` : '正在听…'+all;
+  };
+  rec.onerror = e=>{ if(e.error!=='aborted' && e.error!=='no-speech') toast('识别出错了，再试一次？'); };
+  rec.onend = ()=>{
+    btn._rec=null;
+    if(!finalTxt.trim()){
+      btn.textContent='🎤 语音说一遍，AI 自动帮你填';
+      st.style.display='none';
+      toast('没听到内容，靠近一点再说一次？');
+      return;
+    }
+    btn.disabled=true; btn.textContent='⏳ 整理中…';
+    st.textContent=`已录 ${finalTxt.length} 字，AI 正在整理成三栏…`;
+    fillReviewFromText(finalTxt).then(()=>{
+      btn.disabled=false; btn.textContent='🎤 有遗漏？再说一遍补充';
+      st.textContent='✅ 已填入下面三栏，检查一下，不对的地方直接改或逐栏 🎤 补说';
+    }).catch(err=>{
+      btn.disabled=false; btn.textContent='🎤 语音说一遍，AI 自动帮你填';
+      st.textContent='（整理失败：'+err.message+'）';
+    });
+  };
+  try{ rec.start(); }catch(_){ btn._rec=null; st.style.display='none'; toast('语音启动失败'); }
+}
+async function fillReviewFromText(text){
+  const sys = `你是复盘整理助手。下面是孩子睡前口头复盘的语音转写，可能口语化、有错别字。请忠实孩子的原意整理成三栏，不要编造他没有说的内容：
+1. learned：今天学了什么（科目+核心点，顿号连接，简洁）
+2. stuck：哪里卡住了（他没提就写"无"）
+3. tomorrow：明天最重要的 3 件事，格式"①…②…③…"，每件一句话、可执行可量化；他没说明天的安排，就根据卡点合理补上。
+只输出 JSON（不要任何多余文字）：{"learned":"…","stuck":"…","tomorrow":"…"}`;
+  let r = await callAI([{role:'system',content:sys},{role:'user',content:text.slice(0,1500)}],{tier:'light',maxTokens:600,temp:0.2});
+  r = String(r).replace(/```json|```/g,'').trim();
+  const m = r.match(/\{[\s\S]*\}/);
+  if(!m) throw new Error('AI 返回格式不对');
+  const obj = JSON.parse(m[0]);
+  if(obj.learned) document.getElementById('rvLearned').value = obj.learned;
+  if(obj.stuck) document.getElementById('rvStuck').value = obj.stuck;
+  if(obj.tomorrow) document.getElementById('rvTomorrow').value = obj.tomorrow;
+}
+
+/* ===== 语音对话 ===== */
+function toggleVoice(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('当前浏览器不支持语音，可用输入法自带麦克风'); return; }
+  const btn = document.getElementById('btnVoice');
+  if(btn._rec){ try{ btn._rec.stop(); }catch(_){} btn._rec=null; btn.textContent='🎤'; return; }
+  const rec = new SR();
+  rec.lang='zh-CN'; rec.interimResults=false; rec.maxAlternatives=1;
+  btn._rec = rec; btn.textContent='🔴';
+  rec.onresult = e=>{ const t=e.results[0][0].transcript; btn.textContent='🎤'; btn._rec=null; const input=document.getElementById('chatInput'); input.value=t; sendChat(); };
+  rec.onerror = e=>{ btn.textContent='🎤'; btn._rec=null; if(e.error!=='aborted' && e.error!=='no-speech') toast('没听清，再说一次？'); };
+  rec.onend = ()=>{ btn.textContent='🎤'; btn._rec=null; };
+  try{ rec.start(); }catch(_){ toast('语音启动失败'); btn.textContent='🎤'; btn._rec=null; }
+}
+function toggleTTS(){
+  state.tts = !state.tts; save();
+  document.getElementById('btnTTS').textContent = state.tts ? '🔊' : '🔇';
+  if(state.tts){
+    toast('已开启朗读');
+    const u=new SpeechSynthesisUtterance('朗读已开启'); u.lang='zh-CN'; u.rate=1.05;
+    try{ speechSynthesis.speak(u); }catch(_){}
+  } else { toast('已关闭朗读'); try{ speechSynthesis.cancel(); }catch(_){} }
+}
+function speak(text){
+  if(!state.tts) return;
+  try{
+    speechSynthesis.cancel();
+    const clean = text.replace(/[#*`>]/g,'').slice(0,400);
+    const u=new SpeechSynthesisUtterance(clean); u.lang='zh-CN'; u.rate=1.0;
+    speechSynthesis.speak(u);
+  }catch(_){}
+}
+
+/* ===== 云端同步 ===== */
+function isSbUrl(u){ return /supabase/i.test(u||''); }
+function sbReady(){ return !!(state.supabase && state.supabase.url && state.familyCode && (state.supabase.key || !isSbUrl(state.supabase.url))); }
+async function cloudPush(silent){
+  if(!sbReady()) return;
+  const {url,key} = state.supabase;
+  const base = url.replace(/\/$/,'');
+  try{
+    if(isSbUrl(url)){
+      const body = { id: state.familyCode, data: state.profiles, updated_at: new Date().toISOString() };
+      const res = await fetch(base+'/rest/v1/coach_family?id=eq.'+encodeURIComponent(state.familyCode),{
+        method:'POST',
+        headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+        body: JSON.stringify(body)
+      });
+    }else{
+      // 自定义国内同步接口（EdgeOne Pages + KV）：PUT profiles + AI配置元数据（受家庭码保护）
+      const payload = Object.assign({}, state.profiles);
+      if(state.key) payload.__sync = {aiKey:state.key, model:state.model||'', proModel:state.proModel||''}; /* 只有持有Key的设备才写meta，防止空Key覆盖 */
+      const res = await fetch(base+'?code='+encodeURIComponent(state.familyCode),{
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status);
+    }
+    if(!silent) toast('同步成功 ☁️');
+  }catch(e){ if(!silent) toast('同步失败：'+e.message); }
+}
+let _cloudTimer=null;
+function cloudAutoPush(){ if(!sbReady()) return; clearTimeout(_cloudTimer); _cloudTimer=setTimeout(()=>cloudPush(true), 800); }
+/* ===== Key 云端下发：填一次 Key，全家设备自动获取（家庭码保护） ===== */
+async function cloudFetchRaw(){
+  const {url} = state.supabase; if(!url || !state.familyCode) return null;
+  const base = url.replace(/\/$/,'');
+  try{
+    const res = await fetch(base+'?code='+encodeURIComponent(state.familyCode));
+    if(!res.ok) return null;
+    const d = await res.json().catch(()=>null);
+    return (d && d.data!==undefined && d.data!==null) ? d.data : null;
+  }catch(e){ return null; }
+}
+async function cloudAdoptKey(silent){
+  if(state.key) return true; /* 本地已有 Key，无需获取 */
+  const data = await cloudFetchRaw();
+  const meta = data && data.__sync;
+  if(meta && meta.aiKey){
+    state.key = meta.aiKey;
+    if(meta.model) state.model = meta.model;
+    if(meta.proModel) state.proModel = meta.proModel;
+    save();
+    if(!silent) toast('已从云端自动获取 AI 配置 ✅');
+    return true;
+  }
+  if(!silent) toast('云端还没有 AI 配置：请先在常用设备上填写 API Key 并保存');
+  return false;
+}
+function saveCloudSettings(){
+  const url = document.getElementById('setSbUrl').value.trim();
+  const key = document.getElementById('setSbKey').value.trim();
+  const fam = document.getElementById('setFamily').value.trim();
+  if(url && fam && (key || !isSbUrl(url))){
+    state.supabase = {url, key}; state.familyCode = fam;
+    save();
+    toast('已保存，正在测试同步…');
+    cloudPush(false);
+  } else if(!url && !key && !fam){
+    state.supabase={url:'',key:''}; state.familyCode='';
+    save(); toast('已清除云端设置');
+  } else {
+    toast(isSbUrl(url) ? '三项都要填，或全部留空清除' : '国内接口：地址+家庭码即可，Key 可留空');
+  }
+}
+
+/* ===== 事件绑定 & 渲染 ===== */
+function renderAll(){ applyGradeStyle(); renderTasks(); renderDue(); renderChat(); renderWrong(); renderRecite(); renderGrowth(); renderMe(); }
+
+document.getElementById('profilePick').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(b) switchProfile(b.dataset.grade);
+});
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+document.getElementById('modebar').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) setBuddyMode(b.dataset.mode); });
+document.getElementById('btnSend').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); } });
+document.getElementById('btnAddWrong').addEventListener('click', addWrong);
+document.getElementById('btnAddRecite').addEventListener('click', addRecite);
+document.getElementById('btnSaveReview').addEventListener('click', submitReview);
+document.getElementById('btnGenPlan').addEventListener('click', genPlan);
+document.getElementById('btnSaveSet').addEventListener('click', ()=>askGuard('修改 AI 接入设置', saveSettings));
+document.getElementById('btnSaveCloud').addEventListener('click', ()=>askGuard('修改云端同步', saveCloudSettings));
+document.getElementById('btnExport').addEventListener('click', ()=>askGuard('导出备份', exportData));
+document.getElementById('btnClear').addEventListener('click', ()=>askGuard('清空当前档案', clearData));
+document.getElementById('btnGuardSet').addEventListener('click', ()=>askGuard('设置/修改家长口令', async ()=>{ if(await setupGuard()){} }));
+document.getElementById('btnGuardOff').addEventListener('click', ()=>askGuard('关闭家长保护', ()=>{ state.guard=null; save(); toast('家长保护已关闭'); }));
+document.getElementById('btnVoice').addEventListener('click', toggleVoice);
+document.getElementById('btnTTS').addEventListener('click', toggleTTS);
+document.getElementById('btnSnap').addEventListener('click', snapWrong);
+/* ===== 限时纸笔自测（AI 组卷 → 限时 → 拍照批改 → 错题入库） ===== */
+let paperState = null, paperTimer = null;
+async function genPaper(){
+  const btn = document.getElementById('btnGenPaper');
+  const subject = document.getElementById('tSubject').value;
+  const count = +document.getElementById('tCount').value;
+  const mins = +document.getElementById('tMins').value;
+  btn.disabled = true; btn.textContent = '出卷中，约十几秒…';
+  try{
+    const [sn] = SUBJECT[subject]||[subject];
+    const sys = `你是孩子的私人教练，请出一份限时自测卷。
+只返回 JSON（不要 markdown 代码块）：{"items":[{"q":"题目全文（含必要的条件/选项/图形描述）","ans":"标准答案与评分要点"}]}
+要求：共 ${count} 题，由易到难（最后 1-2 题稍难）；贴合孩子年级与教材进度；题目要能抄在纸上笔答（避免只能口答或需要大量画图的题）。`;
+    const raw = await callAI([
+      {role:'system', content: sys + contextLine() + textbookLine()},
+      {role:'user', content: `科目：${sn}。请出卷。`}
+    ], {tier:'pro', maxTokens:2000, temp:0.4});
+    let obj=null;
+    try{ obj = JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(_){}
+    if(!obj || !Array.isArray(obj.items) || !obj.items.length) throw new Error('出卷格式异常，再点一次试试');
+    paperState = {subject, items: obj.items.slice(0,count), mins, endAt: Date.now()+mins*60000};
+    renderPaper(); window.scrollTo(0, document.body.scrollHeight);
+  }catch(e){ toast('出卷失败：'+e.message); }
+  btn.disabled = false; btn.textContent = '✨ AI 出卷，开始计时';
+}
+function renderPaper(){
+  const box = document.getElementById('paperBox');
+  if(!paperState){ box.innerHTML=''; return; }
+  const ps = paperState;
+  const [sn] = SUBJECT[ps.subject]||['自测'];
+  box.innerHTML = `<div style="border:1px dashed #bbb;border-radius:12px;padding:12px;margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+      <b>📄 ${sn}限时卷（${ps.items.length} 题 · ${ps.mins} 分钟）</b>
+      <b id="paperTimer" style="color:var(--red)">--:--</b>
+    </div>
+    <ol style="margin:8px 0 0 18px;padding:0">${ps.items.map(it=>`<li style="margin:6px 0">${esc(it.q)}</li>`).join('')}</ol>
+    <div class="hint" style="margin:8px 0">把卷子抄在纸上开始做（也可以家长帮忙抄题）。做完或时间到，点下面拍照交卷。</div>
+    <button class="btn btn-p btn-block" onclick="snapPaper()">📷 拍照交卷</button>
+  </div>`;
+  tickPaperTimer();
+}
+function tickPaperTimer(){
+  clearInterval(paperTimer);
+  paperTimer = setInterval(()=>{
+    const el = document.getElementById('paperTimer');
+    if(!el || !paperState){ clearInterval(paperTimer); return; }
+    const left = Math.max(0, paperState.endAt - Date.now());
+    const m = Math.floor(left/60000), s = Math.floor(left%60000/1000);
+    el.textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    if(left<=0){ clearInterval(paperTimer); el.textContent='时间到'; toast('⏰ 时间到！把写好的卷子拍照交卷吧'); }
+  }, 1000);
+}
+function snapPaper(){ document.getElementById('paperFile').click(); }
+function onPaperFile(e){
+  const file = e.target.files[0]; if(!file) return;
+  e.target.value='';
+  if(!paperState){ toast('请先出一份卷子'); return; }
+  compressImage(file, 1100, async (dataUrl)=>{
+    document.getElementById('paperBox').insertAdjacentHTML('beforeend','<div class="hint" id="paperGrading" style="margin-top:8px">🔍 批改中，约十几秒…</div>');
+    try{
+      const [sn] = SUBJECT[paperState.subject]||['自测'];
+      const qa = paperState.items.map((it,i)=>`${i+1}. ${it.q}\n   标准答案/得分点：${it.ans}`).join('\n');
+      const prompt = `这是孩子手写完成的一份${sn}限时自测卷的拍照。题目与标准答案如下：
+${qa}
+请逐题批改。判分原则：字迹潦草时按最接近的合理解读；拿不准时倾向判对并在点评里注明"书写再清楚些更好"。
+只返回 JSON（不要 markdown 代码块）：{"results":[{"no":1,"ok":true,"comment":"一句话点评：对在哪/错在哪/怎么补"}],"summary":"给孩子的总评，1-2 句，以鼓励开头"}`;
+      const raw = await callVision(dataUrl, prompt);
+      let obj=null;
+      try{ obj = JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(_){}
+      if(!obj || !Array.isArray(obj.results)) throw new Error('批改格式异常，请重拍一张试试');
+      showPaperResult(obj.results, obj.summary||'');
+    }catch(err){ toast('批改失败：'+err.message); }
+    const g = document.getElementById('paperGrading'); if(g) g.remove();
+  });
+}
+function showPaperResult(results, summary){
+  const ps = paperState;
+  const wrongs = [];
+  const rows = results.map(r=>{
+    const idx = (r.no||results.indexOf(r)+1)-1;
+    const it = ps.items[idx] || {q:''};
+    const ok = !!r.ok;
+    if(!ok) wrongs.push({q:(it.q||'').slice(0,120), comment:(r.comment||'').slice(0,120)});
+    return `<div style="margin:6px 0">${ok?'✅':'❌'} 第${r.no}题：${esc(r.comment||'')}</div>`;
+  }).join('');
+  /* 做错的题自动进错题本，走艾宾浩斯复习 */
+  wrongs.forEach(w=>{
+    p().wrongs.unshift({
+      id:uid(), date:today(), subject:ps.subject,
+      desc:w.q, mistake:w.comment, cause:'method',
+      status:'redo', reviews:0, nextDate:addDays(today(),1), src:'paper'
+    });
+  });
+  toast(wrongs.length ? `批改完成：${results.length-wrongs.length} 对 ${wrongs.length} 错，错题已自动入库` : '全对！太棒了 🎉');
+  document.getElementById('paperBox').insertAdjacentHTML('beforeend',
+    `<div style="border:1px solid #cfe3f7;background:#eef6ff;border-radius:12px;padding:12px;margin-top:10px">
+      <b>📋 批改结果</b>${rows}
+      ${summary?`<div style="margin-top:6px">${esc(summary)}</div>`:''}
+    </div>`);
+  paperState = null; clearInterval(paperTimer);
+  save(); renderWrong(); renderDue(); renderGrowth(); cloudAutoPush();
+}
+
+document.getElementById('wrongFile').addEventListener('change', onWrongFile);
+document.getElementById('paperFile').addEventListener('change', onPaperFile);
+document.getElementById('btnSnapChat').addEventListener('click', snapChat);
+document.getElementById('chatFile').addEventListener('change', onChatFile);
+
+renderAll();
+</script>
+
+<script>
+/* PWA：仅绑定域名下注册 Service Worker（过渡期旧链接不注册，避免缓存干扰） */
+(function(){
+  try{
+    if(location.hostname.indexOf('xiaoyuermama.top')===-1) return;
+    if(!('serviceWorker' in navigator)) return;
+    if(location.protocol!=='https:' && location.hostname!=='localhost') return;
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

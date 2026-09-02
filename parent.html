@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="zh" data-page-node-id="WFPTtgU81dA7DAdbcguJTg">
+<head data-page-node-id="jLasGHqwv2QOovOhA88xSU">
+<meta charset="utf-8" data-page-node-id="2kpvEyXWqowSLArJBDsNeA">
+<meta name="theme-color" content="#635bff">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AI教练">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" data-page-node-id="d2qgHftg18KSmWz8Nfl8gc">
+<meta name="theme-color" content="#0C447C" data-page-node-id="U4L8uwzeW1qyfrN8AejCMe">
+<title>成长看板 · 家长端</title>
+<style>
+:root{
+  --bg:#f5f7fa; --card:#ffffff; --line:#e6eaf0;
+  --txt:#1a2233; --muted:#8a94a6; --hint:#b3bac7;
+  --blue:#185FA5; --blue-bg:#E6F1FB; --blue-800:#0C447C;
+  --amber:#BA7517; --amber-bg:#FAEEDA; --amber-800:#633806;
+  --teal:#0F6E56; --teal-bg:#E1F5EE; --teal-800:#085041;
+  --red:#dc2626; --radius:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--txt); font-size:15px; line-height:1.6; padding-bottom:40px;}
+header{position:sticky; top:0; z-index:20; background:var(--card); padding:14px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
+.logo{font-size:17px; font-weight:600;}
+.logo span{color:var(--blue);}
+.logo small{display:block; font-size:11px; color:var(--muted); font-weight:400;}
+main{max-width:560px; margin:0 auto; padding:14px 14px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+h3{font-size:14px; font-weight:600; margin:0 0 12px; color:var(--txt);}
+.muted{color:var(--muted); font-size:13px;}
+.hint{color:var(--hint); font-size:12px;}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:10px; padding:10px 16px; font-size:14px; font-weight:500; cursor:pointer; transition:opacity .15s;}
+.btn:active{opacity:.75;}
+.btn-p{background:var(--blue); color:#fff;}
+.btn-ghost{background:#f1f3f7; color:#5f6673;}
+.btn-sm{padding:6px 12px; font-size:13px; border-radius:8px;}
+.btn-block{width:100%;}
+input{width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; font-family:inherit; color:var(--txt); background:#fff;}
+input:focus{outline:none; border-color:var(--blue);}
+label{display:block; font-size:13px; color:var(--muted); margin:12px 0 6px;}
+.stats{display:flex; gap:10px; margin-bottom:10px;}
+.stat{flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
+.stat b{font-size:22px; display:block;}
+.stat span{font-size:12px; color:var(--muted);}
+.chip{display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px;}
+.chip.b{background:var(--blue-bg); color:var(--blue-800);}
+.chip.a{background:var(--amber-bg); color:var(--amber-800);}
+.chip.t{background:var(--teal-bg); color:var(--teal-800);}
+.heat{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;}
+.heat i{width:12px; height:12px; border-radius:3px; background:#eef1f5;}
+.heat i.l1{background:#c5e0f7;} .heat i.l2{background:#85b7eb;} .heat i.l3{background:#378add;} .heat i.l4{background:#185FA5;}
+.wrong-item{border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px; font-size:13px;}
+.wrong-item .due{color:var(--red); font-weight:600;}
+.report{background:var(--blue-bg); border:1px solid #cfe3f7; border-radius:12px; padding:14px; white-space:pre-wrap; font-size:14px; line-height:1.7;}
+.pill{display:inline-block; padding:3px 9px; border-radius:999px; font-size:12px; background:#f1f3f7; color:#5f6673; margin:2px 4px 2px 0;}
+.kid-head{display:flex; align-items:center; gap:10px; margin-bottom:4px;}
+.kid-avatar{width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;}
+.kid-avatar.blue{background:var(--blue-bg);} .kid-avatar.amber{background:var(--amber-bg);}
+.kid-name{font-size:16px; font-weight:600;}
+.kid-grade{font-size:12px; color:var(--muted);}
+.toast{position:fixed; left:50%; bottom:40px; transform:translateX(-50%); background:rgba(26,34,51,.92); color:#fff; padding:10px 18px; border-radius:999px; font-size:13px; z-index:99; opacity:0; pointer-events:none; transition:opacity .2s;}
+.toast.show{opacity:1;}
+.sync-time{font-size:11px; color:var(--hint);}
+</style>
+</head>
+<body data-page-node-id="OE1a2aBuoseqvPOIHe01Vg">
+<header data-page-node-id="uTXVVOZgwDE2ovBxF5LBCC">
+  <div class="logo" data-page-node-id="egbdEK70olimU1BOm4Oa02">成长看板 <span data-page-node-id="uBiaXR8pwBomkiiykmm8RM">· 家长端</span><small data-page-node-id="PLyb0ZxOPuamVZJJKv4Myn">只看一眼，就知道孩子这周过得怎么样</small></div>
+  <button class="btn btn-ghost btn-sm" id="btnConfig" style="flex-shrink:0" data-page-node-id="xrVZ1kl7spxP7TeHy1fRGH">⚙️ 设置</button>
+</header>
+
+<main data-page-node-id="Ch64rWuHu3DKhi8s2KHoDn">
+  <!-- 设置卡 -->
+  <div class="card" id="setupCard" style="display:none" data-page-node-id="S61aXtd7UoiBCBGHQnGxKJ">
+    <h3 data-page-node-id="pXeAbvW7FhQ16TK8H7e2gJ">⚙️ 连接设置（首次使用）</h3>
+    <div class="hint" style="margin-bottom:4px" data-page-node-id="xxIMN6xJYMh8N778jgjplE">和孩子端填<strong data-page-node-id="szdhvfZxat24HHiJsHbBAd">完全相同</strong>的家庭码和 Supabase 信息，就能看到孩子的学习数据。没有云端的话，也可以直接「导入孩子端导出的备份」。</div>
+    <label data-page-node-id="tHDGjGPYK9fEJ9MW75zUfW">家庭码</label>
+    <input id="setFamily" placeholder="例如 XM5201314" data-page-node-id="k0pgpKHXWEZhNFvfui0LNt">
+    <label data-page-node-id="sKa5DM7pkvg1EYMBSsOVwp">Supabase 项目地址</label>
+    <input id="setSbUrl" placeholder="https://xxxx.supabase.co" data-page-node-id="xeCCS1FFnWgxpvP2YEprxn">
+    <label data-page-node-id="pWbVOnsxEa24ZmVQ1UJEYH">Supabase anon key</label>
+    <input id="setSbKey" type="password" placeholder="eyJ..." data-page-node-id="HBFOyUcBun9vKIJyhnnXVy">
+    <label data-page-node-id="XDC4jXuqXw5X6gaprYGeSc">API Key（用于生成周报，和孩子端同一个）</label>
+    <input id="setKey" type="password" placeholder="sk-..." data-page-node-id="Hou4KqLq9emKjQhtmBCpo1">
+    <button class="btn btn-p btn-block" id="btnSaveConf" style="margin-top:14px" data-page-node-id="ztBnrm4SLzqt9xlAlGBuEn">保存并拉取数据</button>
+    <button class="btn btn-ghost btn-block" id="btnImport" style="margin-top:8px" data-page-node-id="iGbykmhzCqI3Ymd6YsPvnR">📥 导入孩子端备份 JSON</button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none" data-page-node-id="epUPyIOi0ZHAufCystXsGj">
+  </div>
+
+  <!-- 看板 -->
+  <div id="dash" style="display:none" data-page-node-id="WoVC4IsShGCGPCTmA8y5aj">
+    <div class="card" data-page-node-id="GQQ5CNsGoUIwaya2dyfKrb">
+      <div style="display:flex; align-items:center; justify-content:space-between" data-page-node-id="6bCyEhCm6PVyEcbnxLCmjh">
+        <h3 style="margin:0" data-page-node-id="EYPiPEIJlAwIxX7aEfVlqS">👨‍👩‍👧‍👦 两个孩子</h3>
+        <div style="display:flex; gap:6px" data-page-node-id="bHBqWDXdJEY1avm6R80p4H">
+          <button class="btn btn-ghost btn-sm" id="btnRefresh" data-page-node-id="BXqjXt56QZJkorZ3md3LCb">🔄 刷新</button>
+        </div>
+      </div>
+      <div class="sync-time" id="syncTime" style="margin-top:6px" data-page-node-id="7QDzeOapqtpMKb5ubfHdki"></div>
+    </div>
+
+    <div id="kids" data-page-node-id="q4tX5z5jbRtDegAAQbCKZD"></div>
+
+    <div class="card" data-page-node-id="c52rAHoPhi4v1FEZETy6nm">
+      <h3 data-page-node-id="VJZwlKj5ZlDRETzh22tUwt">📝 本周成长周报（AI 生成）</h3>
+      <button class="btn btn-p btn-block" id="btnReport" data-page-node-id="BvgTUkpWkbiEQSB01s1Hdt">✨ 生成周报</button>
+      <div class="report" id="reportBox" style="display:none; margin-top:12px" data-page-node-id="VGF6uu3S3dO97tNCPFAn10"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast" data-page-node-id="WVhDBvVxgZxIFX66Mh6PBu"></div>
+
+<script>
+const LS_KEY = 'parentDash_v1';
+const DEFAULT_KEY = ''; /* 安全：Key 不写入网页源码，打开看板拉取数据时自动从私有云同步获取 */
+const BASE = 'https://autorouter.top/v1';
+const MODEL = 'deepseek-v4-flash';
+
+const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
+const CAUSE = {concept:['概念不清','a'],careless:['粗心','a'],method:['方法不会','b'],forget:['忘了','b'],other:['其他','t']};
+const GRADE_STYLE = {'初一':{accent:'#185FA5',bg:'#E6F1FB',avatar:'blue',emoji:'📘'},
+                     '四年级':{accent:'#BA7517',bg:'#FAEEDA',avatar:'amber',emoji:'🟡'}};
+
+let cfg = loadCfg();
+let kidsData = null; // {初一:{...}, 四年级:{...}}
+
+function loadCfg(){
+  try{ const s=JSON.parse(localStorage.getItem(LS_KEY)); if(s) return s; }catch(e){}
+  return {supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', key:DEFAULT_KEY};
+}
+function saveCfg(){ localStorage.setItem(LS_KEY, JSON.stringify(cfg)); }
+
+function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function addDays(dateStr,n){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+
+function isSbUrl(u){ return /supabase/i.test(u||''); }
+function sbReady(){ return !!(cfg.supabase.url && cfg.familyCode && (cfg.supabase.key || !isSbUrl(cfg.supabase.url))); }
+
+async function cloudPull(){
+  if(!sbReady()){ toast('请先完成连接设置'); showSetup(); return; }
+  const {url,key}=cfg.supabase;
+  const base=url.replace(/\/$/,'');
+  try{
+    let data=null, syncAt='';
+    if(isSbUrl(url)){
+      const res = await fetch(base+'/rest/v1/coach_family?id=eq.'+encodeURIComponent(cfg.familyCode)+'&select=data,updated_at',{
+        headers:{'apikey':key,'Authorization':'Bearer '+key}
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const arr = await res.json();
+      if(!arr.length){ toast('云端还没有数据，请确认家庭码一致、孩子端已同步'); return; }
+      data = arr[0].data; syncAt = String(arr[0].updated_at||'');
+    }else{
+      // 国内自定义同步接口（EdgeOne Pages + KV）
+      const res = await fetch(base+'?code='+encodeURIComponent(cfg.familyCode));
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const j = await res.json();
+      if(!j.data){ toast('云端还没有数据，请确认家庭码一致、孩子端已同步'); return; }
+      data = j.data; syncAt = j.updated_at||'';
+    }
+    kidsData = typeof data === 'string' ? JSON.parse(data) : data;
+    /* 自动获取 AI Key（孩子端随同步下发，家庭码保护） */
+    const meta = kidsData && kidsData.__sync;
+    if(meta && meta.aiKey && !cfg.key){ cfg.key = meta.aiKey; saveCfg(); }
+    document.getElementById('syncTime').textContent = '最近同步：'+syncAt.replace('T',' ').slice(0,16) || '最近同步：刚刚';
+    renderDash();
+    toast('数据已更新 ✓');
+  }catch(e){ toast('拉取失败：'+e.message); }
+}
+
+function importBackup(){
+  document.getElementById('importFile').click();
+}
+function onImportFile(e){
+  const f=e.target.files[0]; if(!f) return; e.target.value='';
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const j=JSON.parse(r.result);
+      const data = j.profiles ? j.profiles : j;
+      if(data['初一']||data['四年级']){
+        kidsData = data;
+        document.getElementById('syncTime').textContent = '数据来源：本地导入备份';
+        renderDash();
+        toast('导入成功 ✓');
+      } else { toast('备份文件里没找到孩子数据'); }
+    }catch(err){ toast('文件解析失败：'+err.message); }
+  };
+  r.readAsText(f);
+}
+
+function renderDash(){
+  document.getElementById('setupCard').style.display='none';
+  document.getElementById('dash').style.display='block';
+  const box=document.getElementById('kids');
+  const grades=['初一','四年级'];
+  box.innerHTML = grades.map(g=>{
+    const p = kidsData[g] || {};
+    const st = GRADE_STYLE[g];
+    const streak = p.streak||0;
+    const total = (p.wrongs||[]).length;
+    const mastered = p.mastered||0;
+    const due = (p.wrongs||[]).filter(w=>w.status!=='done' && w.nextDate && w.nextDate<=today()).length;
+    const lastReview = p.lastReview ? (p.lastReview.date||'').slice(5) : '';
+    /* 三看指标：①连续打卡 ②错题复发率（复习≥2次仍未掌握的占比） ③主动提问（近7天，内驱力温度计） */
+    const asks = p.asks||{};
+    let wkAsk=0; for(let i=0;i<7;i++){ const d=addDays(today(),-i); wkAsk += asks[d]||0; }
+    const reviewed = (p.wrongs||[]).filter(w=>(w.reviews||0)>0).length;
+    const relapsed = (p.wrongs||[]).filter(w=>(w.reviews||0)>=2 && w.status!=='done').length;
+    const relapseRate = reviewed ? Math.round(relapsed/reviewed*100) : null;
+    const tLevel = (p.thinkingStats||{}).level||0;
+    /* 竞赛试探提示：思维等级≥6 是好苗头（试探不押注） */
+    const talentHint = tLevel>=6
+      ? `<div class="hint" style="margin:10px 0 0;background:#fff7e6;border:1px solid #f5deb3;border-radius:8px;padding:8px">🧭 <b>好苗头提示</b>：思维等级已到 <b>L${tLevel}</b>。${g==='初一'?'可以去了解双十的竞赛班/数学社团——原则是「试探不押注」：先看孩子兴趣，校内数学稳定在前 10% 再投入，别加压。':'数感不错，可以试试小奥兴趣班「试探不押注」：重在好玩，不刷题不加压。'}</div>`
+      : '';
+    // 热力图
+    let cells='';
+    for(let i=27;i>=0;i--){ const d=addDays(today(),-i); const v=(p.heat&&p.heat[d])||0; const lvl=v>=4?'l4':v>=3?'l3':v>=2?'l2':v>=1?'l1':''; cells+=`<i class="${lvl}" title="${d}"></i>`; }
+    // 最近错题
+    const recent = (p.wrongs||[]).slice(0,3);
+    return `<div class="card">
+      <div class="kid-head">
+        <div class="kid-avatar ${st.avatar}">${st.emoji}</div>
+        <div><div class="kid-name">${esc(p.name||g)}</div><div class="kid-grade">${g}</div></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${streak}</b><span>连续打卡(天)</span></div>
+        <div class="stat"><b style="color:${wkAsk>0?'var(--blue)':'inherit'}">${wkAsk}</b><span>主动提问(7天)</span></div>
+        <div class="stat"><b style="color:${relapseRate!=null&&relapseRate>=40?'var(--red)':'inherit'}">${relapseRate==null?'—':relapseRate+'%'}</b><span>错题复发率</span></div>
+      </div>
+      <div class="hint" style="margin:6px 0 0">已掌握错题 <b>${mastered}</b> 道 · 今日待复习 <b style="color:${due?'var(--red)':'inherit'}">${due}</b> 道<br>💡 三看：打卡看坚持 · 提问看内驱 · 复发看方法（≥40% 需调整错题复习方式）</div>
+      ${talentHint}
+      ${lastReview?`<div class="hint" style="margin-bottom:8px">上次复盘：${lastReview}</div>`:''}
+      <div class="muted" style="margin-bottom:4px">近 28 天学习热力图</div>
+      <div class="heat">${cells}</div>
+      ${recent.length?`<div class="muted" style="margin:10px 0 4px">最近错题（共 ${total} 道）</div>${recent.map(w=>{
+        const [sn,sc]=SUBJECT[w.subject]||['其他','b'];
+        const [cn,cc]=CAUSE[w.cause]||['其他','t'];
+        return `<div class="wrong-item"><span class="chip ${sc}">${sn}</span> <span class="chip ${cc}">${cn}</span> <span class="muted">${w.date.slice(5)}</span><br>${esc(w.desc)}${w.status==='done'?' <span style="color:var(--teal)">✓已掌握</span>':''}</div>`;
+      }).join('')}`:''}
+    </div>`;
+  }).join('');
+}
+
+async function genReport(){
+  if(!kidsData){ toast('还没有数据'); return; }
+  const btn=document.getElementById('btnReport'); btn.disabled=true; btn.textContent='生成中…';
+  try{
+    const summaries = ['初一','四年级'].map(g=>{
+      const p=kidsData[g]||{};
+      const total=(p.wrongs||[]).length, mastered=p.mastered||0, streak=p.streak||0;
+      const due=(p.wrongs||[]).filter(w=>w.status!=='done'&&w.nextDate&&w.nextDate<=today()).length;
+      /* 三看数据：主动提问 / 错题复发率 / 思维等级 */
+      const asks=p.asks||{};
+      let wkAsk=0; for(let i=0;i<7;i++){ const d=addDays(today(),-i); wkAsk += asks[d]||0; }
+      const reviewed=(p.wrongs||[]).filter(w=>(w.reviews||0)>0).length;
+      const relapsed=(p.wrongs||[]).filter(w=>(w.reviews||0)>=2&&w.status!=='done').length;
+      const relapseRate=reviewed?Math.round(relapsed/reviewed*100):null;
+      const tLevel=(p.thinkingStats||{}).level||1;
+      return `${g}（${p.name||g}）：连续打卡${streak}天、本周主动向AI提问${wkAsk}次（内驱力指标）、错题${total}道已掌握${mastered}道、错题复发率${relapseRate==null?'暂无数据':relapseRate+'%'}、今日待复习${due}道、思维训练等级L${tLevel}${tLevel>=6?'（好苗头）':''}`;
+    }).join('；');
+    const sys=`你是一位温和、专业的学习教练，正在给一位关心孩子的家长写成长周报。要求：语气温暖、具体、不说教，用中文，250字以内。`;
+    const user=`两个孩子本周学习情况：${summaries}。请按「三看」框架写一份简短成长周报：1) 内驱力（主动提问次数变化，这是最重要的指标）2) 方法与掌握（错题复发率说明了什么，如何调整）3) 值得肯定的一点 + 给家长的一条具体建议。如果某孩子思维等级≥6（好苗头），可温和提及"可以了解竞赛/拓展资源，试探不押注"。`;
+    const reply = await callAI(sys, user);
+    const box=document.getElementById('reportBox');
+    box.style.display='block';
+    box.textContent = reply;
+  }catch(e){ toast('生成失败：'+e.message); }
+  btn.disabled=false; btn.textContent='✨ 生成周报';
+}
+
+async function callAI(sys, user){
+  if(!cfg.key) throw new Error('还没有 AI Key：先点一次"拉取数据"自动获取，或在设置里手动填写');
+  const base=(cfg.base||BASE).replace(/\/$/,'');
+  const res=await fetch(base+'/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},
+    body:JSON.stringify({model:MODEL, messages:[{role:'system',content:sys},{role:'user',content:user}], max_tokens:800, temperature:0.7, stream:false})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.error) throw new Error(data.error?.message||('HTTP '+res.status));
+  return (data.choices&&data.choices[0]&&data.choices[0].message.content)||'';
+}
+
+function showSetup(){
+  document.getElementById('setupCard').style.display='block';
+  document.getElementById('dash').style.display='none';
+  document.getElementById('setFamily').value=cfg.familyCode||'';
+  document.getElementById('setSbUrl').value=cfg.supabase.url||'';
+  document.getElementById('setSbKey').value=cfg.supabase.key||'';
+  document.getElementById('setKey').value=cfg.key||'';
+}
+
+function saveConf(){
+  const url=document.getElementById('setSbUrl').value.trim();
+  const key=document.getElementById('setSbKey').value.trim();
+  const fam=document.getElementById('setFamily').value.trim();
+  const apik=document.getElementById('setKey').value.trim();
+  if(url && fam && (key || !isSbUrl(url))){ cfg.supabase={url,key}; cfg.familyCode=fam; }
+  if(apik) cfg.key=apik;
+  saveCfg();
+  if(sbReady()){ toast('已保存，拉取中…'); cloudPull(); }
+  else if(kidsData){ renderDash(); toast('已保存（无云端，沿用现有数据）'); }
+  else { toast('请填写家庭码和同步地址（国内接口 Key 可留空），或导入备份'); showSetup(); }
+}
+
+/* 事件 */
+document.getElementById('btnConfig').addEventListener('click', showSetup);
+document.getElementById('btnSaveConf').addEventListener('click', saveConf);
+document.getElementById('btnImport').addEventListener('click', importBackup);
+document.getElementById('importFile').addEventListener('change', onImportFile);
+document.getElementById('btnRefresh').addEventListener('click', cloudPull);
+document.getElementById('btnReport').addEventListener('click', genReport);
+
+/* 初始化 */
+(function init(){
+  if(sbReady()){ cloudPull(); }
+  else { showSetup(); }
+})();
+</script>
+
+<script>
+/* PWA：仅绑定域名下注册 Service Worker（过渡期旧链接不注册，避免缓存干扰） */
+(function(){
+  try{
+    if(location.hostname.indexOf('xiaoyuermama.top')===-1) return;
+    if(!('serviceWorker' in navigator)) return;
+    if(location.protocol!=='https:' && location.hostname!=='localhost') return;
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
