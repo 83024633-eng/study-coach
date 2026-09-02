@@ -1,6 +1,6 @@
 // 清北AI学习教练 Service Worker：网络优先，断网兜底
 var CACHE = 'coach-v1';
-var ASSETS = ['/', '/index.html', '/parent.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+var ASSETS = ['/', '/index.html', '/parent.html', '/manifest.json', '/parent-manifest.json', '/icon-192.png', '/icon-512.png', '/icon-parent-192.png', '/icon-parent-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));

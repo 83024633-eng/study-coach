@@ -1,0 +1,15 @@
+{
+  "name": "AI教练·家长端",
+  "short_name": "家长端",
+  "description": "成长看板，看孩子学得怎么样",
+  "start_url": "/parent.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#635bff",
+  "orientation": "portrait",
+  "icons": [
+    {"src":"/icon-parent-192.png", "sizes":"192x192", "type":"image/png", "purpose":"any maskable"},
+    {"src":"/icon-parent-512.png", "sizes":"512x512", "type":"image/png", "purpose":"any maskable"}
+  ]
+}
