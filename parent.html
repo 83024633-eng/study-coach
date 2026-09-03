@@ -215,6 +215,16 @@ function renderDash(){
     const reviewed = (p.wrongs||[]).filter(w=>(w.reviews||0)>0).length;
     const relapsed = (p.wrongs||[]).filter(w=>(w.reviews||0)>=2 && w.status!=='done').length;
     const relapseRate = reviewed ? Math.round(relapsed/reviewed*100) : null;
+    /* 今日待复习清单：今天到期的错题（最多列5条）+ 背诵条数 */
+    const dueAll = (p.wrongs||[]).filter(w=>w.status!=='done' && w.nextDate && w.nextDate<=today());
+    const dueList = dueAll.slice(0,5);
+    const dueMore = dueAll.length - dueList.length;
+    const recDue = (p.recites||[]).filter(r=>r.status!=='done' && r.nextDate && r.nextDate<=today()).length;
+    /* 本周小结（V2 自动周报，本地计算） */
+    let wkDays=0; for(let i=0;i<7;i++){ const d=addDays(today(),-i); if(((p.heat||{})[d])||0) wkDays++; }
+    const wkNew=(p.wrongs||[]).filter(w=>w.date && w.date>=addDays(today(),-6)).length;
+    const wkExam=(p.exams||[]).filter(e=>e.date && e.date>=addDays(today(),-6));
+    const weakTop=(p.coachSummary&&p.coachSummary.weakTop)||[];
     const tLevel = (p.thinkingStats||{}).level||0;
     /* 竞赛试探提示：思维等级≥6 是好苗头（试探不押注） */
     const talentHint = tLevel>=6
@@ -238,6 +248,15 @@ function renderDash(){
       <div class="hint" style="margin:6px 0 0">已掌握错题 <b>${mastered}</b> 道 · 今日待复习 <b style="color:${due?'var(--red)':'inherit'}">${due}</b> 道<br>💡 三看：打卡看坚持 · 提问看内驱 · 复发看方法（≥40% 需调整错题复习方式）</div>
       ${talentHint}
       ${lastReview?`<div class="hint" style="margin-bottom:8px">上次复盘：${lastReview}</div>`:''}
+      ${p.coachSummary?`<div class="hint" style="margin-bottom:8px;background:#eef6ff;border:1px solid #cfe3ff;border-radius:8px;padding:8px">
+        📋 <b>教练速览</b>（${p.coachSummary.date.slice(5)}）：今日主动提问 <b>${p.coachSummary.asks}</b> 次${p.coachSummary.due?` · 待复习错题 <b>${p.coachSummary.due}</b>`:''}${p.coachSummary.recDue?` · 待复习背诵 <b>${p.coachSummary.recDue}</b>`:''}${p.coachSummary.weakTop&&p.coachSummary.weakTop.length?`<br>🔥 薄弱点：${p.coachSummary.weakTop.join('、')}`:''}${p.coachSummary.stuck?`<br>📌 上次卡点：${esc(p.coachSummary.stuck)}`:''}
+      </div>`:''}
+      ${dueList.length?`<div class="hint" style="margin-bottom:8px;background:#fff1f0;border:1px solid #ffccc7;border-radius:8px;padding:8px">
+        ⏰ <b>今日待复习清单</b>（共 ${dueAll.length} 道错题${recDue?` + ${recDue} 段背诵`:''}）${dueList.map(w=>{const [sn]=SUBJECT[w.subject]||['其他'];return `<br>· <b>[${sn}]</b> ${esc(w.desc.slice(0,40))}`;}).join('')}${dueMore>0?`<br>· …还有 ${dueMore} 道`:''}${recDue?`<br>· 背诵复习 ${recDue} 段（在学生端「今日」完成）`:''}
+      </div>`:''}
+      <div class="hint" style="margin-bottom:8px;background:#EAF3DE;border:1px solid #97C459;border-radius:8px;padding:8px">
+        📅 <b>本周小结</b>（近7天）：学习 <b>${wkDays}</b> 天 · 新增错题 <b>${wkNew}</b> 道 · 今日待复习 <b style="color:${due?'var(--red)':'inherit'}">${due}</b> 道${weakTop.length?`<br>🔥 重点补强：${weakTop.join('、')}`:''}${wkExam.length?`<br>📊 大考：${wkExam.map(e=>`${(e.date||'').slice(5)} ${esc(e.name||'考试')} ${esc(e.score||'')}`).join(' · ')}`:''}
+      </div>
       <div class="muted" style="margin-bottom:4px">近 28 天学习热力图</div>
       <div class="heat">${cells}</div>
       ${recent.length?`<div class="muted" style="margin:10px 0 4px">最近错题（共 ${total} 道）</div>${recent.map(w=>{

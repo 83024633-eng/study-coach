@@ -148,6 +148,8 @@ nav button.on{color:var(--accent); font-weight:600;}
 <main data-page-node-id="mUxlHmWLBGb2x5CvN5vASM">
   <!-- 今日 -->
   <section id="tab-today" class="active" data-page-node-id="02VZXynaFjeglrG5EfS1H3">
+    <div id="dueBanner" data-page-node-id="dueBanner"></div>
+    <div id="todayRoute" data-page-node-id="todayRoute"></div>
     <div class="card" id="streakCard" data-page-node-id="uWfd995raEsnIr9A5eeEzX">
       <h3 data-page-node-id="idp2wXgTD9MppLeiy8P0He">今日碎片任务</h3>
       <div id="taskList" data-page-node-id="zYGDIA9FxMQ2HCh9WYcNhf"></div>
@@ -218,9 +220,13 @@ nav button.on{color:var(--accent); font-weight:600;}
         <option value="concept" data-page-node-id="XZx49ahX4Ik0pRcX2vLahp">概念不清</option><option value="careless" data-page-node-id="FUPIFEe1Ef1al9Dmzgb18w">粗心</option>
         <option value="method" data-page-node-id="8FXm2qBENXRH1uTQyDjKTS">方法不会</option><option value="forget" data-page-node-id="wM9PsUVQYnZ50GETlTL4EK">忘了</option><option value="other" data-page-node-id="htd9imazNCKhHeRleQIJsw">其他</option>
       </select>
+      <label data-page-node-id="wKpLbl">知识点（选填·自动归类用）</label>
+      <input id="wKp" placeholder="如：一元一次方程·去分母（拍照会自动识别）" data-page-node-id="wKpInp">
       <button class="btn btn-ghost btn-block" id="btnSnap" style="margin-top:10px" data-page-node-id="zmXepEzzIsewa7rS80QWeW">📷 拍照识别错题</button>
+      <div id="wrongImgPrev" style="margin-top:8px"></div>
       <button class="btn btn-p btn-block" id="btnAddWrong" style="margin-top:10px" data-page-node-id="O4SZTpiDcysIKiDCEletsk">保存错题</button>
       <input type="file" id="wrongFile" accept="image/*" capture="environment" style="display:none" data-page-node-id="go3F79QbOEGXUqcBCthIRV">
+      <input type="file" id="reciteFile" accept="image/*" capture="environment" style="display:none" onchange="onReciteFile(event)">
     </div>
 
     <div class="card" data-page-node-id="LnHBrpGsDq9uWI7zey60QQ">
@@ -235,6 +241,7 @@ nav button.on{color:var(--accent); font-weight:600;}
       </select>
       <label data-page-node-id="0IXfm0WlmspXgxowfrx8N0">要背的主题（一句话）</label>
       <input id="rTopic" placeholder="例如：战国七雄 / 元素周期表前 20 / 现在完成时标志词" data-page-node-id="GRbL8OAxY4HmAcEmPgh5B3">
+      <button class="btn btn-ghost btn-block" id="btnSnapRecite" style="margin-top:10px" onclick="snapRecite()">📷 拍单词表自动录入</button>
       <button class="btn btn-p btn-block" id="btnAddRecite" style="margin-top:10px" data-page-node-id="jZQqgt7sMtFoTw4xtSBWLM">📚 开始背诵（口诀+导图+自测）</button>
     </div>
 
@@ -282,6 +289,32 @@ nav button.on{color:var(--accent); font-weight:600;}
     <div class="card" data-page-node-id="X7elDVnxJwwLcET9AMSPVt">
       <h3 data-page-node-id="zdhChctf3VboMviEuqu6Rb">成长小结</h3>
       <div id="gSummary" class="muted" data-page-node-id="Fv4Ywkko1EU0n4x9iC9c6E">还没有记录，先完成一次睡前复盘吧。</div>
+    </div>
+    <div class="card">
+      <h3>🎯 薄弱点地图</h3>
+      <div class="hint" style="margin-bottom:6px">教练把错题按"知识点"自动归类：红=薄弱 / 黄=掌握中 / 绿=已会。哪里弱，先攻哪里。</div>
+      <div id="weakList"></div>
+    </div>
+    <div class="card">
+      <h3>🗓️ 学期目标</h3>
+      <input id="goalText" placeholder="例如：这学期数学稳定在95分以上" style="width:100%">
+      <button class="btn btn-sm btn-p" style="margin-top:8px" onclick="saveGoal()">保存目标</button>
+      <div id="goalShow" class="hint" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <h3>📊 大考记录</h3>
+      <div id="examList"></div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <input id="exDate" type="date" style="flex:1;min-width:120px">
+        <input id="exName" placeholder="考试名(如期中)" style="flex:1;min-width:90px">
+        <input id="exScore" placeholder="分数/排名" style="flex:1;min-width:80px">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-sm btn-p" onclick="addExam()">记一笔</button>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('examFile').click()">📷 拍成绩单录入</button>
+      </div>
+      <input type="file" id="examFile" accept="image/*" style="display:none" onchange="onExamFile(event)">
+      <div class="hint" style="margin-top:6px">拍成绩单 AI 自动识别考试名和成绩；记录只进自己的档案，AI 对孩子永不提排名。</div>
     </div>
   </section>
 
@@ -510,7 +543,7 @@ function goTask(id){
 function toggleTask(id){
   const key = today();
   if(p().tasks[id]===key){ delete p().tasks[id]; } else { p().tasks[id]=key; }
-  save(); renderTasks();
+  save(); renderTasks(); renderTodayRoute();
 }
 
 function renderDue(){
@@ -546,6 +579,69 @@ function renderDue(){
     </div>`;
   }
   box.innerHTML = html;
+  renderDueBanner();
+}
+
+/* 教练主动开场：今日路线（P0-3 主动编排） */
+function renderTodayRoute(){
+  const box = document.getElementById('todayRoute'); if(!box) return;
+  const st = GRADE_STYLE[state.active];
+  const hour = new Date().getHours();
+  const greet = hour<11?'早上好':hour<14?'中午好':hour<18?'下午好':'晚上好';
+  const name = p().name || (state.active==='初一'?'大宝':'小宝');
+  const tasks = (TASKS[state.active]||[]).filter(t=>t.go && p().tasks[t.id]!==today());
+  const dueW = p().wrongs.filter(w=>w.status==='redo'&&w.nextDate&&w.nextDate<=today());
+  const dueR = (p().recites||[]).filter(r=>r.status==='redo'&&r.nextDate&&r.nextDate<=today());
+  const taskLeft = tasks.length;
+  let html = `<div class="card" style="background:linear-gradient(135deg,var(--accent-bg),#fff);border-color:var(--accent)">
+    <h3>${greet}，${name} 👋 今天这样安排</h3>`;
+  const items=[];
+  if(dueW.length) items.push(`<b style="color:var(--red)">${dueW.length}</b> 道错题待复习`);
+  if(dueR.length) items.push(`<b style="color:var(--red)">${dueR.length}</b> 段背诵待复习`);
+  if(taskLeft) items.push(`<b>${taskLeft}</b> 项今日任务`);
+  if(!items.length) items.push('今天都清啦 🎉 想学点什么？点「搭子」挑一个');
+  html += `<div style="font-size:14px;line-height:1.9;margin:6px 0">${items.map(x=>'· '+x).join('<br>')}</div>`;
+  html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">`;
+  if(dueW.length||dueR.length) html += `<button class="btn btn-p btn-sm" onclick="switchTab('wrong')">📌 先复习(${dueW.length+dueR.length})</button>`;
+  html += `<button class="btn btn-ghost btn-sm" onclick="switchTab('buddy');setBuddyMode('socratic')">💡 有题问教练</button>`;
+  if(taskLeft) html += `<button class="btn btn-ghost btn-sm" onclick="switchTab('today')">✅ 做今日任务</button>`;
+  const dow = new Date().getDay();
+  if(dow===0||dow===6) html += `<button class="btn btn-ghost btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="startWeekendPaper()">📋 生成周末卷</button>`;
+  html += `</div></div>`;
+  box.innerHTML = html;
+  renderDueBanner();
+}
+
+/* V3 周末组卷：用本周错题知识点自动组一张小卷，做完拍照判卷 */
+function startWeekendPaper(){
+  const wk = addDays(today(),-6);
+  const ws = p().wrongs.filter(w=>w.date>=wk).slice(0,12);
+  const kpList = ws.map(w=>(w.kp&&w.kp.trim())||w.desc).filter(Boolean).slice(0,10).join('；');
+  switchTab('buddy'); setBuddyMode('socratic');
+  const input = document.getElementById('chatInput');
+  input.value = `周末到了，请用本周我练过的知识点给我出一张周末小卷：${kpList||'（本周暂无记录，请按我的教材进度出题）'}。要求：①6~8 道题覆盖这些知识点，由易到难排列；②按题型自然判断是否配 \`\`\`svg 示意图；③不写答案。我做完会把答卷拍照发给你批改。`;
+  sendChat();
+  toast('周末卷生成中，做完拍照给教练批改 📋');
+}
+
+/* 今日页顶部：到期复习强提醒横幅（P0-3 主动提醒做强） */
+function renderDueBanner(){
+  const box = document.getElementById('dueBanner'); if(!box) return;
+  const dueW = p().wrongs.filter(w=>w.status==='redo'&&w.nextDate&&w.nextDate<=today());
+  const dueR = (p().recites||[]).filter(r=>r.status==='redo'&&r.nextDate&&r.nextDate<=today());
+  const n = dueW.length + dueR.length;
+  if(!n){ box.innerHTML=''; return; }
+  const parts=[];
+  if(dueW.length) parts.push(dueW.length+' 道错题');
+  if(dueR.length) parts.push(dueR.length+' 段背诵');
+  box.innerHTML = `<div class="due-banner" onclick="switchTab('wrong')" style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#fff1f0,#ffe7e3);border:1.5px solid var(--red);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 10px rgba(220,60,60,.12)">
+    <div style="font-size:24px">⏰</div>
+    <div style="flex:1">
+      <div style="font-weight:700;color:var(--red);font-size:15px">今天有 ${n} 项待复习</div>
+      <div style="font-size:12px;color:#a33;margin-top:2px">${parts.join(' + ')} · 先花 5 分钟清掉，记忆最牢固 →</div>
+    </div>
+    <div style="font-size:13px;color:#fff;background:var(--red);border-radius:20px;padding:6px 12px;white-space:nowrap">去复习 ›</div>
+  </div>`;
 }
 
 function submitReview(){
@@ -562,7 +658,7 @@ function submitReview(){
   else { p().streak=1; }
   p().lastDate = key;
   p().tasks['review15'] = key;
-  save(); renderTasks(); renderGrowth(); renderMe();
+  save(); renderTasks(); renderGrowth(); renderMe(); renderTodayRoute();
   toast('复盘已保存，明天继续加油 🌙');
 }
 async function genPlan(){
@@ -581,6 +677,7 @@ async function genPlan(){
 /* ===== 搭子（真 AI） ===== */
 let buddyMode = 'socratic';
 let practiceWrongId = null;
+let practicePassed = false; /* 完全掌握需变式题拍照批改通过（防自评虚高） */
 let activeReciteId = null;
 let readingFocus = 'chat'; /* 阅读搭子聚焦：chat=聊书 / deep=精读一章 / essay=读后感（主要给大宝用） */
 const MODE_DESC = {
@@ -592,25 +689,39 @@ const MODE_DESC = {
   english:'小宝练语感（情景/绘本/单词），大宝直通考试四件套（口语/阅读/句型）。点下方按钮选训练；练出错的地方会自动收进错题本、按遗忘曲线复习。',
   interest:'聊聊你最近好奇的事，我会给你一个有趣的小知识或延伸问题。'
 };
+/* 当前正在做的题（P0-1：贯穿上下文，让教练"看见"孩子手上的题） */
+let currentItem = {img:'', desc:'', subject:'', kp:'', updatedAt:0};
+/* 需要"看图引导"的搭子模式 */
+const VISUAL_MODES = ['socratic','feynman','reading','thinking','english'];
+/* 讲解多元化指令：凡涉及图形/对比/流程/孩子说看不懂，必须画图 */
+const DRAW_HINT = `【讲解要"看得见"】按题型自然判断呈现方式：几何、行程、分数、线段图、排队/植树、流程、对比等适合图示的内容，用 \`\`\`svg 代码块画一张简单、带清晰标注的图（图形/箭头/数字/关键词都标出来），让孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看/还是不懂"时必须立刻画图。`;
 function socraticSystem(){
   if(state.active==='初一'){
-    return `你是孩子的「AI 学习教练」，正在辅导一名初一学生。
-你的铁律：
-1. 绝不直接给出答案、解题步骤或最终结论，只通过提问引导孩子自己思考。
-2. 每次只问一个问题，等孩子回答后再问下一个，绝不一次抛一堆。
-3. 孩子卡住时给"提示"，而不是答案。
-4. 语气平等、简短，像靠谱的学长学姐，不居高临下、不啰嗦。
-5. 孩子答对时，具体表扬他的思路和方法（如"你这个画图法很聪明"），不要空洞夸"真聪明"。
-6. 全程用中文。`;
+    return `你是孩子的「AI 学习教练」，辅导一名初一学生。核心目标：让孩子自己把题想通，而不是替他写答案。
+工作准则：
+1. 绝不给最终答案、完整解题步骤或范文，只通过提问引导。
+2. 每次只提一个问题，等孩子回答后再继续，绝不一次抛两三个。
+3. 孩子说"不会写/想不出来"时，不要反复追问"那你先说说看"，而是给一个具体脚手架：把大任务拆成最小一步，或举一个半具体的例子，或先让他说清"题目到底要我做什么"。
+4. 遇到阅读理解/想象画面/写话等开放题，先帮他拆解：①题目要求什么 ②可以用哪些角度（看到的、听到的、想到的、感受到的）③给一个示例短句做样板，再让他模仿写出自己的。不要空谈"发挥想象"。
+5. 孩子答出一点就具体肯定（"这个比喻很好""你抓住了声音这个角度"），再递进下一个小问题。
+6. 发现理解偏差，用反例或"如果是X会怎样"帮他自查，不直接纠错。
+7. 语气平等简短，像靠谱学长学姐；用中文，可适度用表情。
+8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。
+9. 三阶引导结构（每轮尽量遵循）：①先点出"当前卡住的那一步"是什么 ②给 1 个具体小追问 ③末了出一道极简变式（一句话能说清），等孩子口述关键逻辑词再继续，绝不提前公布答案。
+10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导，绝不流露不耐烦。`;
   }
-  return `你是孩子的「AI 学习搭子」，正在陪伴一名四年级小学生。
-你的特点：
-1. 语气温暖、亲切、有趣，多用具体的鼓励（表扬努力和好奇心）。
-2. 把学习做成"玩中学"，引导孩子享受"自己想出来"的快乐。
-3. 同样不直接给答案，用提问和小游戏一步步引导。
-4. 每次只问一个简单的问题，句子短，孩子一听就懂。
-5. 涉及阅读时，引导孩子复述故事、联想生活、提出自己的问题。
-6. 用中文，可以适当用表情符号活跃气氛。`;
+  return `你是孩子的「AI 学习搭子」，陪一名四年级小学生。
+特点：
+1. 语气温暖亲切有趣，多用具体鼓励。
+2. 不直接给答案，用提问和小游戏一步步引导。
+3. 每次只问一个很短的问题，孩子一听就懂。
+4. 孩子说"不会写"时先给脚手架：把任务拆到最小一步，或举一个具体小例子，让他照着说一句。
+5. 阅读/写话类：先帮他弄清"要写什么"，再给一个示例短句样板，鼓励他写出自己的。
+6. 答出一点就夸具体进步，再递进。
+7. 用中文，可适度用表情活跃气氛。
+8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。
+9. 三阶引导结构（每轮尽量遵循）：①先点出"当前卡住的那一步"是什么 ②给 1 个具体小追问 ③末了出一道极简变式（一句话能说清），等孩子口述关键逻辑词再继续，绝不提前公布答案。
+10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导。`;
 }
 function feynmanSystem(){
   return `现在孩子要当"小老师"，把今天学的一个知识点讲给你听。你扮演一个"没听懂、爱追问的学生"：
@@ -621,25 +732,27 @@ function feynmanSystem(){
 5. 用中文。`;
 }
 function memorizeSystem(){
+  let base;
   if(state.active==='初一'){
-    return `你是孩子的「背诵搭子」，负责按记忆科学帮孩子高效记住一段知识。
-你的铁律（一次只做一个动作，绝不一次给完）：
-1. 听到"我要背 XXX"后，**只**给一个记忆口诀（押韵/有节奏/不超过 30 字），等孩子复述。
-2. 孩子复述后，给思维导图（Markdown 缩进表示层级，4~7 个节点），等孩子说看完了。
-3. 孩子看完导图后，给 5 道自测题（先给题不答），等孩子做完。
-4. 孩子做完，逐题评分，错题一句话点拨，不直接给答案。
-5. 最后给复习计划：1/2/4/7/15/30 天后各复习一次（共 6 次）。
-语气：平等、简洁、靠谱学长学姐风格。`;
+    base = `你是孩子的「背诵搭子」，按记忆科学帮孩子高效记住知识。铁律（一次只做一个动作）：
+1. 听到"我要背 XXX"后，只给一个记忆口诀（押韵/节奏/不超30字），等孩子复述。
+2. 孩子复述后给思维导图（Markdown缩进，4~7节点），等看完。
+3. 给5道自测题（先给题不答），等做完。
+4. 逐题评分，错题一句话点拨。
+5. 最后给复习计划：1/2/4/7/15/30天后各一次（共6次）。
+语气：平等简洁靠谱。`;
+  } else {
+    base = `你是孩子的「背诵搭子」，陪四年级小学生背东西。特点：
+1. 一次只做一个动作，节奏慢、句子短。
+2. 给有趣口诀（拟声/拟物/节奏），等复述。
+3. 简单思维导图（3~5节点，可比喻），等看完。
+4. 5道自测题（填空/选择/小问答），等做完。
+5. 逐题表扬+评分，错题"再想想"引导。
+6. 用孩子能懂的话给复习计划。
+语气：温暖亲切有趣。`;
   }
-  return `你是孩子的「背诵搭子」，陪一名四年级小学生背东西。
-特点：
-1. 一次只做一个动作，节奏慢一点、句子短。
-2. 听到"我要背 XXX"后，给一个有趣的口诀（可以拟声/拟物/有节奏感），等孩子复述。
-3. 孩子复述后，用简单的思维导图（3~5 个节点），可用比喻帮助理解，等孩子说看完了。
-4. 给孩子 5 道自测题（填空/选择/小问答），题型适合小学生，等孩子做完。
-5. 做完逐题表扬+评分，错题用"再想想"引导。
-6. 给复习计划时用孩子能懂的话。
-语气：温暖、亲切、有趣。`;
+  base += `\n特殊情况：如果孩子要背的是一组英文单词（消息里出现"每个单词""单词｜"或一串英文单词），不要走口诀-导图-自测流程，改为直接给每个单词一张学习卡，格式严格每行一个：单词｜音标｜中文意思｜1个例句｜1个记忆小窍门。最多20个，简洁实用。`;
+  return base;
 }
 function reciteReviewSystem(rec){
   return `今天是孩子背诵"${rec.topic}"的第 N 次复习（按艾宾浩斯曲线）。
@@ -915,6 +1028,9 @@ function setBuddyMode(m){
   buddyMode = m;
   document.querySelectorAll('#modebar button').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
   document.getElementById('modeDesc').textContent = MODE_DESC[m];
+  // 切换搭子即视为开启新话题，清空上一题的贯穿上下文
+  if(m!=='socratic'){ currentItem={img:'',desc:'',subject:'',kp:'',updatedAt:0}; }
+  confusionStreak=0;
   renderShortcuts();
   renderChat();
 }
@@ -929,6 +1045,66 @@ function englishTrain(kind){
     : '我们练写作句型操练吧，请给我一个句型。';
   quickSend(q);
 }
+var pendingWrongImg='';
+function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderAIHtml(text){
+  if(!text) return '';
+  const segs = String(text).split(/(```svg[\s\S]*?```)/g);
+  return segs.map(function(seg){
+    const m = seg.match(/^```svg\s*([\s\S]*?)```$/);
+    if(m){ return '<div class="ai-svg" style="margin:8px 0;text-align:center"><div style="display:inline-block;max-width:100%;background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:8px;overflow-x:auto">'+m[1].trim()+'</div></div>'; }
+    const s = seg.trim(); if(!s) return '';
+    return renderTextBlock(s);
+  }).join('');
+}
+/* 轻量 markdown：段落 / 表格 / 加粗 / 行内代码（让答疑呈现更多元） */
+function renderTextBlock(text){
+  const lines = String(text).split('\n');
+  let html=''; let i=0;
+  while(i<lines.length){
+    const line = lines[i];
+    if(/^\s*\|.*\|\s*$/.test(line) && i+1<lines.length && /^\s*\|[-: |]+\|\s*$/.test(lines[i+1])){
+      const header = splitRow(line); const rows=[]; i+=2;
+      while(i<lines.length && /^\s*\|.*\|\s*$/.test(lines[i])){ rows.push(splitRow(lines[i])); i++; }
+      html += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin:6px 0"><thead><tr>'+header.map(c=>'<th style="border:1px solid var(--line);padding:4px 8px;text-align:left;background:var(--accent-bg)">'+md(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td style="border:1px solid var(--line);padding:4px 8px">'+md(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+      continue;
+    }
+    if(line.trim()===''){ i++; continue; }
+    html += '<p style="white-space:pre-wrap;word-break:break-word;line-height:1.65;margin:4px 0">'+md(line)+'</p>';
+    i++;
+  }
+  return html;
+}
+function splitRow(line){ return line.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(s=>s.trim()); }
+function md(s){
+  return escapeHtml(s)
+    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+    .replace(/`([^`]+?)`/g,'<code style="background:var(--accent-bg);padding:0 4px;border-radius:4px;font-size:12px">$1</code>');
+}
+async function aiStream(base,key,model,messages,maxTokens,temp,onDelta){
+  const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(function(){ctrl.abort();},60000) : null;
+  let full='';
+  try{
+    const res = await fetch(base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:model,messages:messages,stream:true,max_tokens:maxTokens,temperature:temp}),signal:ctrl?ctrl.signal:undefined});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const reader = res.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){
+      const r=await reader.read(); if(r.done) break;
+      buf+=dec.decode(r.value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf('\n'))>=0){
+        let line=buf.slice(0,idx).trim(); buf=buf.slice(idx+1);
+        if(!line.startsWith('data:')) continue;
+        let data=line.slice(5).trim();
+        if(data==='[DONE]') continue;
+        try{ const j=JSON.parse(data); const d=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content; if(d){ full+=d; if(onDelta) onDelta(full); } }catch(_){}
+      }
+    }
+  }finally{ if(timer) clearTimeout(timer); }
+  return full;
+}
+
 function renderChat(){
   const box = document.getElementById('chatBox');
   const msgs = p().chat[buddyMode]||[];
@@ -946,6 +1122,7 @@ function renderChat(){
   }
   box.innerHTML = msgs.map(m=>{
     if(m.type==='image') return `<div class="msg user" style="padding:4px;background:transparent;max-width:76%"><img src="${m.content}" style="max-width:100%;border-radius:10px;display:block"></div>`;
+    if(m.role==='assistant') return `<div class="msg ai">${renderAIHtml(m.content)}</div>`;
     return `<div class="msg ${m.role}">${esc(m.content)}</div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
@@ -955,11 +1132,17 @@ function pushChat(role, content, type){
   msgs.push({role, content, type, t:Date.now()});
   p().chat[buddyMode]=msgs; save();
 }
+let confusionStreak = 0; // 节奏自适应：连续卡住计数
 async function sendChat(){
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if(!text) return;
   input.value='';
+  // 判题意图：答疑中已拍图、且孩子说"帮我判/对不对"，走视觉判题（不打断引导纪律）
+  if(currentItem.img && buddyMode!=='recite' && /(帮我判|判一下|批改|对不对|对吗|写对没|写错没|检查.*(对|错)|看看.*(对|错)|批一下|帮我看看.*(对|错))/.test(text)){
+    await judgeCurrentItem(text);
+    return;
+  }
   /* 主动提问计数（内驱力温度计，随云同步给家长端） */
   const ak = p().asks = p().asks||{};
   ak[today()] = (ak[today()]||0)+1;
@@ -977,9 +1160,67 @@ async function sendChat(){
     else if(buddyMode==='english') sys = englishSystem();
     else sys = interestSystem();
     sys += contextLine() + textbookLine();
+    if(VISUAL_MODES.includes(buddyMode)) sys += '\n' + DRAW_HINT;
+    // 节奏自适应：连续卡住则降难度、更鼓励
+    if(confusionStreak>=2){
+      sys += '\n【节奏自适应】孩子已连续卡住 '+confusionStreak+' 次，请立刻显著降低难度：用更生活化的例子、更小的步骤、更多画图，并先肯定他的任何微小进展，绝不催促或流露不耐烦。';
+    }
+    if(pendingVoiceSend){
+      pendingVoiceSend = false;
+      sys += '\n【输入来源·语音】本条及紧接的用户消息来自语音识别转写，可能有同音字或口误（例如"观潮"被识别成"冠潮"）。请：①结合当前对话上下文（前面提到的题目、刚拍的照片、所用教材进度、以及当前辅导模式）推断孩子真实意图，不要因个别错字而答非所问，也不要反复要求孩子重新打字确认；②除非完全无法确定，否则不要停下来问"你是说X还是Y"，直接按最可能的理解继续引导或提问；③若确实拿不准，只在回复开头用一句温和的话确认理解（如"你是想问《观潮》里潮水像什么对吗？"），让孩子点头或纠正即可，不要中断辅导流程。';
+    }
+    // 当前题目上下文（贯穿上下文 P0-1）
+    // 轻量降级：首轮看图后已存【题目速记】desc，后续轮次转纯文字模型提速；孩子说"看不清/图中"才重新回传图
+    const needImgAgain = /(看不清|图上|图片|图中|再看看图|拍糊)/.test(text);
+    const useVision = currentItem.img && VISUAL_MODES.includes(buddyMode) && (!currentItem.desc || needImgAgain);
+    let itemCtx = '';
+    if(currentItem.img || currentItem.desc){
+      itemCtx = '\n【当前正在做的题·上下文】' + (currentItem.desc?('题目/知识点：'+currentItem.desc+'\n'):'');
+      if(useVision) itemCtx += '这张照片是刚才拍的题（如有图请结合它持续引导）：[见附图]。';
+      itemCtx += '请基于它持续引导，不要让孩子重新描述整道题。';
+    }
     const history = (p().chat[buddyMode]||[]).filter(m=>!m.type).slice(-10).map(m=>({role:m.role, content:m.content}));
-    const reply = await callAI([{role:'system',content:sys}, ...history]);
+    history.pop(); // 移除刚 push 的当前用户消息，下面以（可能多模态）形式重新追加
+    let userTurn, model, _mt, _tp, base=(state.base||BASE).replace(/\/$/,'');
+    if(useVision){
+      userTurn = [{type:'text', text: text + itemCtx + '\n[附上刚才拍的题的照片]（若回复末尾还没有【题目速记】，请另起一行用【题目速记】一句话概括本题已知条件与所求，60字内，不含答案，以【/题目速记】结束）'}, {type:'image_url', image_url:{url:currentItem.img}}];
+      model = VISION_MODEL; _mt=1400; _tp=0.6;
+    } else {
+      userTurn = text + itemCtx;
+      const tier = aiTier([{role:'system',content:sys}, ...history, {role:'user',content:userTurn}], {});
+      model = aiModel(tier);
+      _mt = tier==='pro'?2000:(tier==='light'?600:1200);
+      _tp = tier==='pro'?0.4:(tier==='light'?0.3:0.7);
+    }
+    const msgsAI = [{role:'system',content:sys}, ...history, {role:'user', content:userTurn}];
+    let key = state.key; if(!key){ await cloudAdoptKey(true); key=state.key; }
+    if(!key){ const t0=document.getElementById('typing'); if(t0)t0.remove(); pushChat('assistant','请先在「我的」页填写 API Key 才能对话'); renderChat(); return; }
+    const liveBubble = document.createElement('div'); liveBubble.className='msg ai'; liveBubble.textContent='正在想…';
+    box.appendChild(liveBubble); box.scrollTop=box.scrollHeight;
+    const _tt=document.getElementById('typing'); if(_tt)_tt.remove();
+    let reply='';
+    try{
+      reply = await aiStream(base,key,model,msgsAI,_mt,_tp,function(txt){ liveBubble.innerHTML=renderAIHtml(txt); box.scrollTop=box.scrollHeight; });
+    }catch(e){
+      if(useVision){
+        const textMsgs = msgsAI.slice(); textMsgs[textMsgs.length-1] = {role:'user', content: text + itemCtx + '\n[注：图片暂时无法识别，请根据文字描述继续引导]'};
+        try{ reply = await callAI(textMsgs); }catch(e2){ liveBubble.remove(); throw e2; }
+      } else {
+        try{ reply = await callAI(msgsAI); }catch(e2){ liveBubble.remove(); throw e2; }
+      }
+    }
+    if(!reply) reply='（AI 没有返回内容，再发一次试试）';
+    // 提取【题目速记】→ 存入 currentItem，后续轮次转文字模型提速；并从展示内容中剥离标记
+    const jm = reply.match(/【题目速记】([\s\S]*?)【\/题目速记】/);
+    if(jm){
+      if(currentItem.img && !currentItem.desc){ currentItem.desc = jm[1].trim().slice(0,150); save(); }
+      reply = reply.replace(/【题目速记】[\s\S]*?【\/题目速记】/,'').trim() || reply;
+    }
     const t = document.getElementById('typing'); if(t) t.remove();
+    // 节奏自适应：检测卡住/进步信号
+    if(/(再想想|差一点|不对|搞混了|你确定吗|是不是弄错了|再看看|没明白|听不懂|还是不会|想不出来)/.test(reply)) confusionStreak++;
+    else if(/(对了|很好|你抓到了|就是这样|掌握|懂了|没错|说得很清楚)/.test(reply)) confusionStreak=0;
+    if(confusionStreak>4) confusionStreak=4;
     // 英语模式特殊处理：AI 纠错后，错误点自动收入错题本（艾宾浩斯排期）
     let shown = reply;
     if(buddyMode==='english'){
@@ -1008,14 +1249,63 @@ async function sendChat(){
       if(/答错了|做错了|错了|再想想|差一点|✗/.test(reply)) recordThinkingResult(false);
       else if(ok) recordThinkingResult(true);
     }
+    // 复习会话：显示三级完成反馈（P0-2 掌握判定改写）
+    if(practiceWrongId && buddyMode==='socratic'){ showPracticeDone(practiceWrongId); }
   }catch(e){
     const t = document.getElementById('typing'); if(t) t.remove();
     pushChat('assistant','（出错了：'+e.message+'）'); renderChat();
   }
 }
+/* 答疑中拍图后，孩子说"帮我判/对不对"→视觉判题 */
+async function judgeCurrentItem(text){
+  const box = document.getElementById('chatBox');
+  box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">批改中…</div>');
+  box.scrollTop=box.scrollHeight;
+  try{
+    const w = {desc: currentItem.desc||'当前题目', mistake:''};
+    const raw = await callVision(currentItem.img, buildJudgePrompt(w) + (text?('\n孩子补充说明：'+text):''));
+    const t=document.getElementById('typing'); if(t)t.remove();
+    pushChat('assistant', raw); renderChat(); speak(raw);
+  }catch(err){
+    const t=document.getElementById('typing'); if(t)t.remove();
+    pushChat('assistant','（批改失败：'+err.message+'）'); renderChat();
+  }
+}
+/* 复习完成三级反馈（完全掌握需变式题批改通过解锁） */
+function showPracticeDone(wrongId){
+  const box=document.getElementById('chatBox');
+  document.querySelectorAll('.practice-done').forEach(el=>el.remove());
+  const el=document.createElement('div');
+  el.className='practice-done'; el.style.textAlign='center'; el.style.marginTop='10px';
+  if(practicePassed){
+    el.innerHTML = `<div style="font-size:13px;margin-bottom:6px;color:var(--muted)">变式题做对了！这道题练得怎么样？</div>
+      <button class="btn btn-sm btn-p" onclick="finishPractice('${wrongId}','master')">✅ 完全掌握</button>
+      <button class="btn btn-sm btn-ghost" onclick="finishPractice('${wrongId}','ok')">🙂 基本理解</button>
+      <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="finishPractice('${wrongId}','again')">😣 还不太会</button>`;
+  } else {
+    el.innerHTML = `<div style="font-size:13px;margin-bottom:6px;color:var(--muted)">💡 做对一道变式题（拍照批改通过），才能解锁「完全掌握」</div>
+      <button class="btn btn-sm btn-ghost" onclick="finishPractice('${wrongId}','ok')">🙂 基本理解</button>
+      <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="finishPractice('${wrongId}','again')">😣 还不太会</button>
+      <button class="btn btn-sm btn-ghost" onclick="toast('把AI出的变式题做完，点输入框左边的📷拍解题过程发来，批改通过就能解锁啦')">🔒 完全掌握·未解锁</button>`;
+  }
+  box.appendChild(el); box.scrollTop=box.scrollHeight;
+}
+function finishPractice(id, level){
+  const w = p().wrongs.find(x=>x.id===id); if(!w) return;
+  if(level==='master' && !practicePassed){ toast('先做对一道变式题才能解锁「完全掌握」哦 💪'); return; }
+  document.querySelectorAll('.practice-done').forEach(el=>el.remove());
+  if(level==='master'){ w.status='done'; p().mastered=(p().mastered||0)+1; ledgerMark(w.kp, w.subject, 'done'); toast('太棒了，这道彻底拿下 🎉'); }
+  else if(level==='ok'){ w.status='redo'; w.nextDate=addDays(today(),1); w.reviews=(w.reviews||0)+1; ledgerMark(w.kp, w.subject, 'learning'); toast('理解得不错，明天再巩固一次 👍'); }
+  else { w.status='redo'; w.nextDate=today(); ledgerMark(w.kp, w.subject, 'weak'); toast('没关系，我们再多练几次，今天再看看 💪'); }
+  practiceWrongId=null; confusionStreak=0; currentItem={img:'',desc:'',subject:'',kp:'',updatedAt:0};
+  save(); renderWrong(); renderDue(); renderGrowth();
+  if(document.getElementById('tab-buddy').classList.contains('active')){ pushChat('sys','✅ 本次复习已完成'); renderChat(); }
+}
 async function askAI(wrongId){
   const w = p().wrongs.find(x=>x.id===wrongId); if(!w) return;
-  practiceWrongId = wrongId; activeReciteId = null;
+  practiceWrongId = wrongId; activeReciteId = null; confusionStreak=0; practicePassed=false;
+  // 把原题注入贯穿上下文，复习时教练"记得"这道题
+  currentItem = {img:w.img||'', desc:w.desc||'', subject:w.subject||'', kp:w.kp||'', updatedAt:Date.now()};
   switchTab('buddy');
   let q;
   if(w.subject==='english'){
@@ -1023,13 +1313,25 @@ async function askAI(wrongId){
     q = `我之前英语出了个错：${w.desc}。请围绕这个错点出一道同类型的小练习让我巩固（一个句型改写/一个单词用法/一道小题都可以，先别告诉我答案），等我答完再批改讲评。`;
   } else {
     setBuddyMode('socratic');
-    q = `我之前这道题错了：${w.desc}${w.mistake?'，我错在：'+w.mistake:''}。请出一道同类型的变式题让我练（先别告诉我答案）。出完题后提醒我："做完把解题过程拍张照发给我（点输入框左边的📷），我帮你判对错、一步步引导。"`;
+    q = `我之前这道题错了：${w.desc}${w.mistake?'，我错在：'+w.mistake:''}。请出一道同类型的变式题让我练（先别告诉我答案）。难度规则：第一道与原题难度相当；我答对判卷通过后，下一道自动提升一级难度，螺旋上升；我答错就降一级并给台阶。呈现方式按题型自然判断：几何、行程、分数、排队/植树等需要直观理解情境的题型，就用 \`\`\`svg 代码块画一张简单的情境示意图（标注数字和关键词，只画题不画解法）再配文字；纯计算、口算、单位换算、概念填空等用文字说清即可，不必画图。出完题后提醒我："做完把解题过程拍张照发给我（点输入框左边的📷），我帮你判对错、一步步引导。"`;
   }
   const input = document.getElementById('chatInput'); input.value=q;
   sendChat();
 }
 
 /* ===== 错题 ===== */
+/* 知识账本（V1）：正向掌握记录，错题/复习自动沉淀，状态可回退可前进 */
+function ledgerMark(kp, subject, status){
+  if(!kp || !kp.trim()) return;
+  const L = p().ledger = p().ledger||{};
+  const key = (subject||'other')+'::'+kp.trim();
+  const cur = L[key] || {subject:subject||'other', kp:kp.trim(), status:'weak', hits:0, updatedAt:0};
+  const rank = {weak:0, learning:1, done:2};
+  if(status==='weak') cur.status = (rank[cur.status]>rank.weak && status!==cur.status)?'learning':'weak';
+  else if(rank[status]>=rank[cur.status]) cur.status = status;
+  cur.hits=(cur.hits||0)+1; cur.updatedAt=Date.now();
+  L[key]=cur;
+}
 function addWrong(){
   const desc = document.getElementById('wDesc').value.trim();
   if(!desc){ toast('填一下题目或知识点'); return; }
@@ -1037,26 +1339,23 @@ function addWrong(){
     id:uid(), date:today(), subject:document.getElementById('wSubject').value,
     desc, mistake:document.getElementById('wMistake').value.trim(),
     cause:document.getElementById('wCause').value,
+    kp:document.getElementById('wKp').value.trim(),
+    img: pendingWrongImg||'', 
     status:'redo', reviews:0, nextDate:addDays(today(),1)
   });
+  pendingWrongImg='';
+  ledgerMark(document.getElementById('wKp').value, document.getElementById('wSubject').value, 'weak');
   document.getElementById('wDesc').value=''; document.getElementById('wMistake').value='';
-  save(); renderWrong(); toast('已保存，明天开始按遗忘曲线复习');
+  const kpEl=document.getElementById('wKp'); if(kpEl) kpEl.value='';
+  const pv=document.getElementById('wrongImgPrev'); if(pv) pv.innerHTML='';
+  save(); renderWrong(); renderDue(); renderGrowth(); toast('已保存，明天开始按遗忘曲线复习');
 }
-function reviewWrong(id){
-  const w = p().wrongs.find(x=>x.id===id); if(!w) return;
-  practiceWrongId = null;
-  w.reviews = (w.reviews||0)+1;
-  if(w.reviews >= 6){ w.status='done'; p().mastered=(p().mastered||0)+1; toast('6 次复习完成，已掌握 🎉'); }
-  else { w.nextDate = addDays(today(), INTERVALS[w.reviews]); toast(`已复习第 ${w.reviews}/6 次，下次 ${w.nextDate.slice(5)}`); }
-  const key=today(); p().heat[key]=(p().heat[key]||0)+1;
-  save(); renderWrong(); renderDue(); renderGrowth();
-  document.querySelectorAll('.practice-done').forEach(el=>el.remove());
-  if(document.getElementById('tab-buddy').classList.contains('active')){ pushChat('sys','✅ 本次复习已完成'); renderChat(); }
-}
+/* 复习 = 出一道变式让孩子独立做对（掌握判定见 finishPractice） */
+function reviewWrong(id){ askAI(id); }
 function markMastered(id){
   const w = p().wrongs.find(x=>x.id===id); if(!w) return;
-  if(w.status==='done'){ w.status='redo'; p().mastered=Math.max(0,(p().mastered||0)-1); }
-  else { w.status='done'; p().mastered=(p().mastered||0)+1; }
+  if(w.status==='done'){ w.status='redo'; p().mastered=Math.max(0,(p().mastered||0)-1); ledgerMark(w.kp, w.subject, 'learning'); }
+  else { w.status='done'; p().mastered=(p().mastered||0)+1; ledgerMark(w.kp, w.subject, 'done'); }
   save(); renderWrong(); renderGrowth();
 }
 function delWrong(id){
@@ -1073,17 +1372,18 @@ function renderWrong(){
     const dueSoon = w.status==='redo' && w.nextDate && w.nextDate<=today();
     return `<div class="wrong-item ${w.status==='done'?'mastered':''}">
       <div class="wrong-head">
-        <span><span class="chip ${sc}">${sn}</span> <span class="chip ${cc}">${cn}</span></span>
+        <span><span class="chip ${sc}">${sn}</span> ${w.kp?`<span class="chip t">🎯 ${esc(w.kp)}</span>`:''} <span class="chip ${cc}">${cn}</span></span>
         <span class="hint">${w.date.slice(5)}</span>
       </div>
       <div class="wrong-q">${esc(w.desc)}</div>
+      ${w.img?`<div style="margin-top:6px"><img src="${w.img}" style="max-height:120px;border-radius:8px;border:1px solid var(--line)"></div>`:''}
       ${w.mistake?`<div class="wrong-m">我错在：${esc(w.mistake)}</div>`:''}
       ${w.status==='done'
         ? `<div class="wrong-due">已掌握 ✓</div>`
-        : `<div class="wrong-due ${dueSoon?'today':''}">${dueSoon?'⏰ 今天到期':'下次复习 '+w.nextDate.slice(5)+' · 已复习 '+(w.reviews||0)+'/6'}</div>`}
+        : `<div class="wrong-due ${dueSoon?'today':''}">${dueSoon?'⏰ 今天到期':('下次复习 '+w.nextDate.slice(5))}</div>`}
       <div class="wrong-acts">
         <button class="btn btn-sm btn-ghost" onclick="askAI('${w.id}')">🤖 出变式题</button>
-        ${w.status!=='done'?`<button class="btn btn-sm btn-p" onclick="reviewWrong('${w.id}')">复习 ✓</button>`:''}
+        ${w.status!=='done'?`<button class="btn btn-sm btn-p" onclick="askAI('${w.id}')">开始复习 ✓</button>`:''}
         <button class="btn btn-sm btn-ghost" onclick="markMastered('${w.id}')">${w.status==='done'?'恢复':'标记掌握'}</button>
         <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="delWrong('${w.id}')">删</button>
       </div>
@@ -1092,6 +1392,29 @@ function renderWrong(){
 }
 
 /* ===== 背诵 ===== */
+function snapRecite(){ const inp=document.getElementById('reciteFile'); if(inp) inp.click(); }
+function onReciteFile(e){
+  const file=e.target.files[0]; if(!file) return; e.target.value='';
+  compressImage(file,1000,async (dataUrl)=>{
+    toast('🔍 正在识别单词表…');
+    try{
+      const prompt='这是一张英语单词表或听写纸。请忽略老师的红笔批改、打勾、分数、中文注释，只提取需要背诵的英文单词（按原顺序、去重、最多30个）。只输出 JSON：{"words":["apple","book",...]}。如果没有英文单词，返回 {"words":[]}。不要任何多余文字。';
+      const raw=await callVision(dataUrl,prompt);
+      let obj=null; try{ obj=JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(_){}
+      const words=(obj&&Array.isArray(obj.words))?obj.words:[];
+      if(!words.length){ toast('没识别到英文单词，可手动输入主题'); return; }
+      const list=words.slice(0,20);
+      document.getElementById('rTopic').value='背诵单词：'+list.join('、');
+      document.getElementById('rSubject').value='english';
+      p().recites.unshift({id:uid(),date:today(),subject:'english',topic:'背诵单词：'+list.join('、'),isWords:true,words:list,content:'',reviews:0,nextDate:addDays(today(),1),status:'redo'});
+      save(); renderRecite(); renderDue();
+      activeReciteId=p().recites[0].id; practiceWrongId=null;
+      switchTab('buddy'); setBuddyMode('recite');
+      document.getElementById('chatInput').value=`我要背这些单词：${list.join(', ')}。请为每个单词给出：音标、中文意思、1个例句、1个记忆小窍门。格式严格一行一个：单词｜音标｜意思｜例句｜窍门`;
+      sendChat();
+    }catch(err){ toast('识别失败：'+err.message); }
+  });
+}
 function addRecite(){
   const topic = document.getElementById('rTopic').value.trim();
   if(!topic){ toast('填一下要背的主题'); return; }
@@ -1199,6 +1522,109 @@ function renderGrowth(){
   if(recDue) msgs.push(`今天有 ${recDue} 段背诵等你复习`);
   if(p().lastReview) msgs.push(`上次复盘：${p().lastReview.date.slice(5)}`);
   s.textContent = msgs.length ? msgs.join(' · ') : '还没有记录，先完成一次睡前复盘吧。';
+  renderWeakness();
+  renderExams();
+  renderGoal();
+  // 给家长端看的速览（随云同步下发）
+  p().coachSummary = {
+    date: today(),
+    asks: (p().asks && p().asks[today()]) || 0,
+    due, recDue,
+    stuck: (p().lastReview && p().lastReview.stuck) || '',
+    weakTop: (p().weakCache||[]).slice(0,3).map(x=>x.k+'('+x.done+'/'+x.total+')')
+  };
+}
+/* 薄弱点地图：三态（薄弱红/掌握中黄/已会绿）+ 科目掌握度总览（V1 知识账本） */
+function renderWeakness(){
+  const box = document.getElementById('weakList'); if(!box) return;
+  const ws = p().wrongs||[];
+  if(!ws.length){ box.innerHTML='<div class="muted" style="font-size:13px">还没有错题数据，记的错题越多，薄弱点地图越准。</div>'; p().weakCache=[]; return; }
+  /* 科目掌握度总览 */
+  const sub={};
+  ws.forEach(w=>{ const sn=SUBJECT[w.subject]?SUBJECT[w.subject][0]:'其他'; if(!sub[sn])sub[sn]={t:0,d:0}; sub[sn].t++; if(w.status==='done')sub[sn].d++; });
+  const subHtml = Object.keys(sub).map(sn=>{
+    const pct = Math.round(sub[sn].d/sub[sn].t*100);
+    return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+      <span style="width:36px;font-size:12px;color:var(--text-2,#666)">${sn}</span>
+      <div style="flex:1;height:10px;background:var(--line);border-radius:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:6px"></div></div>
+      <span class="hint" style="width:76px;text-align:right">${pct}% (${sub[sn].d}/${sub[sn].t})</span>
+    </div>`;
+  }).join('');
+  /* 知识点三态明细 */
+  const map = {};
+  ws.forEach(w=>{
+    const key = (w.kp && w.kp.trim()) ? w.kp.trim() : (SUBJECT[w.subject]?SUBJECT[w.subject][0]:'其他')+'·未标注';
+    if(!map[key]) map[key]={total:0, done:0, due:0};
+    map[key].total++;
+    if(w.status==='done') map[key].done++;
+    if(w.status==='redo' && w.nextDate && w.nextDate<=today()) map[key].due++;
+  });
+  const arr = Object.keys(map).map(k=>({k, ...map[k]})).sort((a,b)=> (b.total-b.done)-(a.total-a.done) || b.total-a.total).slice(0,8);
+  p().weakCache = arr;
+  box.innerHTML = `<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">科目掌握度</div>${subHtml}</div><div style="height:1px;background:var(--line);margin:10px 0"></div>` + arr.map(a=>{
+    const pct = Math.round(a.done/a.total*100);
+    /* 三态：全会=绿(已会) / 半数以上=黄(掌握中) / 其余=红(薄弱) */
+    const st = pct>=100 ? {c:'#0F6E56', label:'已会'} : pct>=50 ? {c:'#BA7517', label:'掌握中'} : {c:'var(--red)', label:'薄弱'};
+    return `<div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+        <span>${a.k} <span style="font-size:11px;color:${st.c};border:1px solid ${st.c};border-radius:8px;padding:0 6px">${st.label}</span></span>
+        <span class="hint">${a.done}/${a.total}${a.due?` · ⏰${a.due}待复习`:''}</span>
+      </div>
+      <div style="height:8px;background:var(--line);border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${st.c};border-radius:6px"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ===== V2：学期目标 + 大考记录 ===== */
+function saveGoal(){
+  const t = document.getElementById('goalText').value.trim();
+  p().goal = t;
+  save(); renderGoal(); toast(t?'目标已记下，教练会围着它帮你安排 🎯':'目标已清空');
+}
+function renderGoal(){
+  const g = p().goal||'';
+  const el = document.getElementById('goalShow'); if(!el) return;
+  const inp = document.getElementById('goalText'); if(inp && inp.value!==g) inp.value=g;
+  el.innerHTML = g?`当前目标：<b>${esc(g)}</b>`:'还没定学期目标，和爸爸妈妈一起定一个吧';
+}
+function renderExams(){
+  const box = document.getElementById('examList'); if(!box) return;
+  const ex = p().exams||[];
+  box.innerHTML = ex.length ? ex.slice(0,6).map((e,i)=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line)">
+      <span>${(e.date||'').slice(5)} ${esc(e.name||'考试')}</span>
+      <span style="display:flex;gap:8px;align-items:center"><b>${esc(e.score||'—')}</b>${e.rank?`<span class="hint">第${esc(e.rank)}名</span>`:''}<button class="btn btn-sm btn-ghost" style="padding:0 6px;color:var(--red)" onclick="delExam(${i})">×</button></span>
+    </div>`).join('') : '<div class="hint" style="font-size:12px">还没有大考记录。考完拍张成绩单，教练帮你盯趋势。</div>';
+}
+function addExam(){
+  const date = document.getElementById('exDate').value || today();
+  const name = document.getElementById('exName').value.trim();
+  const score = document.getElementById('exScore').value.trim();
+  if(!name && !score){ toast('填一下考试名或分数'); return; }
+  p().exams = p().exams||[];
+  p().exams.unshift({date, name, score, rank:''});
+  document.getElementById('exName').value=''; document.getElementById('exScore').value='';
+  save(); renderExams(); toast('已记录 📊');
+}
+function delExam(i){ p().exams.splice(i,1); save(); renderExams(); }
+async function onExamFile(e){
+  const file = e.target.files[0]; if(!file) return; e.target.value='';
+  compressImage(file, 900, async (dataUrl)=>{
+    toast('正在识别成绩单…');
+    try{
+      let key = state.key; if(!key){ await cloudAdoptKey(true); key=state.key; }
+      if(!key){ toast('请先在「我的」页填写 API Key'); return; }
+      const prompt = '这是成绩单/试卷照片。用 JSON 返回（不要多余文字）：{"date":"考试日期YYYY-MM-DD，看不出就空","name":"考试名称（如期中/期末/单元测），看不出填\'考试\'","score":"分数或等级","rank":"名次数字，看不出填空"}';
+      const raw = await callVision(dataUrl, prompt);
+      let obj=null; try{ obj=JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(_){}
+      if(obj && (obj.name||obj.score)){
+        p().exams = p().exams||[];
+        p().exams.unshift({date:obj.date||today(), name:obj.name||'考试', score:obj.score||'', rank:obj.rank||''});
+        save(); renderExams(); toast('成绩单已录入 ✓');
+      } else toast('没识别出成绩，试试手填');
+    }catch(err){ toast('识别失败：'+err.message); }
+  });
 }
 
 /* ===== 我的 ===== */
@@ -1233,8 +1659,24 @@ function contextLine(){
   const goal = state.active==='初一'
     ? '培养路径（内部参考，禁止向孩子提及）：按"福建中考高分 → 高中理科纵深发展"倒推，练习和讲解对齐福建省中考的难度与命题风格；孩子有好苗头（如竞赛思维）就具体表扬并自然加深。'
     : '培养路径（内部参考，禁止向孩子提及）：小学阶段按"习惯与兴趣 → 数感语感英语童子功 → 顺利衔接优质初中"倒推，难度控制在跳一跳够得着，重点护住自驱力和自信心。';
-  return `\n【学籍与教学要求】孩子在${SCHOOL_CTX[state.active]}。${goal}
+  const base = `【学籍与教学要求】孩子在${SCHOOL_CTX[state.active]}。${goal}
 【对孩子的语言铁律】全程只使用成长型语言：只谈方法、进步、好奇心和下一步的小目标；绝不主动提"清华/北大/名校/排名/清北"这类词，也不拿孩子和别人比较；孩子自己问到时，温和地把话题拉回"我们怎么把眼前这道题/这本书弄明白"。出题和讲解可结合厦门本地的教学节奏与福建省考试要求。`;
+  /* 知识账本注入：教练据此在合适时机主动补强弱项（内部参考，不得让孩子感到被贴标签） */
+  const L = p().ledger||{};
+  const weakPts = Object.keys(L).map(k=>L[k]).filter(x=>x.status!=='done' && x.kp)
+    .sort((a,b)=>(a.status==='weak'?0:1)-(b.status==='weak'?0:1) || (b.updatedAt||0)-(a.updatedAt||0)).slice(0,3);
+  const dueN = (p().wrongs||[]).filter(w=>w.status!=='done' && w.nextDate && w.nextDate<=today()).length;
+  let weakLine='';
+  const rv = p().lastReview;
+  const rvFresh = rv && rv.stuck && (!rv.date || rv.date>=addDays(today(),-7));
+  if(weakPts.length || rvFresh){
+    weakLine = `\n【孩子近期薄弱点（内部参考）】`;
+    if(weakPts.length) weakLine += weakPts.map(x=>x.kp+(x.status==='weak'?'（还比较薄弱）':'（基本掌握，可巩固）')).join('、')+'。';
+    if(rvFresh) weakLine += `上次睡前复盘孩子自己说卡在：「${String(rv.stuck).slice(0,60)}」。`;
+    if(dueN) weakLine += `今天另有 ${dueN} 项复习到期。`;
+    weakLine += `使用规则：①出变式题、举例、收尾追问时优先围绕这些点；②自然融入当前对话，不生硬转折，更不说"你很薄弱/你落后了"；③孩子连续做对相关题时真诚鼓励。`;
+  }
+  return base + weakLine;
 }
 function textbookLine(){
   const t = p().textbook;
@@ -1453,12 +1895,14 @@ function onWrongFile(e){
   const file = e.target.files[0]; if(!file) return;
   e.target.value='';
   compressImage(file, 900, async (dataUrl)=>{
+    pendingWrongImg = dataUrl;
     const btn = document.getElementById('btnSnap');
     btn.disabled=true; btn.textContent='🔍 识别中…';
     try{
-      const prompt = `请识别这张图片里的题目。用 JSON 格式返回（不要多余文字、不要 markdown 代码块），字段如下：
-{"subject":"科目（数学/语文/英语/物理/化学/生物/历史/地理/道法/其他，用中文）","desc":"题目或知识点的一句话概括","mistake":"如果图中看得出孩子做错的地方或可能的错因就写出来；没有就填空字符串","cause":"concept/careless/method/forget/other 之一"}
-如果图片里没有题目，subject 返回"其他"，desc 返回"未识别到题目"。`;
+      const prompt = `请识别这张图片里的【题目本身】，忽略老师打的勾、红笔批改痕迹、分数、排名等批注。
+用 JSON 返回（不要多余文字、不要 markdown 代码块），字段：
+{"subject":"科目（数学/语文/英语/物理/化学/生物/历史/地理/道法/其他，用中文）","desc":"题目或知识点的一句话概括（保留关键数字/条件）","kp":"这道题对应的【知识点标签】，用孩子能懂的短词，如"一元一次方程·去分母""分数除法""比喻修辞"，看不出就填空","mistake":"只有在能明确看到孩子自己写错的答案或推导时才填写错因；若只是老师批改痕迹或看不出错误，一律填空字符串","cause":"concept/careless/method/forget/other 之一，看不出就填 other"}
+如果图片里根本没有题目，subject 返回"其他"，desc 返回"未识别到题目"。`;
       const raw = await callVision(dataUrl, prompt);
       let obj=null;
       try{ obj = JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(_){}
@@ -1466,8 +1910,10 @@ function onWrongFile(e){
         const subMap = {'数学':'math','语文':'chinese','英语':'english','物理':'physics','化学':'chem','生物':'bio','历史':'hist','地理':'geo','道法':'politics','其他':'other'};
         if(subMap[obj.subject]) document.getElementById('wSubject').value = subMap[obj.subject];
         if(obj.desc && obj.desc!=='未识别到题目') document.getElementById('wDesc').value = obj.desc;
+        if(obj.kp) document.getElementById('wKp').value = obj.kp;
         if(obj.mistake) document.getElementById('wMistake').value = obj.mistake;
         if(['concept','careless','method','forget','other'].includes(obj.cause)) document.getElementById('wCause').value = obj.cause;
+        const pv=document.getElementById('wrongImgPrev'); if(pv) pv.innerHTML='<div style="margin-top:6px"><img src="'+dataUrl+'" style="max-height:120px;border-radius:8px;border:1px solid var(--line)"></div>';
         toast('识别完成，请核对后保存 ✓');
       } else {
         document.getElementById('wDesc').value = raw.trim().slice(0,200);
@@ -1502,21 +1948,44 @@ function onChatFile(e){
   compressImage(file, 900, async (dataUrl)=>{
     pushChat('user', dataUrl, 'image'); renderChat();
     const box = document.getElementById('chatBox');
-    box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">判题中…</div>');
-    box.scrollTop = box.scrollHeight;
     try{
-      const w = practiceWrongId ? p().wrongs.find(x=>x.id===practiceWrongId) : null;
-      const raw = await callVision(dataUrl, buildJudgePrompt(w));
-      const t = document.getElementById('typing'); if(t) t.remove();
-      pushChat('assistant', raw); renderChat(); speak(raw);
+      // 复习态：直接判题
       if(practiceWrongId){
-        document.querySelectorAll('.practice-done').forEach(el=>el.remove());
-        box.insertAdjacentHTML('beforeend', `<div class="practice-done" style="text-align:center;margin-top:8px"><button class="btn btn-sm btn-p" onclick="reviewWrong('${practiceWrongId}')">✅ 我练会了，完成本次复习</button></div>`);
-        box.scrollTop = box.scrollHeight;
+        box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">批改中…</div>'); box.scrollTop=box.scrollHeight;
+        const w = p().wrongs.find(x=>x.id===practiceWrongId)||null;
+        const raw = await callVision(dataUrl, buildJudgePrompt(w));
+        const t=document.getElementById('typing'); if(t)t.remove();
+        practicePassed = /答案\s*对/.test(raw) && !/答案\s*错/.test(raw); /* 批改通过才解锁完全掌握 */
+        pushChat('assistant', raw); renderChat(); speak(raw);
+        showPracticeDone(practiceWrongId);
+        return;
       }
+      // 答疑/引导类模式：带图引导（教练"看见"题，画图讲解，不再误判对错）
+      if(VISUAL_MODES.includes(buddyMode) && buddyMode!=='recite'){
+        box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">看图中…</div>'); box.scrollTop=box.scrollHeight;
+        let sys;
+        if(buddyMode==='socratic') sys=socraticSystem();
+        else if(buddyMode==='feynman') sys=feynmanSystem();
+        else if(buddyMode==='reading') sys=readingSystem();
+        else sys=socraticSystem();
+        sys += contextLine()+textbookLine()+'\n'+DRAW_HINT;
+        const raw = await callVision(dataUrl, sys+'\n\n孩子发来一张题目/作业的照片。请：①先一句话说清你看到了什么（题目、已知条件）；②用苏格拉底方式只提一个问题引导他思考，不要直接给答案；③需要画示意图/几何图/分数图时，用 ```svg 画图让他直观看懂；④回复最后另起一行，用【题目速记】开始、以【/题目速记】结束，一句话概括这道题的已知条件与所求（60字内，不含答案）。');
+        const t=document.getElementById('typing'); if(t)t.remove();
+        // 存题目速记：后续轮次转文字模型提速（轻量降级）
+        let shown = raw;
+        const jm = raw.match(/【题目速记】([\s\S]*?)【\/题目速记】/);
+        if(jm){ shown = raw.replace(/【题目速记】[\s\S]*?【\/题目速记】/,'').trim() || raw; }
+        pushChat('assistant', shown); renderChat(); speak(shown);
+        currentItem={img:dataUrl, desc:(jm?jm[1].trim().slice(0,150):''), subject:'', kp:'', updatedAt:Date.now()};
+        toast('图片已收进当前题目，接着问它就行 👀');
+        return;
+      }
+      // 其余模式：仅存图，作为上下文
+      currentItem={img:dataUrl, desc:'', subject:'', kp:'', updatedAt:Date.now()};
+      pushChat('assistant','📷 图片已收到，我们结合它继续～'); renderChat();
     }catch(err){
-      const t = document.getElementById('typing'); if(t) t.remove();
-      pushChat('assistant','（判题失败：'+err.message+'）'); renderChat();
+      const t=document.getElementById('typing'); if(t)t.remove();
+      pushChat('assistant','（看图失败：'+err.message+'）'); renderChat();
     }
   });
 }
@@ -1529,8 +1998,10 @@ function buildJudgePrompt(w){
 请严格按下面三步，用中文，语气平等、先肯定再引导：
 1. 判对错：先明确写"答案对 ✓"或"答案错 ✗"。
 2. 诊步骤：如果错了，指出具体是哪一步、什么原因（尽量结合他之前的错因）。
-3. 引导：不要直接给出正确答案或完整步骤，用一两个提问引导他自己发现并改正。
-如果图片看不清、或拍的不是解题过程，就请他重拍一张。`;
+3. 引导：不要直接给正确答案或完整步骤，用一两个提问引导他自己发现并改正。
+判图原则：除非图片完全无法辨认，否则都要基于可见内容尽力批改；字迹潦草、角度略偏、有涂抹都尽量识别，不要把"略模糊"当成"看不清"。
+如果题目涉及图形/几何/示意图，请在最后用 \`\`\`svg 代码块画一张简单、带标注的讲解图（只画关键图形与标注，不画多余装饰），用于直观给孩子讲解。
+如果图片确实完全无法辨认或拍的不是解题过程，才请他重拍一张。`;
 }
 
 /* ===== 睡前复盘·语音 ===== */
@@ -1622,18 +2093,36 @@ async function fillReviewFromText(text){
   if(obj.tomorrow) document.getElementById('rvTomorrow').value = obj.tomorrow;
 }
 
-/* ===== 语音对话 ===== */
+/* ===== 语音对话（无感纠音：说完即发，AI 按上下文自动理解同音字）===== */
+let pendingVoiceSend = false;
 function toggleVoice(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ toast('当前浏览器不支持语音，可用输入法自带麦克风'); return; }
   const btn = document.getElementById('btnVoice');
+  const input = document.getElementById('chatInput');
+  pendingVoiceSend = false;   // 重新开始录音则取消任何待发送
   if(btn._rec){ try{ btn._rec.stop(); }catch(_){} btn._rec=null; btn.textContent='🎤'; return; }
   const rec = new SR();
-  rec.lang='zh-CN'; rec.interimResults=false; rec.maxAlternatives=1;
-  btn._rec = rec; btn.textContent='🔴';
-  rec.onresult = e=>{ const t=e.results[0][0].transcript; btn.textContent='🎤'; btn._rec=null; const input=document.getElementById('chatInput'); input.value=t; sendChat(); };
+  rec.lang='zh-CN'; rec.interimResults=true; rec.continuous=true; rec.maxAlternatives=1;
+  btn._rec = rec; btn.textContent='🔴 说…';
+  let fin='';
+  rec.onresult = e=>{
+    let interim='';
+    for(let i=0;i<e.results.length;i++){ if(e.results[i].isFinal) fin+=e.results[i][0].transcript; else interim+=e.results[i][0].transcript; }
+    input.value = fin + interim;
+  };
   rec.onerror = e=>{ btn.textContent='🎤'; btn._rec=null; if(e.error!=='aborted' && e.error!=='no-speech') toast('没听清，再说一次？'); };
-  rec.onend = ()=>{ btn.textContent='🎤'; btn._rec=null; };
+  rec.onend = ()=>{
+    btn.textContent='🎤'; btn._rec=null;
+    if(fin.trim()){
+      input.value = fin.trim();
+      pendingVoiceSend = true;   // 标记语音来源，由 AI 结合上下文消歧
+      toast('已发送，AI 会按你意思理解（说错字也没关系）👌');
+      setTimeout(()=>{ if(pendingVoiceSend){ pendingVoiceSend=false; sendChat(); } }, 400);
+    } else {
+      toast('没听到内容，靠近一点再说一次？');
+    }
+  };
   try{ rec.start(); }catch(_){ toast('语音启动失败'); btn.textContent='🎤'; btn._rec=null; }
 }
 function toggleTTS(){
@@ -1645,13 +2134,62 @@ function toggleTTS(){
     try{ speechSynthesis.speak(u); }catch(_){}
   } else { toast('已关闭朗读'); try{ speechSynthesis.cancel(); }catch(_){} }
 }
+function stripForTTS(text){
+  if(!text) return '';
+  return String(text)
+    .replace(/<[^>]+>/g,' ')                                   // 去HTML标签
+    .replace(/https?:\/\/\S+/g,' ')                          // 去链接
+    .replace(/[`*_~>#]/g,' ')                                  // markdown符号
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{2460}-\u{24FF}\u{25A0}-\u{25FF}\u{FE0F}]/gu,' ')  // emoji/图标
+    .replace(/[✅❌⚠️📷📚🔍🤖✓×⏰💡⭐🔥👍👏🎉📌💯]/g,'')  // 常见图标字
+    .replace(/\s+/g,' ').trim();
+}
+/* ===== TTS 语音：自动挑最像真人的音色，中英文分段各用标准音（V1.5 语音优化） ===== */
+let _voicesCache=[];
+function refreshVoices(){ try{ _voicesCache = speechSynthesis.getVoices()||[]; }catch(_){ _voicesCache=[]; } }
+if(typeof speechSynthesis!=='undefined'){ refreshVoices(); try{ speechSynthesis.onvoiceschanged = refreshVoices; }catch(_){}}
+function pickVoice(lang){
+  const vs = _voicesCache.length ? _voicesCache : (refreshVoices(), _voicesCache);
+  if(!vs.length) return null;
+  const isEn = lang.indexOf('en')===0;
+  const pool = vs.filter(v=> v.lang && v.lang.replace('_','-').toLowerCase().indexOf(isEn?'en':'zh')===0);
+  if(!pool.length) return null;
+  const score = v=>{
+    const n=(v.name||'').toLowerCase(); let s=0;
+    if(/premium/.test(n)) s+=6; else if(/enhanced/.test(n)) s+=5; else if(/neural|natural/.test(n)) s+=4; else if(/google/.test(n)) s+=3; else if(/siri/.test(n)) s+=2;
+    if(isEn && /samantha|ava|allison|zoe|daniel|tessa/i.test(v.name)) s+=2;
+    if(!isEn && /tingting|ting-ting|yu-shu|shanshan|xiaoxiao|yunxi/i.test(v.name)) s+=2;
+    const vl=(v.lang||'').replace('_','-').toLowerCase();
+    if(isEn && vl==='en-us') s+=2;
+    if(!isEn && (vl==='zh-cn'||vl==='cmn-hans')) s+=2;
+    if(v.localService) s+=1;
+    return s;
+  };
+  return pool.sort((a,b)=>score(b)-score(a))[0]||null;
+}
 function speak(text){
   if(!state.tts) return;
   try{
     speechSynthesis.cancel();
-    const clean = text.replace(/[#*`>]/g,'').slice(0,400);
-    const u=new SpeechSynthesisUtterance(clean); u.lang='zh-CN'; u.rate=1.0;
-    speechSynthesis.speak(u);
+    const clean = stripForTTS(text).slice(0,500);
+    if(!clean) return;
+    /* 按中/英文分段：英文词句用标准美音朗读，中文用最自然的中文音色 */
+    const segs = clean.match(/[A-Za-z][A-Za-z'’\- ]*|[^A-Za-z]+/g)||[clean];
+    const parts=[]; let cur=null;
+    segs.forEach(s=>{
+      const lang = /^[A-Za-z]/.test(s)?'en-US':'zh-CN';
+      if(cur && cur.lang===lang) cur.t+=s;
+      else { cur={lang, t:s}; parts.push(cur); }
+    });
+    parts.forEach(pp=>{
+      if(!pp.t.trim()) return;
+      const u=new SpeechSynthesisUtterance(pp.t.trim());
+      u.lang=pp.lang;
+      const v=pickVoice(pp.lang); if(v) u.voice=v;
+      u.rate = pp.lang==='en-US'?0.92:1.0;
+      u.pitch = 1.0;
+      speechSynthesis.speak(u);
+    });
   }catch(_){}
 }
 
@@ -1730,7 +2268,7 @@ function saveCloudSettings(){
 }
 
 /* ===== 事件绑定 & 渲染 ===== */
-function renderAll(){ applyGradeStyle(); renderTasks(); renderDue(); renderChat(); renderWrong(); renderRecite(); renderGrowth(); renderMe(); }
+function renderAll(){ applyGradeStyle(); renderTasks(); renderDue(); renderChat(); renderWrong(); renderRecite(); renderGrowth(); renderMe(); renderTodayRoute(); }
 
 document.getElementById('profilePick').addEventListener('click', e=>{
   const b = e.target.closest('button'); if(b) switchProfile(b.dataset.grade);
