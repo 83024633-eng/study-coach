@@ -344,6 +344,13 @@ nav button.on{color:var(--accent); font-weight:600;}
       <button class="btn btn-sm btn-p" id="btnWeekPlan" onclick="genWeekPlan()">✨ 生成下周计划</button>
       <div id="weekPlanShow" class="muted" style="margin-top:8px"></div>
     </div>
+
+    <div class="card">
+      <h3>📊 本周诊断汇报</h3>
+      <div class="hint" style="margin-bottom:6px">教练基于知识账本、本周错因分布、背诵验收通过率、单词欠账，给一份诚实诊断：真实水平总评 → 最该补的 2 个点（附判断依据）→ 下周建议 → 给孩子的亮点表扬。每周一次，替代"凭感觉问 AI"。</div>
+      <button class="btn btn-sm btn-p" id="btnWeekDiag" onclick="genWeekDiagnosis()">📋 生成本周诊断</button>
+      <div id="diagShow" class="muted" style="margin-top:8px"></div>
+    </div>
   </section>
 
   <!-- 我的 -->
@@ -647,7 +654,30 @@ function conceptReview(enc){
     `教练，之前学会的「${l.kp}」到复习时间了，快考考我 🙋`);
 }
 
-/* 教练主动开场：今日路线（P0-3 主动编排） */
+/* 主动补强规则（P2 深水区·代码级决策，不靠AI自觉）：本周同一知识点错≥2次优先，其次账本薄弱里练错次数最多的 */
+function pickReinforce(){
+  const wk = addDays(today(),-7);
+  const cnt = {};
+  p().wrongs.forEach(w=>{
+    const kp = (w.kp&&w.kp.trim())||'';
+    if(kp && w.date>=wk) cnt[kp]=(cnt[kp]||0)+1;
+  });
+  let best=null;
+  Object.keys(cnt).forEach(k=>{ if(cnt[k]>=2 && (!best||cnt[k]>best.n)) best={kp:k, n:cnt[k]}; });
+  if(best) return {kp:best.kp, why:'本周已错 '+best.n+' 次'};
+  const weak = Object.values(p().ledger||{}).filter(x=>x.status==='weak'&&x.kp).sort((a,b)=>(b.hits||0)-(a.hits||0))[0];
+  if(weak && (weak.hits||0)>=2) return {kp:weak.kp, why:'账本标记薄弱，累计练错 '+(weak.hits||0)+' 次'};
+  return null;
+}
+/* 重点补强·3分钟小课：针对反复出错的知识点，教练带一次微补强 */
+function reinforceKp(enc){
+  const kp = decodeURIComponent(enc);
+  switchTab('buddy'); setBuddyMode('socratic');
+  sendChat(`【重点补强·3分钟小课】知识点「${kp}」最近反复出错。请带我做一个微补强：①用2-3句话重讲这个知识点的核心，专讲最容易踩坑的那个点；②立刻出一道即时小题让我做（不给答案）；③根据我的回答决定——对了再追问一个变式确认是真会，错了回到①换个例子再讲。最后诚实告诉我：这个点现在算不算过关，还差在哪。`,
+    `教练，「${kp}」我老是错，带我补强一下 🙋`);
+}
+
+/* 教练主动开场：今日路线（数据驱动决策版——不只报数，还给"今天最该干什么"） */
 function renderTodayRoute(){
   const box = document.getElementById('todayRoute'); if(!box) return;
   const st = GRADE_STYLE[state.active];
@@ -657,16 +687,21 @@ function renderTodayRoute(){
   const tasks = (TASKS[state.active]||[]).filter(t=>t.go && p().tasks[t.id]!==today());
   const dueW = p().wrongs.filter(w=>w.status==='redo'&&w.nextDate&&w.nextDate<=today());
   const dueR = (p().recites||[]).filter(r=>r.status==='redo'&&r.nextDate&&r.nextDate<=today());
+  const conceptDue = Object.values(p().ledger||{}).filter(l=>l.status==='done'&&l.nextDate&&l.nextDate<=today());
+  const reinforce = pickReinforce();
   const taskLeft = tasks.length;
   let html = `<div class="card" style="background:linear-gradient(135deg,var(--accent-bg),#fff);border-color:var(--accent)">
     <h3>${greet}，${name} 👋 今天这样安排</h3>`;
   const items=[];
+  if(reinforce) items.push(`🎯 重点补强：<b style="color:var(--red)">${esc(reinforce.kp)}</b>（${reinforce.why}，建议先做这个）`);
   if(dueW.length) items.push(`<b style="color:var(--red)">${dueW.length}</b> 道错题待复习`);
   if(dueR.length) items.push(`<b style="color:var(--red)">${dueR.length}</b> 段背诵待巩固`);
+  if(conceptDue.length) items.push(`<b>${conceptDue.length}</b> 个已会概念到防遗忘检查点`);
   if(taskLeft) items.push(`<b>${taskLeft}</b> 项今日任务`);
   if(!items.length) items.push('今天都清啦 🎉 想学点什么？点「搭子」挑一个');
   html += `<div style="font-size:14px;line-height:1.9;margin:6px 0">${items.map(x=>'· '+x).join('<br>')}</div>`;
   html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">`;
+  if(reinforce) html += `<button class="btn btn-sm" style="border-color:var(--red);color:var(--red)" onclick="reinforceKp('${encodeURIComponent(reinforce.kp).replace(/'/g,'%27')}')">🎯 补强「${esc(reinforce.kp).slice(0,8)}」</button>`;
   if(dueW.length||dueR.length) html += `<button class="btn btn-p btn-sm" onclick="switchTab('wrong')">📌 先复习(${dueW.length+dueR.length})</button>`;
   html += `<button class="btn btn-ghost btn-sm" onclick="switchTab('buddy');setBuddyMode('socratic')">💡 有题问教练</button>`;
   if(taskLeft) html += `<button class="btn btn-ghost btn-sm" onclick="switchTab('today')">✅ 做今日任务</button>`;
@@ -694,11 +729,13 @@ function renderDueBanner(){
   const box = document.getElementById('dueBanner'); if(!box) return;
   const dueW = p().wrongs.filter(w=>w.status==='redo'&&w.nextDate&&w.nextDate<=today());
   const dueR = (p().recites||[]).filter(r=>r.status==='redo'&&r.nextDate&&r.nextDate<=today());
-  const n = dueW.length + dueR.length;
+  const conceptN = Object.values(p().ledger||{}).filter(l=>l.status==='done'&&l.nextDate&&l.nextDate<=today()).length;
+  const n = dueW.length + dueR.length + conceptN;
   if(!n){ box.innerHTML=''; return; }
   const parts=[];
   if(dueW.length) parts.push(dueW.length+' 道错题');
   if(dueR.length) parts.push(dueR.length+' 项背诵待巩固');
+  if(conceptN) parts.push(conceptN+' 个概念回顾');
   box.innerHTML = `<div class="due-banner" onclick="switchTab('wrong')" style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#fff1f0,#ffe7e3);border:1.5px solid var(--red);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 10px rgba(220,60,60,.12)">
     <div style="font-size:24px">⏰</div>
     <div style="flex:1">
@@ -2027,6 +2064,52 @@ function renderWeekPlan(){
                       : '还没生成过。点上面按钮，教练根据薄弱点和错题数据编排一周。';
 }
 
+/* ===== 本周诊断汇报（P2 主动编排深水区）：散落数据 → 一份诚实诊断，代码级汇总，不靠AI自觉 ===== */
+function diagData(){
+  const vals = Object.values(p().ledger||{});
+  const weak = vals.filter(x=>x.status==='weak'&&x.kp).sort((a,b)=>(b.hits||0)-(a.hits||0)).slice(0,5)
+    .map(x=>x.kp+'（累计练错 '+(x.hits||0)+' 次）');
+  const wk = addDays(today(),-7);
+  const wrongs7 = p().wrongs.filter(w=>w.date>=wk);
+  const CN = {concept:'概念不清', careless:'粗心', method:'方法不会', forget:'忘了', other:'其他'};
+  const causeCnt = {};
+  wrongs7.forEach(w=>{ const c=CN[w.cause]||(w.cause||'未归类'); causeCnt[c]=(causeCnt[c]||0)+1; });
+  let checks=0, pass=0;
+  (p().recites||[]).forEach(r=>(r.checks||[]).forEach(c=>{checks++; if(c.pass) pass++;}));
+  const vm = p().vocabMiss||{};
+  const vmiss = Object.values(vm).reduce((a,b)=>a+(Array.isArray(b)?b.length:(typeof b==='number'?b:0)),0);
+  const rv = p().lastReview;
+  return [
+    '知识账本：薄弱 '+vals.filter(x=>x.status==='weak').length+' 个 / 巩固中 '+vals.filter(x=>x.status==='learning').length+' 个 / 已会 '+vals.filter(x=>x.status==='done').length+' 个',
+    weak.length?('最薄弱：'+weak.join('；')):'最薄弱：暂无标记',
+    '本周新错题 '+wrongs7.length+' 道'+(Object.keys(causeCnt).length?('，错因分布：'+Object.keys(causeCnt).map(k=>k+' '+causeCnt[k]+' 道').join('，')):''),
+    '背诵验收累计 '+pass+'/'+checks+' 次过关',
+    vmiss?('单词滚动欠账 '+vmiss+' 个'):'',
+    (rv&&rv.stuck)?('上次复盘孩子说卡在：「'+String(rv.stuck).slice(0,40)+'」'):''
+  ].filter(Boolean).join('\n');
+}
+async function genWeekDiagnosis(){
+  const btn=document.getElementById('btnWeekDiag'); const show=document.getElementById('diagShow');
+  if(!btn||!show) return;
+  btn.disabled=true; btn.textContent='⏳ 教练诊断中…';
+  try{
+    const r = await callAI([
+      {role:'system', content:'你是孩子的学习教练，正在依据后台数据给家长出一份诚实的本周学习诊断。严格按四段输出：①一句总评（真实水平，不粉饰不打击，数据少就明说"记录还不多，以下是初步观察"）；②最需要优先补的2个点，每个附判断依据（引用具体数据）；③下周建议：每天1件20分钟内的小事，排3-5天即可；④给孩子的亮点表扬（必须具体到数据里的事实）。全文300字内，用轻量markdown（**加粗**+换行），绝不提排名/清北/别人家孩子。'},
+      {role:'user', content:'本周数据：\n'+diagData()}
+    ], {tier:'pro', maxTokens:900, temp:0.5});
+    p().diagReport = {date: today(), text: r.trim()};
+    save(); renderWeekDiagnosis();
+    toast('本周诊断已生成，重点看"最该补的2个点" 📊');
+  }catch(e){ toast('生成失败：'+e.message); }
+  btn.disabled=false; btn.textContent='📋 生成本周诊断';
+}
+function renderWeekDiagnosis(){
+  const show=document.getElementById('diagShow'); if(!show) return;
+  const dr = p().diagReport;
+  show.innerHTML = dr ? renderAIHtml(dr.text)+'<div class="hint" style="margin-top:4px">生成于 '+dr.date+' · 数据不足时结论仅供参考，坚持记录两周后越来越准</div>'
+                      : '还没生成过。数据来自知识账本、错因归类、背诵验收和单词欠账——用得越久，诊断越准。';
+}
+
 /* ===== 成长 ===== */
 function renderGrowth(){
   document.getElementById('gStreak').textContent = p().streak||0;
@@ -2056,6 +2139,7 @@ function renderGrowth(){
   renderExams();
   renderGoal();
   try{ renderWeekPlan(); }catch(_){}
+  try{ renderWeekDiagnosis(); }catch(_){}
   // 给家长端看的速览（随云同步下发）
   p().coachSummary = {
     date: today(),
