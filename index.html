@@ -255,6 +255,12 @@ nav button.on{color:var(--accent); font-weight:600;}
       <button class="btn btn-p btn-block" id="btnAddRecite" style="margin-top:10px" data-page-node-id="jZQqgt7sMtFoTw4xtSBWLM">📚 开始背诵（口诀+导图+自测）</button>
     </div>
 
+    <div class="card">
+      <h3>📖 明日预习（5 分钟）</h3>
+      <div class="hint">明天要上新课？教练带你先走一遍：理关键点 → 标难点 → 定两个"带着进课堂的问题"。预习不是提前学会，是让明天听课有的放矢。</div>
+      <button class="btn btn-p btn-sm btn-block" style="margin-top:8px" onclick="startFlow('preview')">开始预习流程</button>
+    </div>
+
     <div class="card" data-page-node-id="MbRflGXFzBCHkh9B5jqaNV">
       <h3 data-page-node-id="rbExAi00gx40WiCA6k9CpU">📚 我的背诵内容（艾宾浩斯复习）</h3>
       <div id="reciteList" data-page-node-id="PhVZrpeiIzKfENwWy9jNQv"></div>
@@ -325,6 +331,12 @@ nav button.on{color:var(--accent); font-weight:600;}
       </div>
       <input type="file" id="examFile" accept="image/*" style="display:none" onchange="onExamFile(event)">
       <div class="hint" style="margin-top:6px">拍成绩单 AI 自动识别考试名和成绩；记录只进自己的档案，AI 对孩子永不提排名。</div>
+    </div>
+    <div class="card">
+      <h3>🗓️ 下周学习计划（教练编排）</h3>
+      <div class="hint" style="margin-bottom:6px">根据薄弱点地图、待巩固错题、背诵到期情况，自动排一周计划：每天 1-2 件小事，每件不超过 20 分钟，周日和孩子花 1 分钟过一遍。</div>
+      <button class="btn btn-sm btn-p" id="btnWeekPlan" onclick="genWeekPlan()">✨ 生成下周计划</button>
+      <div id="weekPlanShow" class="muted" style="margin-top:8px"></div>
     </div>
   </section>
 
@@ -732,7 +744,8 @@ function socraticSystem(){
 7. 语气平等简短，像靠谱学长学姐；用中文，可适度用表情。
 8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。
 9. 三阶引导结构（每轮尽量遵循）：①先点出"当前卡住的那一步"是什么 ②给 1 个具体小追问 ③末了出一道极简变式（一句话能说清），等孩子口述关键逻辑词再继续，绝不提前公布答案。
-10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导，绝不流露不耐烦。`;
+10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导，绝不流露不耐烦。
+11. 写作任务（作文/写话/读后感）引导纪律——像资深语文老师：①先审题：和孩子确认"写什么+必须覆盖哪几个要点+字数要求"，审清了才动笔；②再搭提纲：开头/中间/结尾各写什么、每段大约多少字（字数要求÷段数，中间段最厚）；③逐段写逐段反馈：先肯定该段具体亮点，再用放大镜追问帮他加细节（当时看到什么/听到什么/心里想什么/打个比方/举一件具体小事），一次只加厚一段，绝不替他写整段；④完成判定硬标准：字数没达标前绝不宣布"完成/可以誊写"；达标后还要对照要点清单逐条检查。`;
   }
   return `你是孩子的「AI 学习搭子」，陪一名四年级小学生。
 特点：
@@ -745,7 +758,8 @@ function socraticSystem(){
 7. 用中文，可适度用表情活跃气氛。
 8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。
 9. 三阶引导结构（每轮尽量遵循）：①先点出"当前卡住的那一步"是什么 ②给 1 个具体小追问 ③末了出一道极简变式（一句话能说清），等孩子口述关键逻辑词再继续，绝不提前公布答案。
-10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导。`;
+10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导。
+11. 写作任务（作文/写话/读后感）引导纪律——像温和又有要求的语文老师：①先审题：和他确认"要写什么+几个要点+要写多少字"，用他能复述的话讲清；②搭提纲：开头/中间/结尾各写什么、每段大约几句；③一段一段写，每段先夸具体亮点，再问"这里你还看到什么/听到什么/心里在想什么？能不能打个比方？"帮他自己加句子；④字数没够前绝不说"写完啦/可以抄了"，要说"还差一点，我们把XX这里再加一两句"；⑤他不知道写什么时给选项（看到的/听到的/想到的/打个比方/举一件小事），让他挑一个说。`;
 }
 function feynmanSystem(){
   return `现在孩子要当"小老师"，把今天学的一个知识点讲给你听。你扮演一个"没听懂、爱追问的学生"：
@@ -803,6 +817,14 @@ function readingSystem(){
 4. 当孩子讲得含糊时，追问一句让他再想，而不是替他总结。
 5. 引导孩子主动说出"想记下来的好句"，用 📝 开头的一句话标记；如果他已经说了一段，可以直接帮他提炼成一句金句。
 6. 一次只问一个问题，等孩子回答再问下一个，不要一次抛一堆。`;
+  const methods = `
+【阅读答题方法库·当孩子做阅读理解题卡壳、或问"这题怎么答"时使用，引导他套公式自己填，不替他答】
+- 概括题：谁 + 在什么情况下 + 做了什么 + 结果怎样（四要素缺一不可）；
+- 作用题：内容上写了什么 + 结构上（承上启下/铺垫/照应/设置悬念）+ 主旨上突出了什么（三步走）；
+- 含义题：表层意思（字面）+ 深层意思（情感/道理/作者意图）；
+- 赏析题：手法（比喻/拟人/动词/叠词…）+ 写出了什么内容 + 表达了什么情感（三要素缺一不可）；
+- 人物形象题：从语言/动作/神态/心理描写里找证据，句式"从 ___ 看出他 ___"。
+教法：先问孩子"这道题属于哪一类、该套哪个公式"，让他自己往公式里填；填不上来再给一个半成品示例做脚手架。`;
   /* 初一专属聚焦模式：精读一章 / 读后感（对齐中考阅读写作要求） */
   let focus = '';
   if(grade==='初一' && readingFocus==='deep'){
@@ -826,6 +848,7 @@ function readingSystem(){
 ${focus}
 【通用规则】
 ${commonRules}
+${methods}
 语气：${tone}。用中文。`;
 }
 
@@ -970,10 +993,10 @@ function submitBook(){
   document.getElementById('bTitle').value=''; document.getElementById('bAuthor').value='';
   document.getElementById('readingForm').style.display='none';
   save(); toast('已添加：《'+title+'》📖');
-  // 自动发一条开场
-  pushChat('user', `我开始读《${title}》${author?'（作者：'+author+'）':''}`);
-  renderChat();
-  setTimeout(()=>sendChat(), 100);
+  // 自动发一条开场（切到阅读搭子，走聊天输入通道统一发送）
+  switchTab('buddy'); setBuddyMode('reading');
+  const inp0=document.getElementById('chatInput');
+  if(inp0){ inp0.value=`我开始读《${title}》${author?'（作者：'+author+'）':''}`; sendChat(); }
 }
 function finishBook(){
   const book = (p().books||[]).find(b=>b.status==='reading');
@@ -981,9 +1004,8 @@ function finishBook(){
   book.status='finished'; book.finishedDate=today();
   save(); renderShortcuts();
   switchTab('buddy'); setBuddyMode('reading');
-  pushChat('user', `我把《${book.title}》读完了！来考考我吧`);
-  renderChat();
-  setTimeout(()=>sendChat(), 100);
+  const inp0=document.getElementById('chatInput');
+  if(inp0){ inp0.value='我把《'+book.title+'》读完了！来考考我吧'; sendChat(); }
 }
 function recordQuote(){
   const last = (p().chat[buddyMode]||[]).slice(-4);
@@ -1161,15 +1183,67 @@ function renderChat(){
   box.scrollTop = box.scrollHeight;
 }
 function pushChat(role, content, type){
+  /* 类型防护：非字符串内容一律规范化，绝不存 [object Object] 进聊天记录 */
+  if(type!=='image' && (typeof content!=='string')){
+    content = (content && typeof content==='object') ? (typeof content.content==='string'?content.content:typeof content.text==='string'?content.text:'') : String(content||'');
+  }
   const msgs = p().chat[buddyMode]||[];
   msgs.push({role, content, type, t:Date.now()});
   p().chat[buddyMode]=msgs; save();
 }
 let confusionStreak = 0; // 节奏自适应：连续卡住计数
+/* 教练法总纲：注入所有搭子模式的统一教学标准——改一处、全局生效（P0 系统治理） */
+const COACH_CORE = `
+【教练法总纲·所有模式必须遵守】
+① 先诊断再教：孩子提出问题或任务后，先用一个问题确认他当前的理解水平，再决定从哪一步开始教，不假设他会或不会。
+② 小步推进：每次只推进一小步，教完立刻用一个小问题当场检验，确认真懂了再继续；孩子说"会了"不算数，做出来/背出来/讲出来才算数。
+③ 诚实反馈（最重要）：表扬只针对具体事实，且必须配真实评估——哪里好、哪里还不够、按标准还差多少；孩子做得不到位就明说"这里还没达标"，绝不为了让孩子开心而降低标准、粉饰问题或宣布没达标的事"完成"。教练的诚实是对孩子最大的负责。
+④ 过程规范：数学必须写步骤（步骤分和答案一样重要），语文表达要完整成句，英语要开口说完整句。
+⑤ 只教会不代劳：可以示范一小段/一步，但绝不替孩子完成整个任务。`;
+/* 学科辅导框架：资深老师的学科打法，按学段区分（P1 学科引擎） */
+const FRAMEWORKS = {
+  math:{
+    g4:'【数学辅导框架·四年级】①读题：圈出已知条件和要求的问题，用自己的话复述题意；②表征：能画图的先画（线段图/示意图），能用列表的先列表；③列式：每一步都要说出"为什么这么算"（依据是什么），不许瞎列；④验算：算完必须验算（代入/逆运算/估算比范围）；⑤应用题按"找条件→想数量关系→列式→写答句"四步走。卡壳时把题目拆成最小一步，绝不替他列式。',
+    g7:'【数学辅导框架·初一】①审题圈条件，分清已知/所求/隐含条件；②代数题按"设→列→解→验→答"五步走，解方程等号对齐、步步有据；③有理数运算先定符号、再算绝对值；④几何题引导"从结论倒推"找思路；⑤卡壳先回到概念定义，不背套路。步骤分意识：过程规范和答案一样重要。'
+  },
+  chinese:{
+    g4:'【语文辅导框架·四年级】①字词：不会的字用部首+组词记忆，随手纳入积累；②阅读：按题型公式作答（概括/作用/含义/赏析/人物形象——见阅读方法库）；③作文：审题→提纲→逐段写，多用五感法和具体事例，好词好句要化用到自己作文里；④积累：每天一句好句摘抄，说清好在哪里。',
+    g7:'【语文辅导框架·初一】①现代文阅读答"观点+原文证据+分析"三段式；②文言文：实词靠一词多义积累，翻译用"留-补-换-调"四法；③作文：记叙文六要素完整、重细节与真情实感；议论文"论点+论据+论证"结构清晰；④名著对齐中考必读书目，边读边批注。'
+  },
+  english:{ common:'【英语辅导框架】①听说领先：新句型先听懂、敢开口说完整句，再谈写；②单词：按音节拆着记+放进句子里记（不背孤立单词），"词-句-景"三步；③语法（初一重点）：一个时态抓"形式-意义-使用场景"三要素，用例句对比学，不背干规则；④错了不打断，说完再无感纠音，错的悄悄进错题本滚动重现。' },
+  hist:{ common:'【历史记忆模板】任何历史事件按"背景（为什么会发生）→过程（时间/人物/经过）→结果→影响（当时+后世）"四格记；人物题抓"时代+事迹+作用"。口诀必须保留时间线锚点（朝代/世纪/年代）。辅导时先让孩子自己填四格，填不出的那格就是要补的重点。' },
+  geo:{ common:'【地理记忆模板】区域地理按"位置（纬度/海陆）→地形→气候→河流→资源→经济人文"六要素链条记，链条上有因果（如气候影响农业），引导孩子说"因为…所以…"；地图题先看图名/图例/方向三件事。' },
+  bio:{ common:'【生物记忆模板】按"结构→功能→过程"链条记：先记有什么结构，再说各结构干什么用，最后串成完整生理过程（如消化：口腔→胃→小肠每一步发生什么）；引导孩子用"结构决定功能"自查。' },
+  politics:{ common:'【道法记忆模板】问答题按"是什么（观点）→为什么（重要性/原因，答2-3点）→怎么做（分主体：对自己/对他人/对社会）"三段组织；背材料先圈关键词再连词成句。' },
+  physics:{ common:'【物理记忆模板】概念按"定义→公式→单位→生活实例"四件套记；实验抓"目的-器材-步骤-结论"；公式必须连适用条件一起记。' },
+  chem:{ common:'【化学记忆模板】物质按"组成→性质→用途"链条记；化学方程式的配平与条件符号是硬规范；大段记忆内容先用口诀压缩。' }
+};
+function subjectLine(text){
+  let sub = currentItem.subject || '';
+  if(!sub && text){
+    if(/方程|几何|分数|小数|应用题|有理数|整式|乘除|百分数|周长|面积/.test(text)) sub='math';
+    else if(/作文|阅读理解|古诗|文言文|造句|近义|反义|修辞|主旨|概括|好句/.test(text)) sub='chinese';
+    else if(/英语|单词|语法|时态|听力|口语|句型/.test(text)) sub='english';
+    else if(/历史|朝代|战争|古代|革命|条约/.test(text)) sub='hist';
+    else if(/地理|气候|地形|经纬|河流|大洲/.test(text)) sub='geo';
+    else if(/生物|细胞|光合|呼吸|消化|遗传/.test(text)) sub='bio';
+    else if(/道法|政治|法律|道德|国情/.test(text)) sub='politics';
+    else if(/物理|浮力|压强|电路|力学/.test(text)) sub='physics';
+  }
+  const fw = sub && FRAMEWORKS[sub]; if(!fw) return '';
+  const body = state.active==='初一' ? (fw.g7||fw.common) : (fw.g4||fw.common);
+  return '\n'+body+'\n（本次辅导按此学科框架执行：框架是教法打法，不要原样念给孩子听。）';
+}
 async function sendChat(hiddenQ, displayText){
   const input = document.getElementById('chatInput');
-  const text = hiddenQ || input.value.trim();
+  let text = hiddenQ || input.value.trim();
   if(!text) return;
+  /* 类型防护：任何对象/无效内容都不允许作为消息发出（防 [object Object]） */
+  if(typeof text!=='string'){
+    text = (text && typeof text==='object' && typeof text.content==='string') ? text.content
+         : (text && typeof text==='object' && typeof text.text==='string') ? text.text : '';
+  }
+  if(!text.trim() || text.trim()==='[object Object]'){ toast('这条消息没能正常生成，请重新说一次或打字输入'); if(!hiddenQ) input.value=''; return; }
   if(!hiddenQ) input.value='';
   // 背诵验收拦截：验收模式下，孩子这一条（打字或语音）就是背诵内容，直接对照原文判定
   // （放在主动提问计数之前：验收是程序引导的发言，不计入孩子内驱力温度计）
@@ -1189,6 +1263,24 @@ async function sendChat(hiddenQ, displayText){
     return;
   }
   pushChat('user', displayText || text); renderChat();
+  /* 写作任务检测：捕获字数等硬性要求（这是验收标准，必须锚定全程），并主动编排写作引导流程 */
+  if(!hiddenQ && /(作文|写话|周记|读后感|推荐一|介绍一)/.test(text) && text.length<120){
+    const wm = text.match(/(\d{2,4})\s*字\s*(以上|左右|以内)|不少于\s*(\d{2,4})\s*字|至少\s*(\d{2,4})\s*字/);
+    const words = wm ? parseInt(wm[1]||wm[3]||wm[4],10) : 0;
+    const old = p().writingGoal;
+    if(words && (!old || old.words!==words || old.task!==text.slice(0,50))){
+      p().writingGoal = {words: words, task: text.slice(0,60), best: (old&&old.best)||0, ts: Date.now()};
+      save();
+      pushChat('sys', `📌 收到任务要求：不少于 ${words} 字。这是硬标准，没达标我不会宣布完成～`);
+    } else if(!old && !words){
+      p().writingGoal = {words: 0, task: text.slice(0,60), best: 0, ts: Date.now()}; save();
+    }
+    if(!p().flow || p().flow.type!=='essay'){
+      startFlow('essay'); renderChat();
+      return; /* 写作流程接管，第一步（审题）已自动开始 */
+    }
+    /* 已在写作流程中：任务要求更新即可，本条消息走正常对话（带硬性要求注入） */
+  }
   const box = document.getElementById('chatBox');
   box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">正在想…</div>');
   box.scrollTop = box.scrollHeight;
@@ -1202,12 +1294,23 @@ async function sendChat(hiddenQ, displayText){
       const rc = activeReciteId ? (p().recites||[]).find(x=>x.id===activeReciteId) : null;
       if(rc && rc.text) sys += `\n【本次背诵的原文全文】《${rc.topic}》\n${rc.text.slice(0,1500)}\n口诀、思维导图、自测题都必须基于这份原文的真实内容，不要凭空编造。`;
       else if(rc && rc.isWords && rc.words) sys += `\n【本次要背的单词表】${rc.words.join('、')}`;
+      /* 学科记忆模板：小四科按学科结构组织口诀与导图（历史四格/地理六要素链/生物结构功能/道法三段式） */
+      const fwRec = rc && FRAMEWORKS[rc.subject];
+      if(fwRec) sys += '\n'+(fwRec.common||fwRec.g7||fwRec.g4)+'\n口诀和导图必须按上述学科记忆模板组织内容，验收自测也按模板逐格检查。';
     }
     else if(buddyMode==='reading') sys = readingSystem();
     else if(buddyMode==='thinking') sys = thinkingSystem();
     else if(buddyMode==='english') sys = englishSystem();
     else sys = interestSystem();
+    sys = COACH_CORE + sys; /* 统一教练标准层：所有模式生效 */
     sys += contextLine() + textbookLine();
+    /* 学科辅导框架：识别当前学科，按资深老师的学科打法辅导（答疑模式生效） */
+    if(buddyMode==='socratic') sys += subjectLine(text);
+    /* 写作任务锚定：字数要求是老师给硬验收标准，未达标绝不许宣布完成（防"200字夸成可以誊写"） */
+    const goal = p().writingGoal;
+    if(goal && Date.now()-goal.ts < 3*864e5){
+      sys += `\n【写作任务·硬性要求】任务：${goal.task}。字数要求：${goal.words?goal.words+'字':'未确认（如孩子没说过，先问老师要求是多少字）'}。当前已写最多约${goal.best||0}字。纪律：①草稿未达到字数要求前，严禁说"完成/可以誊写/写得够好了"，严禁用纯表扬收尾；②每次点评草稿，先报告当前约多少字、还差多少字，再给引导；③表扬只针对具体亮点，收尾必须落在"还差N字，接下来把哪一段怎么加厚"；④扩写给具体工具让孩子选：五感法（看到/听到/想到什么）、打比方、举一件具体小事、数字和颜色等细节、由景及情。`;
+    }
     /* 流程进行中：孩子的自由输入视为对当前步骤的回应，AI 不跑题、不抢跳步骤 */
     if(p().flow){
       const fd=FLOW_DEFS[p().flow.type];
@@ -1243,6 +1346,12 @@ async function sendChat(hiddenQ, displayText){
       model = VISION_MODEL; _mt=1400; _tp=0.6;
     } else {
       userTurn = text + itemCtx;
+      /* 草稿字数真实统计：长文本且存在写作任务时注入实测字数，杜绝AI瞎估字数 */
+      if(p().writingGoal && text.length>=80 && !currentItem.img){
+        const n = text.replace(/\s/g,'').length;
+        if(n > (p().writingGoal.best||0)){ p().writingGoal.best = n; }
+        userTurn += `\n[系统实测：孩子这条草稿约${n}字（含标点），累计最多约${p().writingGoal.best}字，任务要求${p().writingGoal.words||'?'}字。请基于此真实字数点评，不要自己估算]`;
+      }
       const tier = aiTier([{role:'system',content:sys}, ...history, {role:'user',content:userTurn}], {});
       model = aiModel(tier);
       _mt = tier==='pro'?2000:(tier==='light'?600:1200);
@@ -1551,6 +1660,16 @@ function delRecite(id){
   const i = (p().recites||[]).findIndex(x=>x.id===id); if(i>=0) p().recites.splice(i,1);
   save(); renderRecite(); renderDue();
 }
+/* 词汇滚动复习（SRS）：把验收中漏掉/说错的单词攒起来，一次带一个重考，过关清账 */
+function vocabReview(){
+  const V=p().vocabMiss||{}; const ws=Object.keys(V);
+  if(!ws.length){ toast('词汇没有欠账，都过关啦 🎉'); return; }
+  const list=ws.slice(0,12);
+  switchTab('buddy'); setBuddyMode('recite');
+  pushChat('sys','🔁 词汇滚动复习开始：共 '+list.length+' 个之前没记牢的单词，考完全对就清账');
+  const q='【教练内部指令，不要复述本段】词汇滚动复习。下面是孩子之前背错/漏过的单词：'+list.join('、')+'。请逐个考：先给出这个单词的中文意思（或一个中文短语提示），让孩子口头说出/拼出这个单词；他说对了就具体肯定并给下一个，说错了给他拆音节提示再试一次。一次只考一个单词，绝不要把单词列表一口气全列出来。全部考完后告诉他：去错题页对这份单词表再点一次「🎤 背诵验收」，正式过关后欠账就清掉。';
+  sendChat(q, '🔁 带我滚动复习之前没记住的单词（共'+list.length+'个）🙋');
+}
 /* ===== 引导式流程引擎：系统推步骤、AI 只做当前一步、按钮代替猜意图 ===== */
 const FLOW_DEFS = {
   recite:{
@@ -1595,6 +1714,36 @@ const FLOW_DEFS = {
         q:()=>`基于刚才的复盘内容，给孩子定明天的一个小目标（要小而具体、一天能完成），并用一句鼓励的话收尾。`},
     ],
     doneMsg:'今天的复盘完成，晚安！明天记得来看今日路线 🌙'
+  },
+  essay:{
+    title:'✍️ 写作引导流程', mode:'socratic', needRef:false,
+    ref:()=>null,
+    steps:[
+      {label:'审题', hint:'明确写什么、几个要点、多少字', mt:600,
+        q:()=>{ const g=p().writingGoal; return `我要完成写作任务：「${g?g.task:'见我刚才发的消息'}」${g&&g.words?`，要求${g.words}字`:''}。请带我审题：①用一句话说清题目要我做什么；②列出必须覆盖的要点清单（3-5条）；③${g&&g.words?'把'+g.words+'字换算成开头/中间/结尾各写多少字（中间段最厚）':'问清楚老师要求的字数是多少'}。最后让我自己复述一遍任务要求，确认我真的懂了。`; } },
+      {label:'选素材', hint:'写什么内容，亮点列出来', mt:500,
+        q:()=>`基于刚才审题的结果，用提问帮我选好具体内容（比如推荐哪个地方、写哪几件事），再帮我把亮点列成3-5条的清单。每个亮点都让我自己先说一句，不要替我写。`},
+      {label:'搭提纲', hint:'每段写什么、各占多少字', mt:500,
+        q:()=>`带我搭提纲：开头/中间/结尾各写什么，每段预计多少字（加起来要达到字数要求），列成一张简单的表格。让我确认后，提醒我开始写第一段。`},
+      {label:'我来写', hint:'打字或🎤说，写一段发一段', wait:true},
+      {label:'逐段加厚', hint:'教练带我加细节、够字数', mt:900,
+        q:()=>`我刚才写了草稿（见聊天记录）。请：①用系统提供的实测字数报告当前进度（当前约多少字/目标多少字，还差多少）；②具体表扬草稿里的亮点；③挑最值得加厚的一段，用放大镜追问（当时看到什么/听到什么/心里想什么/打个比方/举一件具体小事）引导我自己补写。一次只加厚一段，绝不替我写。`},
+      {label:'对照检查', hint:'字数+要点清单逐条过', mt:600,
+        q:()=>`带我对照检查这篇作文：①字数达到要求了吗？没达到就继续带我加厚，绝不宣布完成；②把审题时的要点清单逐条对照打勾；③挑1-2个错别字或病句，用提问引导我自己改。全部过关后才恭喜我完成。`},
+    ],
+    doneMsg:'作文达标啦！字数够了、要点清单也过了一遍，可以誊写到作文本上 🎉'
+  },
+  preview:{
+    title:'📖 明日预习流程', mode:'socratic', needRef:false,
+    ref:()=>null,
+    steps:[
+      {label:'定范围', hint:'告诉我：明天哪节课学什么？（打字/🎤说，也可以拍一页课本）', wait:true},
+      {label:'通读划重点', hint:'教练带你把新内容过一遍', mt:1000,
+        q:()=>`孩子说明了明天要学的内容（见聊天记录）。请带他预习：①用他听得懂的话列出这一课的3-5个关键点（如果他说得笼统，先引导他翻书确认课题再继续）；②标出预计最难的2个点，各用一句话点拨思路，不展开讲透（留给他课堂上学）；③新单词/新概念/新公式让他自己圈出来。一次只说一点，说完问一句"找到课本对应位置了吗"。`},
+      {label:'带着问题听课', hint:'定下明天课堂上最想弄懂的2个问题', mt:600,
+        q:()=>`基于刚才的预习，引导孩子自己提出2个"带着进课堂的问题"（这节课我最想弄懂的两件事）。帮他记下来，并告诉他：明天睡前复盘时告诉我老师讲的和自己想的一样不一样——对上了就说明预习成功，没对上正好补上。`},
+    ],
+    doneMsg:'预习完成！明天带着问题听课，效率翻倍 🌟'
   }
 };
 let flowLock=false;
@@ -1688,7 +1837,7 @@ ${String(original).slice(0,1500)}
 - 漏掉次要修饰词不算错。
 pass 判定：关键点基本完整、无明显错误即过关（约85分）。宁可放过，不可错怪——你是教练不是监考官，以鼓励为主。
 只输出 JSON（不要任何多余文字）：
-{"pass":true,"score":88,"praise":"先具体表扬背得好的地方，40字内","issues":[{"type":"漏了/背错/多背","detail":"最重要的问题+原文正确说法，最多2条，没有就空数组"}],"tip":"一条最实用的记忆提示，30字内"}`;
+{"pass":true,"score":88,"praise":"先具体表扬背得好的地方，40字内","issues":[{"type":"漏了/背错/多背","detail":"最重要的问题+原文正确说法，最多2条，没有就空数组"}],"tip":"一条最实用的记忆提示，30字内","missedWords":["漏掉或说错的单词，仅单词表背诵时提供，从原文单词表里挑，最多5个，全部正确就空数组"]}`;
 }
 async function checkReciteJudge(id, spoken){
   const r = p().recites.find(x=>x.id===id);
@@ -1709,6 +1858,12 @@ async function checkReciteJudge(id, spoken){
     const t=document.getElementById('typing'); if(t) t.remove();
     r.checks = r.checks||[];
     const key=today(); p().heat[key]=(p().heat[key]||0)+1;
+    if(obj && r.isWords){
+      /* 词汇 SRS：验收发现漏/错的单词记入欠账本；该表验收过关则清掉历史欠账 */
+      const V=p().vocabMiss=p().vocabMiss||{};
+      if(Array.isArray(obj.missedWords)) obj.missedWords.slice(0,8).forEach(w=>{ if(typeof w==='string'&&w.trim()) V[w.trim()]=true; });
+      if(obj.pass && Array.isArray(r.words)) r.words.forEach(w=>{ delete V[w]; });
+    }
     if(obj && typeof obj.pass==='boolean'){
       r.checks.push({date:today(), pass:obj.pass, score:obj.score||0});
       /* 注意：assistant 消息经 renderTextBlock 会转义HTML，这里用轻量markdown（**加粗**+换行） */
@@ -1775,6 +1930,7 @@ function renderRecite(){
       <div class="wrong-acts">
         ${hasText&&r.status!=='done'?`<button class="btn btn-sm btn-p" onclick="startFlow('recite','${r.id}')">🚀 帮背流程</button>`:''}
         ${hasText?`<button class="btn btn-sm ${r.status==='done'?'btn-p':'btn-ghost'}" onclick="checkRecite('${r.id}')">🎤 ${r.status==='done'?'再验一次':'背诵验收'}</button>`:''}
+        ${r.isWords&&Object.keys(p().vocabMiss||{}).length?`<button class="btn btn-sm btn-ghost" onclick="vocabReview()">🔁 滚动复习</button>`:''}
         ${r.status==='done'?`<button class="btn btn-sm btn-ghost" onclick="startFlow('recite','${r.id}')">🚀 帮背流程</button>`:''}
         <button class="btn btn-sm btn-ghost" onclick="reviewReciteAI('${r.id}')">🤖 复习一下</button>
         ${r.status!=='done'?`<button class="btn btn-sm btn-ghost" onclick="reviewRecite('${r.id}')">复习 ✓</button>`:''}
@@ -1782,6 +1938,37 @@ function renderRecite(){
       </div>
     </div>`;
   }).join('');
+}
+
+/* 下周学习计划：教练根据薄弱点/错题/背诵数据自动编排一周（P1 七科周计划） */
+function weekPlanData(){
+  const subjName = s=>(SUBJECT[s]||['其他'])[0];
+  const weak = Object.values(p().ledger||{}).filter(l=>l.status!=='done').map(l=>subjName(l.subject)+'的「'+l.kp+'」').slice(0,8);
+  const wrongBy = {}; p().wrongs.filter(w=>w.status!=='done').forEach(w=>{ wrongBy[subjName(w.subject)]=(wrongBy[subjName(w.subject)]||0)+1; });
+  const recite = (p().recites||[]).filter(r=>r.status!=='done').map(r=>subjName(r.subject)+'《'+r.topic+'》').slice(0,6);
+  return {weak: weak.length?weak.join('；'):'暂无记录', wrong: Object.keys(wrongBy).length?Object.keys(wrongBy).map(k=>k+' '+wrongBy[k]+' 道').join('，'):'暂无', recite: recite.length?recite.join('；'):'暂无', goal: p().goal||'未设定'};
+}
+async function genWeekPlan(){
+  const btn=document.getElementById('btnWeekPlan'); const show=document.getElementById('weekPlanShow');
+  if(!btn||!show) return;
+  btn.disabled=true; btn.textContent='⏳ 教练编排中…';
+  const d=weekPlanData();
+  try{
+    const r = await callAI([
+      {role:'system', content:'你是孩子的学习教练，擅长把复习安排做得小而具体、可执行。计划原则：①周一到周日，每天1-2件小事，每件不超过20分钟；②薄弱的学科多排，错题优先于刷新题；③任务写法可量化（"重做3道一元一次方程"而不是"复习数学"）；④对孩子友好但不奉承，周日排轻量+一句话总结本周。只输出"周一：…\n周二：…"到"周日：…"的列表，最后一行加一句给孩子的鼓励话。不要任何开场白。'},
+      {role:'user', content:'数据：\n薄弱点：'+d.weak+'\n待巩固错题：'+d.wrong+'\n背诵进行中：'+d.recite+'\n学期目标：'+d.goal}
+    ],{tier:'pro', maxTokens:1200, temp:0.5});
+    p().weekPlan = {date: today(), text: r.trim()};
+    save(); renderWeekPlan();
+    toast('下周计划已生成，和孩子一起过一遍吧 🗓️');
+  }catch(e){ toast('生成失败：'+e.message); }
+  btn.disabled=false; btn.textContent='✨ 生成下周计划';
+}
+function renderWeekPlan(){
+  const show=document.getElementById('weekPlanShow'); if(!show) return;
+  const wp = p().weekPlan;
+  show.innerHTML = wp ? renderAIHtml(wp.text) + '<div class="hint" style="margin-top:4px">生成于 '+wp.date+' · 执行中可以随时微调，下周日再生成新一周</div>'
+                      : '还没生成过。点上面按钮，教练根据薄弱点和错题数据编排一周。';
 }
 
 /* ===== 成长 ===== */
@@ -1812,6 +1999,7 @@ function renderGrowth(){
   renderWeakness();
   renderExams();
   renderGoal();
+  try{ renderWeekPlan(); }catch(_){}
   // 给家长端看的速览（随云同步下发）
   p().coachSummary = {
     date: today(),
@@ -2282,10 +2470,12 @@ function buildJudgePrompt(w){
     ctx = '\n这道题的原题是：「' + w.desc + '」' + (w.mistake ? '，孩子之前错在「' + w.mistake + '」' : '') + '。';
   }
   return `你是孩子的学习教练。孩子发来一张手写解题过程的照片，请帮他批改。${ctx}
-请严格按下面三步，用中文，语气平等、先肯定再引导：
+请严格按下面五步，用中文，语气平等、先肯定再引导：
 1. 判对错：先明确写"答案对 ✓"或"答案错 ✗"。
-2. 诊步骤：如果错了，指出具体是哪一步、什么原因（尽量结合他之前的错因）。
-3. 引导：不要直接给正确答案或完整步骤，用一两个提问引导他自己发现并改正。
+2. 按步骤给分：把他的解题过程按步骤拆开，逐步标 ✓/✗，给出步骤分（如"步骤分 8/10"），并明确指出**第一处出错的那一步**——后面的错往往由它引起，这是批改的关键。
+3. 错因归类：第一处错误属于哪一类——概念不懂/方法不会/计算失误/抄错看漏/跳步没写。诚实归类，是"不会"就不要归成"粗心"。
+4. 引导：不直接给正确答案或完整步骤，用一两个提问引导他自己回到第一处错误、发现并改正。
+5. 诚实评估：一句话总评真实水平（如"方法你会了，但计算准确率在拖后腿"），先说具体亮点，再指名最大的短板，不粉饰、不空夸。
 判图原则：除非图片完全无法辨认，否则都要基于可见内容尽力批改；字迹潦草、角度略偏、有涂抹都尽量识别，不要把"略模糊"当成"看不清"。
 如果题目涉及图形/几何/示意图，请在最后用 \`\`\`svg 代码块画一张简单、带标注的讲解图（只画关键图形与标注，不画多余装饰），用于直观给孩子讲解。
 如果图片确实完全无法辨认或拍的不是解题过程，才请他重拍一张。`;
@@ -2296,15 +2486,16 @@ function buildJudgePrompt(w){
 function voiceToField(fieldId, btn){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ toast('当前浏览器不支持语音识别，建议用 Safari 或 Chrome'); return; }
-  if(btn._rec){ try{ btn._rec.stop(); }catch(_){} return; } // onend 里复位按钮
+  if(btn._rec){ btn._userStop=true; try{ btn._rec.stop(); }catch(_){} return; } // onend 里复位按钮
   const ta = document.getElementById(fieldId);
   const rec = new SR();
   rec.lang='zh-CN'; rec.continuous=true; rec.interimResults=true;
   let base = ta.value.trim();
   if(base) base += /[。！？!?.\n]$/.test(base) ? '\n' : '。\n';
-  let finalTxt='';
-  btn._rec = rec; btn.classList.add('rec'); btn.textContent='⏹️';
+  let finalTxt=''; let carried=''; let interimLast='';
+  btn._rec = rec; btn._userStop=false; btn.classList.add('rec'); btn.textContent='⏹️';
   const finals=[]; /* 按下标记录已定稿结果，防止重复累积 */
+  const allText=()=> (carried + finals.filter(x=>x!==undefined).join('') + interimLast).trim();
   rec.onresult = e=>{
     let interim='';
     for(let i=0;i<e.results.length;i++){
@@ -2312,15 +2503,24 @@ function voiceToField(fieldId, btn){
       if(r.isFinal){ if(finals[i]===undefined) finals[i]=r[0].transcript; }
       else interim += r[0].transcript;
     }
-    finalTxt = finals.filter(x=>x!==undefined).join('');
+    interimLast = interim;
+    finalTxt = carried + finals.filter(x=>x!==undefined).join('');
     ta.value = base + finalTxt + interim;
   };
-  rec.onerror = e=>{ if(e.error!=='aborted' && e.error!=='no-speech') toast('识别出错了，再试一次？'); };
+  rec.onerror = e=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){ btn._userStop=true; toast('麦克风没权限，请在浏览器设置里允许'); } };
   rec.onend = ()=>{
+    /* 自动断开→自动续录（iOS 停顿/时长限制），已识别文字全保留；手动⏹️才结束 */
+    if(btn._rec===rec && !btn._userStop){
+      carried = allText();
+      if(carried) carried += ' ';
+      finals.length=0; interimLast='';
+      setTimeout(()=>{ if(btn._rec===rec && !btn._userStop){ try{ rec.start(); }catch(_){} } }, 250);
+      return;
+    }
     btn._rec=null; btn.classList.remove('rec'); btn.textContent='🎤';
-    if(!finalTxt.trim()) toast('没听到内容，靠近一点再说一次？');
+    if(!allText()) toast('没听到内容，靠近一点再说一次？');
   };
-  try{ rec.start(); }catch(_){ btn._rec=null; btn.classList.remove('rec'); btn.textContent='🎤'; toast('语音启动失败'); }
+  try{ rec.start(); }catch(_){ btn._rec=null; btn._userStop=true; btn.classList.remove('rec'); btn.textContent='🎤'; toast('语音启动失败'); }
 }
 // 语音复盘主流程：孩子自由说 → 停止后 AI 自动整理成三栏
 function voiceReview(){
@@ -2328,14 +2528,15 @@ function voiceReview(){
   if(!SR){ toast('当前浏览器不支持语音识别，建议用 Safari 或 Chrome'); return; }
   const btn = document.getElementById('btnVoiceReview');
   const st = document.getElementById('vrStatus');
-  if(btn._rec){ try{ btn._rec.stop(); }catch(_){} return; }
+  if(btn._rec){ btn._userStop=true; try{ btn._rec.stop(); }catch(_){} return; }
   const rec = new SR();
   rec.lang='zh-CN'; rec.continuous=true; rec.interimResults=true;
-  let finalTxt='';
-  btn._rec = rec;
+  let finalTxt=''; let carried=''; let interimLast='';
+  btn._rec = rec; btn._userStop=false;
   btn.textContent='⏹️ 说完了点这里，AI 开始整理';
   st.style.display='block'; st.textContent='正在听…想到哪说到哪，不用管顺序';
   const finals=[]; /* 按下标记录已定稿结果，防止重复累积 */
+  const allText=()=> (carried + finals.filter(x=>x!==undefined).join('') + interimLast).trim();
   rec.onresult = e=>{
     let interim='';
     for(let i=0;i<e.results.length;i++){
@@ -2343,13 +2544,23 @@ function voiceReview(){
       if(r.isFinal){ if(finals[i]===undefined) finals[i]=r[0].transcript; }
       else interim += r[0].transcript;
     }
-    finalTxt = finals.filter(x=>x!==undefined).join('');
+    interimLast = interim;
+    finalTxt = carried + finals.filter(x=>x!==undefined).join('');
     const all = finalTxt + interim;
     st.textContent = all.length>60 ? `正在听…已说 ${all.length} 字` : '正在听…'+all;
   };
-  rec.onerror = e=>{ if(e.error!=='aborted' && e.error!=='no-speech') toast('识别出错了，再试一次？'); };
+  rec.onerror = e=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){ btn._userStop=true; toast('麦克风没权限，请在浏览器设置里允许'); } };
   rec.onend = ()=>{
+    /* 自动断开→自动续录（孩子停顿思考不算说完），手动点⏹️才提交整理 */
+    if(btn._rec===rec && !btn._userStop){
+      carried = allText();
+      if(carried) carried += ' ';
+      finals.length=0; interimLast='';
+      setTimeout(()=>{ if(btn._rec===rec && !btn._userStop){ try{ rec.start(); }catch(_){} } }, 250);
+      return;
+    }
     btn._rec=null;
+    finalTxt = allText();
     if(!finalTxt.trim()){
       btn.textContent='🎤 语音说一遍，AI 自动帮你填';
       st.style.display='none';
@@ -2402,23 +2613,38 @@ function toggleVoice(){
   const btn = document.getElementById('btnVoice');
   const input = document.getElementById('chatInput');
   pendingVoiceSend = false;   // 重新开始录音则取消任何待发送
-  if(btn._rec){ try{ btn._rec.stop(); }catch(_){} btn._rec=null; btn.textContent='🎤'; return; }
+  if(btn._rec){ btn._userStop=true; try{ btn._rec.stop(); }catch(_){} btn._rec=null; btn.textContent='🎤'; return; }
   const rec = new SR();
   rec.lang='zh-CN'; rec.interimResults=true; rec.continuous=true; rec.maxAlternatives=1;
-  btn._rec = rec; btn.textContent='🔴 说…';
-  let fin='';
+  btn._rec = rec; btn._userStop=false; btn.textContent='🔴 说…';
+  let fin=''; let interimLast='';
   const finals=[]; /* 按下标记录已定稿结果，防止重复累积 */
   rec.onresult = e=>{
     let interim='';
     for(let i=0;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal){ if(finals[i]===undefined) finals[i]=r[0].transcript; } else interim+=r[0].transcript; }
+    interimLast = interim;
     fin = finals.filter(x=>x!==undefined).join('');
     input.value = fin + interim;
   };
-  rec.onerror = e=>{ btn.textContent='🎤'; btn._rec=null; if(e.error!=='aborted' && e.error!=='no-speech') toast('没听清，再说一次？'); };
+  rec.onerror = e=>{
+    /* no-speech（孩子停顿思考）不算致命：onend 里自动续录，绝不把半截话发出去 */
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){
+      btn._userStop=true; btn.textContent='🎤'; btn._rec=null; toast('麦克风没权限，请在浏览器设置里允许');
+    }
+  };
   rec.onend = ()=>{
+    /* iOS/Safari 会自动断开会话（停顿/时长限制）→ 自动续录，已识别文字累积保留；只有手动按⏹️才发送 */
+    if(btn._rec===rec && !btn._userStop){
+      fin = (fin + interimLast).trim();
+      if(fin) fin += ' ';
+      finals.length=0; interimLast='';
+      setTimeout(()=>{ if(btn._rec===rec && !btn._userStop){ try{ rec.start(); }catch(_){} } }, 250);
+      return;
+    }
     btn.textContent='🎤'; btn._rec=null;
-    if(fin.trim()){
-      input.value = fin.trim();
+    const all = (fin + interimLast).trim();
+    if(all){
+      input.value = all;
       pendingVoiceSend = true;   // 标记语音来源，由 AI 结合上下文消歧
       toast('已发送，AI 会按你意思理解（说错字也没关系）👌');
       setTimeout(()=>{ if(pendingVoiceSend){ pendingVoiceSend=false; sendChat(); } }, 400);
