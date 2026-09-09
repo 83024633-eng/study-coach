@@ -2142,7 +2142,7 @@ function focusCleanup(){
       dirty=true;
     }
   });
-  if(dirty) save();
+  if(dirty){ save(); if(window._focusTimer){ clearTimeout(window._focusTimer); window._focusTimer=null; } }
 }
 function focusProfileStats(){
   /* 按开始小时聚合：n=次数 rn=有评分次数 r=评分和 mins=总分钟 */
@@ -2180,21 +2180,52 @@ function renderFocusBanner(){
   const box=document.getElementById('focusBanner'); if(!box) return;
   const s=focusOpen();
   if(s){
-    const mins=Math.max(0,Math.round((Date.now()-s.ts)/60000));
-    box.innerHTML=`<div style="background:var(--accent-bg,#eef6ff);border:1px solid var(--accent,#3b82f6);border-radius:12px;padding:10px 12px;margin-bottom:8px">
-      <div style="font-size:13px"><b>🧘 本时段目标：</b>${esc(s.goal)} · 计划 ${s.plan} 分钟 · 已进行 <b>${mins}</b> 分钟</div>
-      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-        <button class="btn btn-p btn-sm" onclick="closeFocusSession()">完成 ✓ 评专注</button>
-        <button class="btn btn-ghost btn-sm" onclick="focusDiscard()">放弃本次</button>
-      </div></div>`;
+    const remainMs = s.plan*60000 - (Date.now()-s.ts);
+    if(remainMs > 0){
+      const leftMin = Math.max(1, Math.ceil(remainMs/60000));
+      const isLast5 = remainMs <= 5*60000;
+      box.innerHTML=`<div style="background:var(--accent-bg,#eef6ff);border:1px solid var(--accent,#3b82f6);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:13px"><b>⏳ 本时段目标：</b>${esc(s.goal)} · <b style="color:${isLast5?'#BA7517':'var(--accent-800,#1d4ed8)'}">还剩 ${leftMin} 分钟</b>${isLast5?'（快到啦，做完手头这步）':''}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button class="btn btn-p btn-sm" onclick="closeFocusSession()">完成 ✓ 评专注</button>
+          <button class="btn btn-ghost btn-sm" onclick="focusDiscard()">放弃本次</button>
+        </div></div>`;
+    }else{
+      box.innerHTML=`<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:12px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:13px"><b>⏰ 时间到！</b>「${esc(s.goal)}」的 ${s.plan} 分钟用完了，先评一下再休息～</div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-p btn-sm" onclick="closeFocusSession()">完成 ✓ 评专注</button>
+          <button class="btn btn-ghost btn-sm" style="background:#ffedd5;color:#9a3412;border-color:#fdba74" onclick="focusExtend()">再学 10 分钟</button>
+          <button class="btn btn-ghost btn-sm" onclick="focusDiscard()">放弃本次</button>
+        </div></div>`;
+    }
   }else{
     box.innerHTML=`<div style="background:#f4f7f4;border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="font-size:13px;flex:1;min-width:180px"><b>🧘 收心仪式：</b>10 秒深呼吸 + 定个小目标，学得更专注</div>
       <button class="btn btn-p btn-sm" onclick="openRitual()">开始收心</button></div>`;
   }
 }
+function focusScheduleTimer(){
+  if(window._focusTimer){ clearTimeout(window._focusTimer); window._focusTimer=null; }
+  const s=focusOpen(); if(!s) return;
+  const remain = s.plan*60000 - (Date.now()-s.ts);
+  if(remain > 30*1000) window._focusTimer=setTimeout(focusTimeUp, remain); /* 剩余太短不自动弹，横幅已显示时间到 */
+}
+function focusTimeUp(){
+  window._focusTimer=null;
+  if(!focusOpen()) return;
+  renderFocusBanner();
+  try{ toast('⏰ 目标时间到，先评一下再休息吧'); }catch(_){}
+  closeFocusSession(); /* 自动弹评分，补上"忘记评分"的闭环 */
+}
+function focusExtend(){
+  const s=focusOpen(); if(!s) return;
+  s.plan=(s.plan||25)+10;
+  save(); focusScheduleTimer(); renderFocusBanner();
+  toast('好，再战 10 分钟 💪');
+}
 const RIT_GOALS=['搞懂 1 道错题','背会 1 段内容','练 20 分钟计算','读 20 分钟书','复习今天的错题','预习明天的新课'];
-const RIT_TIDY=['收起手机/平板','清空桌面只留要学的','倒杯水放旁边'];
+const RIT_TIDY=['收起手机/平板','清空桌面只留要学的','喝个水/去个厕所'];
 function openRitual(){
   if(document.getElementById('ritualOverlay')) return;
   const wrap=document.createElement('div'); wrap.id='ritualOverlay';
@@ -2223,7 +2254,10 @@ function openRitual(){
       <div id="ritGoals" style="display:flex;gap:6px;flex-wrap:wrap">
         ${RIT_GOALS.map((g,i)=>`<button class="btn btn-ghost btn-sm" data-goal="${esc(g)}" onclick="ritPickGoal(this,'${esc(g).replace(/'/g,"\\'")}')">${g}</button>`).join('')}
       </div>
-      <input id="ritGoalCustom" placeholder="或自己写一个目标" style="margin-top:6px">
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+        <input id="ritGoalCustom" placeholder="或按🎤说一个目标" style="flex:1;min-width:0">
+        <button class="mic-mini" title="语音说目标" onclick="voiceToField('ritGoalCustom',this)">🎤</button>
+      </div>
       <div style="font-size:13px;font-weight:600;margin:12px 0 6px">计划学多久</div>
       <div id="ritPlans" style="display:flex;gap:6px">
         ${[15,25,40].map(m=>`<button class="btn btn-ghost btn-sm" data-plan="${m}" onclick="ritPickPlan(this,${m})">${m} 分钟</button>`).join('')}
@@ -2272,7 +2306,7 @@ function ritualStart(){
   const now=new Date();
   p().focusLog.push({d:today(), h:now.getHours(), ts:Date.now(), plan:r.plan||25, mins:0, r:0, goal, open:1});
   state.lastBuddyTs=Date.now();
-  save(); closeRitual(); renderFocusBanner();
+  save(); closeRitual(); renderFocusBanner(); focusScheduleTimer();
   toast('收心完成，目标已定 🎯 教练会陪你完成它');
 }
 function closeFocusSession(){
@@ -2299,6 +2333,7 @@ function focusRate(r){
   s.mins=Math.min(180, Math.max(1, Math.round((Date.now()-s.ts)/60000)));
   const t=today(); p().heat[t]=(p().heat[t]||0)+1;
   state.lastBuddyTs=Date.now();
+  if(window._focusTimer){ clearTimeout(window._focusTimer); window._focusTimer=null; }
   save(); closeRateOverlay(); renderFocusBanner(); renderGrowth();
   const msg=r===3?'😊 很专注，记下了！这种状态最值钱':r===2?'😐 一般也没关系，下次试试先做收心仪式':r===1?'🥱 走神很正常，教练把难任务换到你状态好的时段': '好，这次先不评';
   toast(msg);
@@ -2306,6 +2341,7 @@ function focusRate(r){
 function focusDiscard(){
   const s=focusOpen(); if(!s) return;
   s.open=0; s.r=0; s.mins=Math.min(180, Math.max(1, Math.round((Date.now()-s.ts)/60000)));
+  if(window._focusTimer){ clearTimeout(window._focusTimer); window._focusTimer=null; }
   save(); renderFocusBanner(); toast('已结束本次时段');
 }
 function maybeRitual(){
@@ -3414,7 +3450,8 @@ document.getElementById('chatFile').addEventListener('change', onChatFile);
 focusCleanup();
 renderAll();
 renderFocusBanner();
-setInterval(function(){ try{ renderFocusBanner(); }catch(_){} }, 60000); /* 横幅"已进行 N 分钟"每分钟刷新 */
+focusScheduleTimer(); /* 重新打开页面时，恢复未完成的倒计时 */
+setInterval(function(){ try{ renderFocusBanner(); if(!window._focusTimer) focusScheduleTimer(); }catch(_){} }, 60000); /* 横幅"还剩 N 分钟"每分钟刷新，并自愈定时器 */
 </script>
 
 <script>
