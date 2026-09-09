@@ -182,6 +182,7 @@ nav button.on{color:var(--accent); font-weight:600;}
   <section id="tab-buddy" data-page-node-id="9BSVNo60lutBZSgongzoV7">
     <div class="card" data-page-node-id="kzLZm38uXTVIEtk56uFUjH">
       <h3 data-page-node-id="ujOaH6rdB8Fq73s2IFXDGf">🤖 AI 搭子</h3>
+      <div id="focusBanner"></div>
       <div class="modebar" id="modebar">
         <button data-mode="socratic" class="on">苏格拉底答疑</button>
         <button data-mode="feynman">费曼小课堂</button>
@@ -316,6 +317,11 @@ nav button.on{color:var(--accent); font-weight:600;}
       <h3>🎯 薄弱点地图</h3>
       <div class="hint" style="margin-bottom:6px">教练把错题按"知识点"自动归类：红=薄弱 / 黄=掌握中 / 绿=已会。哪里弱，先攻哪里。</div>
       <div id="weakList"></div>
+    </div>
+    <div class="card">
+      <h3>🧠 专注力画像</h3>
+      <div class="hint" style="margin-bottom:6px">每次用「收心仪式」开始学习、结束时点一下评分，教练就知道孩子哪个时段最专注：难科目排进黄金时段，容易走神的时段只安排背诵、朗读这类轻任务。</div>
+      <div id="focusProfileBox"></div>
     </div>
     <div class="card">
       <h3>🗓️ 学期目标</h3>
@@ -496,6 +502,7 @@ function load(){
           pf.books = pf.books || [];
           pf.interests = pf.interests || [];
           pf.thinkingStats = pf.thinkingStats || {level:1,solved:0,history:[]};
+          pf.focusLog = pf.focusLog || [];
         });
         return merged;
       }
@@ -503,7 +510,7 @@ function load(){
   }catch(e){}
   return defaultState();
 }
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); cloudAutoPush(); }
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(_){ /* 预览沙箱禁写时不影响界面 */ } cloudAutoPush(); }
 function p(){ return state.profiles[state.active]; }
 
 function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1250,6 +1257,8 @@ function renderChat(){
   box.scrollTop = box.scrollHeight;
 }
 function pushChat(role, content, type){
+  /* 角色白名单：聊天记录只允许 user/assistant/sys 三种角色（sys 仅本地提示用，发API前会过滤），杜绝非法role毒化历史 */
+  if(role!=='user' && role!=='assistant' && role!=='sys') role='assistant';
   /* 类型防护：非字符串内容一律规范化，绝不存 [object Object] 进聊天记录 */
   if(type!=='image' && (typeof content!=='string')){
     content = (content && typeof content==='object') ? (typeof content.content==='string'?content.content:typeof content.text==='string'?content.text:'') : String(content||'');
@@ -1317,6 +1326,7 @@ async function sendChat(hiddenQ, displayText){
   const input = document.getElementById('chatInput');
   let text = hiddenQ || input.value.trim();
   if(!text) return;
+  state.lastBuddyTs = Date.now(); /* 专注力：记录最近活跃时间，30 分钟后再次进入会触发收心仪式 */
   /* 类型防护：任何对象/无效内容都不允许作为消息发出（防 [object Object]） */
   if(typeof text!=='string'){
     text = (text && typeof text==='object' && typeof text.content==='string') ? text.content
@@ -1417,7 +1427,9 @@ async function sendChat(hiddenQ, displayText){
       if(useVision) itemCtx += '这张照片是刚才拍的题（如有图请结合它持续引导）：[见附图]。';
       itemCtx += '请基于它持续引导，不要让孩子重新描述整道题。';
     }
-    const history = (p().chat[buddyMode]||[]).filter(m=>!m.type).slice(-10).map(m=>({role:m.role, content:m.content}));
+    /* 历史拼装：只允许 user/assistant 进API（sys 是本地提示角色，混进请求会被API拒收"role is invalid"，
+       且毒消息留在窗口内会导致后续每次请求全挂——这里过滤即自愈），content 强制字符串 */
+    const history = (p().chat[buddyMode]||[]).filter(m=>!m.type && (m.role==='user'||m.role==='assistant')).slice(-10).map(m=>({role:m.role, content:String(m.content||'')}));
     history.pop(); // 移除刚 push 的当前用户消息，下面以（可能多模态）形式重新追加
     let userTurn, model, _mt, _tp, base=(state.base||BASE).replace(/\/$/,'');
     if(useVision){
@@ -1647,7 +1659,7 @@ function renderWrong(){
 function snapRecite(){ const inp=document.getElementById('reciteFile'); if(inp) inp.click(); }
 function onReciteFile(e){
   const file=e.target.files[0]; if(!file) return; e.target.value='';
-  compressImage(file,1000,async (dataUrl)=>{
+  cropPicker(file, 1000,async (dataUrl)=>{
     toast('🔍 正在识别单词表…');
     try{
       const prompt='这是一张英语单词表或听写纸。请忽略老师的红笔批改、打勾、分数、中文注释，只提取需要背诵的英文单词（按原顺序、去重、最多30个）。只输出 JSON：{"words":["apple","book",...]}。如果没有英文单词，返回 {"words":[]}。不要任何多余文字。';
@@ -1689,7 +1701,7 @@ function addRecite(){
 function snapReciteText(){ const inp=document.getElementById('reciteTextFile'); if(inp) inp.click(); }
 function onReciteTextFile(e){
   const file=e.target.files[0]; if(!file) return; e.target.value='';
-  compressImage(file,1000,async (dataUrl)=>{
+  cropPicker(file, 1000,async (dataUrl)=>{
     toast('🔍 正在识别课文原文…');
     try{
       const prompt='这是孩子的课文/背诵材料照片。请完整提取需要背诵的原文文字（课文段落、古诗、文言文、知识点列表等），保持原文顺序和完整性，忽略老师的批改、页码、装饰图案。只输出原文本身，不要任何解释、标题或多余文字。';
@@ -2035,7 +2047,6 @@ function renderRecite(){
 
 /* 下周学习计划：教练根据薄弱点/错题/背诵数据自动编排一周（P1 七科周计划） */
 function weekPlanData(){
-  const subjName = s=>(SUBJECT[s]||['其他'])[0];
   const weak = Object.values(p().ledger||{}).filter(l=>l.status!=='done').map(l=>subjName(l.subject)+'的「'+l.kp+'」').slice(0,8);
   const wrongBy = {}; p().wrongs.filter(w=>w.status!=='done').forEach(w=>{ wrongBy[subjName(w.subject)]=(wrongBy[subjName(w.subject)]||0)+1; });
   const recite = (p().recites||[]).filter(r=>r.status!=='done').map(r=>subjName(r.subject)+'《'+r.topic+'》').slice(0,6);
@@ -2079,13 +2090,21 @@ function diagData(){
   const vm = p().vocabMiss||{};
   const vmiss = Object.values(vm).reduce((a,b)=>a+(Array.isArray(b)?b.length:(typeof b==='number'?b:0)),0);
   const rv = p().lastReview;
+  /* 专注力画像注入（内部参考） */
+  let focusDiag='';
+  const ratedFs=(p().focusLog||[]).filter(s=>s.r>=1);
+  if(ratedFs.length>=3){
+    const st=focusProfileStats();
+    focusDiag='专注力画像：已评 '+ratedFs.length+' 次'+(st.golden!=null?('，黄金时段 '+st.golden+' 点（均 '+st.goldenAvg.toFixed(1)+'/3）'):'')+(st.weakH!=null?('，'+st.weakH+' 点容易走神'):'')+'。建议安排任务时参考这个规律。';
+  }
   return [
     '知识账本：薄弱 '+vals.filter(x=>x.status==='weak').length+' 个 / 巩固中 '+vals.filter(x=>x.status==='learning').length+' 个 / 已会 '+vals.filter(x=>x.status==='done').length+' 个',
     weak.length?('最薄弱：'+weak.join('；')):'最薄弱：暂无标记',
     '本周新错题 '+wrongs7.length+' 道'+(Object.keys(causeCnt).length?('，错因分布：'+Object.keys(causeCnt).map(k=>k+' '+causeCnt[k]+' 道').join('，')):''),
     '背诵验收累计 '+pass+'/'+checks+' 次过关',
     vmiss?('单词滚动欠账 '+vmiss+' 个'):'',
-    (rv&&rv.stuck)?('上次复盘孩子说卡在：「'+String(rv.stuck).slice(0,40)+'」'):''
+    (rv&&rv.stuck)?('上次复盘孩子说卡在：「'+String(rv.stuck).slice(0,40)+'」'):'',
+    focusDiag
   ].filter(Boolean).join('\n');
 }
 async function genWeekDiagnosis(){
@@ -2110,7 +2129,227 @@ function renderWeekDiagnosis(){
                       : '还没生成过。数据来自知识账本、错因归类、背诵验收和单词欠账——用得越久，诊断越准。';
 }
 
-/* ===== 成长 ===== */
+/* ===== 专注力：收心仪式 + 时段画像 ===== */
+function focusSessions(){ const pf=p(); if(!pf.focusLog) pf.focusLog=[]; return pf.focusLog; } /* 自愈：云端旧档案无此字段时现场补上 */
+function focusOpen(){ return focusSessions().find(s=>s.open); }
+function focusCleanup(){
+  /* 超过 4 小时还开着的时段视为忘记结束：自动关账、不评分 */
+  let dirty=false;
+  focusSessions().forEach(s=>{
+    if(s.open && s.ts && Date.now()-s.ts > 4*3600*1000){
+      s.open=0; s.r=0;
+      s.mins = Math.min(s.plan||25, Math.round((Date.now()-s.ts)/60000));
+      dirty=true;
+    }
+  });
+  if(dirty) save();
+}
+function focusProfileStats(){
+  /* 按开始小时聚合：n=次数 rn=有评分次数 r=评分和 mins=总分钟 */
+  const byH={}; let total=0;
+  focusSessions().forEach(s=>{
+    total++;
+    const h=s.h|0;
+    if(!byH[h]) byH[h]={n:0,r:0,rn:0,mins:0};
+    byH[h].n++; byH[h].mins+=(s.mins||0);
+    if(s.r>=1){ byH[h].r+=s.r; byH[h].rn++; }
+  });
+  const cand=Object.keys(byH).map(Number).filter(h=>byH[h].rn>=2);
+  let golden=null, weakH=null;
+  if(cand.length){
+    let best=-1, worst=99;
+    cand.forEach(h=>{
+      const avg=byH[h].r/byH[h].rn;
+      if(avg>best){ best=avg; golden=h; }
+      if(avg<worst){ worst=avg; weakH=h; }
+    });
+    if(cand.length===1 && best>=2.5){ weakH=null; } /* 只有一个时段有把握时不说"走神时段" */
+    if(best-(weakH!=null?byH[weakH].r/byH[weakH].rn:0) < 0.3){ weakH=null; } /* 差距太小不算走神 */
+  }
+  return {byH, total, golden, goldenAvg: golden!=null? byH[golden].r/byH[golden].rn : 0, weakH};
+}
+function focusSummaryText(){
+  const st=focusProfileStats();
+  const rated=focusSessions().filter(s=>s.r>=1).length;
+  if(!rated) return '';
+  let t=`已评专注 ${rated} 次`;
+  if(st.golden!=null) t+=` · 黄金时段 ${st.golden} 点(${st.goldenAvg.toFixed(1)}/3)`;
+  return t;
+}
+function renderFocusBanner(){
+  const box=document.getElementById('focusBanner'); if(!box) return;
+  const s=focusOpen();
+  if(s){
+    const mins=Math.max(0,Math.round((Date.now()-s.ts)/60000));
+    box.innerHTML=`<div style="background:var(--accent-bg,#eef6ff);border:1px solid var(--accent,#3b82f6);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:13px"><b>🧘 本时段目标：</b>${esc(s.goal)} · 计划 ${s.plan} 分钟 · 已进行 <b>${mins}</b> 分钟</div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <button class="btn btn-p btn-sm" onclick="closeFocusSession()">完成 ✓ 评专注</button>
+        <button class="btn btn-ghost btn-sm" onclick="focusDiscard()">放弃本次</button>
+      </div></div>`;
+  }else{
+    box.innerHTML=`<div style="background:#f4f7f4;border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:13px;flex:1;min-width:180px"><b>🧘 收心仪式：</b>10 秒深呼吸 + 定个小目标，学得更专注</div>
+      <button class="btn btn-p btn-sm" onclick="openRitual()">开始收心</button></div>`;
+  }
+}
+const RIT_GOALS=['搞懂 1 道错题','背会 1 段内容','练 20 分钟计算','读 20 分钟书','复习今天的错题','预习明天的新课'];
+const RIT_TIDY=['收起手机/平板','清空桌面只留要学的','倒杯水放旁边'];
+function openRitual(){
+  if(document.getElementById('ritualOverlay')) return;
+  const wrap=document.createElement('div'); wrap.id='ritualOverlay';
+  wrap.innerHTML=`<div style="position:fixed;inset:0;background:rgba(17,17,20,.6);z-index:9998;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeRitual()">
+    <div style="background:#fff;border-radius:18px 18px 0 0;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:18px 16px 24px">
+      <div style="display:flex;align-items:center;margin-bottom:4px">
+        <b style="font-size:16px">🧘 学习收心仪式</b>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto;padding:2px 10px" onclick="closeRitual()">关闭</button>
+      </div>
+      <div class="hint" style="margin-bottom:12px">三步收心，共约 20 秒。做完直接开始，比坐下来刷十分钟手机再学强得多。</div>
+
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">① 深呼吸 10 秒</div>
+      <div id="ritBreathe" style="text-align:center;background:var(--accent-bg,#eef6ff);border-radius:14px;padding:16px">
+        <div id="ritCircle" style="width:74px;height:74px;border-radius:50%;background:var(--accent,#3b82f6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;margin:0 auto;transition:transform 1s ease">🎈</div>
+        <div id="ritBreatheTxt" style="font-size:13px;margin-top:8px;color:var(--muted)">跟着圆球：鼓起来吸气 · 瘦下去呼气</div>
+        <button class="btn btn-p btn-sm" id="ritBreatheBtn" style="margin-top:8px">开始 10 秒深呼吸</button>
+      </div>
+
+      <div style="font-size:13px;font-weight:600;margin:14px 0 6px">② 收心三件事</div>
+      <div id="ritTidy" style="display:flex;gap:6px;flex-wrap:wrap">
+        ${RIT_TIDY.map((t,i)=>`<button class="btn btn-ghost btn-sm" data-tidy="${i}" data-orig="${esc(t)}" onclick="this.classList.toggle('btn-p');this.textContent=(this.textContent.indexOf('✓')===0?'':'✓ ')+this.getAttribute('data-orig')">${t}</button>`).join('')}
+      </div>
+      <div class="hint" style="margin-top:4px">点一下打勾，不强制全勾</div>
+
+      <div style="font-size:13px;font-weight:600;margin:14px 0 6px">③ 定个小目标</div>
+      <div id="ritGoals" style="display:flex;gap:6px;flex-wrap:wrap">
+        ${RIT_GOALS.map((g,i)=>`<button class="btn btn-ghost btn-sm" data-goal="${esc(g)}" onclick="ritPickGoal(this,'${esc(g).replace(/'/g,"\\'")}')">${g}</button>`).join('')}
+      </div>
+      <input id="ritGoalCustom" placeholder="或自己写一个目标" style="margin-top:6px">
+      <div style="font-size:13px;font-weight:600;margin:12px 0 6px">计划学多久</div>
+      <div id="ritPlans" style="display:flex;gap:6px">
+        ${[15,25,40].map(m=>`<button class="btn btn-ghost btn-sm" data-plan="${m}" onclick="ritPickPlan(this,${m})">${m} 分钟</button>`).join('')}
+      </div>
+      <button class="btn btn-p btn-block" id="ritGo" style="margin-top:14px">🚀 开始学习</button>
+    </div></div>`;
+  document.body.appendChild(wrap);
+  window._rit={goal:'', plan:25};
+  /* 深呼吸 10 秒动画 */
+  const btn=document.getElementById('ritBreatheBtn'), cir=document.getElementById('ritCircle'), txt=document.getElementById('ritBreatheTxt');
+  let timer=null;
+  btn.onclick=()=>{
+    btn.style.display='none'; let left=10; let phase=0;
+    const step=()=>{
+      if(left<=0){
+        clearInterval(timer); cir.style.transform='scale(1)'; cir.textContent='✓';
+        txt.textContent='做完啦，心已经静下来了'; txt.style.color='#0F6E56';
+        return;
+      }
+      phase=1-phase;
+      cir.style.transform=phase?'scale(1.25)':'scale(0.85)';
+      txt.textContent=(phase?'吸气… ':'呼气… ')+left+' 秒';
+      left--;
+    };
+    step(); timer=setInterval(step,1000);
+  };
+  document.getElementById('ritGo').onclick=ritualStart;
+}
+function closeRitual(){ const ov=document.getElementById('ritualOverlay'); if(ov) ov.remove(); window._rit=null; }
+function ritPickGoal(el,g){
+  window._rit.goal=g;
+  document.getElementById('ritGoals').querySelectorAll('button').forEach(b=>b.classList.remove('btn-p'));
+  el.classList.add('btn-p');
+  const ci=document.getElementById('ritGoalCustom'); if(ci) ci.value='';
+}
+function ritPickPlan(el,m){
+  window._rit.plan=m;
+  document.getElementById('ritPlans').querySelectorAll('button').forEach(b=>b.classList.remove('btn-p'));
+  el.classList.add('btn-p');
+}
+function ritualStart(){
+  const r=window._rit||{goal:'',plan:25};
+  let goal=(document.getElementById('ritGoalCustom')||{}).value||'';
+  goal=goal.trim()||r.goal;
+  if(!goal){ toast('先选一个或写一个小目标吧'); return; }
+  const now=new Date();
+  p().focusLog.push({d:today(), h:now.getHours(), ts:Date.now(), plan:r.plan||25, mins:0, r:0, goal, open:1});
+  state.lastBuddyTs=Date.now();
+  save(); closeRitual(); renderFocusBanner();
+  toast('收心完成，目标已定 🎯 教练会陪你完成它');
+}
+function closeFocusSession(){
+  const s=focusOpen(); if(!s){ toast('当前没有进行中的学习时段'); return; }
+  if(document.getElementById('rateOverlay')) return;
+  const wrap=document.createElement('div'); wrap.id='rateOverlay';
+  wrap.innerHTML=`<div style="position:fixed;inset:0;background:rgba(17,17,20,.6);z-index:9998;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeRateOverlay()">
+    <div style="background:#fff;border-radius:18px 18px 0 0;max-width:560px;width:100%;padding:18px 16px 24px">
+      <b style="font-size:16px">🧘 这一时段学得专注吗？</b>
+      <div class="hint" style="margin:6px 0 12px">「${esc(s.goal)}」· 已进行 ${Math.max(0,Math.round((Date.now()-s.ts)/60000))} 分钟。诚实评，教练才知道把难任务排进你状态最好的时段。</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-p" style="flex:1;flex-direction:column;height:64px" onclick="focusRate(3)">😊<span style="font-size:12px">很专注</span></button>
+        <button class="btn btn-p" style="flex:1;flex-direction:column;height:64px;background:#f3f4f6;color:#374151;border:1px solid var(--line)" onclick="focusRate(2)">😐<span style="font-size:12px">一般</span></button>
+        <button class="btn btn-p" style="flex:1;flex-direction:column;height:64px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca" onclick="focusRate(1)">🥱<span style="font-size:12px">有点走神</span></button>
+      </div>
+      <button class="btn btn-ghost btn-sm btn-block" style="margin-top:10px" onclick="focusRate(0)">这次先不评了</button>
+    </div></div>`;
+  document.body.appendChild(wrap);
+}
+function closeRateOverlay(){ const ov=document.getElementById('rateOverlay'); if(ov) ov.remove(); }
+function focusRate(r){
+  const s=focusOpen(); if(!s){ closeRateOverlay(); return; }
+  s.open=0; s.r=r;
+  s.mins=Math.min(180, Math.max(1, Math.round((Date.now()-s.ts)/60000)));
+  const t=today(); p().heat[t]=(p().heat[t]||0)+1;
+  state.lastBuddyTs=Date.now();
+  save(); closeRateOverlay(); renderFocusBanner(); renderGrowth();
+  const msg=r===3?'😊 很专注，记下了！这种状态最值钱':r===2?'😐 一般也没关系，下次试试先做收心仪式':r===1?'🥱 走神很正常，教练把难任务换到你状态好的时段': '好，这次先不评';
+  toast(msg);
+}
+function focusDiscard(){
+  const s=focusOpen(); if(!s) return;
+  s.open=0; s.r=0; s.mins=Math.min(180, Math.max(1, Math.round((Date.now()-s.ts)/60000)));
+  save(); renderFocusBanner(); toast('已结束本次时段');
+}
+function maybeRitual(){
+  try{
+    if(document.getElementById('ritualOverlay')||document.getElementById('rateOverlay')) return;
+    if(focusOpen()) return;
+    const last=state.lastBuddyTs||0;
+    if(last && Date.now()-last < 30*60*1000) return; /* 30 分钟内刚活动过，不打扰 */
+    openRitual();
+  }catch(_){}
+}
+function renderFocusProfile(){
+  const box=document.getElementById('focusProfileBox'); if(!box) return;
+  const logs=focusSessions();
+  const rated=logs.filter(s=>s.r>=1);
+  if(!logs.length){
+    box.innerHTML='<div class="hint" style="font-size:12px">还没有记录。在「搭子」页点「开始收心」，学习结束评一次专注，3 次之后画像就准了。</div>';
+    return;
+  }
+  const st=focusProfileStats();
+  const rows=Object.keys(st.byH).map(Number).sort((a,b)=>a-b).map(h=>{
+    const o=st.byH[h];
+    const avg=o.rn? o.r/o.rn : 0;
+    const col = !o.rn ? '#9ca3af' : avg>=2.5 ? '#0F6E56' : avg>=1.8 ? '#BA7517' : 'var(--red)';
+    const label = !o.rn ? '未评' : avg.toFixed(1)+'/3';
+    const tag = h===st.golden?' <span style="font-size:11px;color:#0F6E56;border:1px solid #0F6E56;border-radius:8px;padding:0 6px">黄金</span>' : h===st.weakH?' <span style="font-size:11px;color:var(--red);border:1px solid var(--red);border-radius:8px;padding:0 6px">易走神</span>':'';
+    return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+      <span style="width:44px;font-size:12px;color:var(--text-2,#666)">${h}:00</span>
+      <div style="flex:1;height:10px;background:var(--line);border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(avg/3*100)||3}%;background:${col};border-radius:6px"></div></div>
+      <span class="hint" style="width:118px;text-align:right">${label} · ${o.n}次·${o.mins}分${tag}</span>
+    </div>`;
+  }).join('');
+  let tip='';
+  if(st.golden!=null){
+    tip=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:13px">✨ <b>黄金时段 ${st.golden}:00</b>（专注 ${st.goldenAvg.toFixed(1)}/3）→ 把最难的科目和新知识安排在这附近${st.weakH!=null?`；<b style="color:var(--red)">${st.weakH}:00 容易走神</b>，只排背诵、朗读、抄写这类轻任务`:''}。</div>`;
+  }else if(rated.length<3){
+    tip='<div class="hint" style="margin-top:8px">同个时段评满 2 次，教练就能找出黄金专注时段。目前评了 '+rated.length+' 次。</div>';
+  }else{
+    tip='<div class="hint" style="margin-top:8px">各时段表现差不多，继续记录观察。</div>';
+  }
+  box.innerHTML=rows+tip;
+}
+
+
 function renderGrowth(){
   document.getElementById('gStreak').textContent = p().streak||0;
   document.getElementById('gMastered').textContent = p().mastered||0;
@@ -2138,6 +2377,7 @@ function renderGrowth(){
   renderWeakness();
   renderExams();
   renderGoal();
+  try{ renderFocusProfile(); }catch(_){}
   try{ renderWeekPlan(); }catch(_){}
   try{ renderWeekDiagnosis(); }catch(_){}
   // 给家长端看的速览（随云同步下发）
@@ -2146,7 +2386,8 @@ function renderGrowth(){
     asks: (p().asks && p().asks[today()]) || 0,
     due, recDue,
     stuck: (p().lastReview && p().lastReview.stuck) || '',
-    weakTop: (p().weakCache||[]).slice(0,3).map(x=>x.k+'('+x.done+'/'+x.total+')')
+    weakTop: (p().weakCache||[]).slice(0,3).map(x=>x.k+'('+x.done+'/'+x.total+')'),
+    focus: focusSummaryText()
   };
 }
 /* 薄弱点地图：三态（薄弱红/掌握中黄/已会绿）+ 科目掌握度总览（V1 知识账本） */
@@ -2225,7 +2466,7 @@ function addExam(){
 function delExam(i){ p().exams.splice(i,1); save(); renderExams(); }
 async function onExamFile(e){
   const file = e.target.files[0]; if(!file) return; e.target.value='';
-  compressImage(file, 900, async (dataUrl)=>{
+  cropPicker(file, 900, async (dataUrl)=>{
     toast('正在识别成绩单…');
     try{
       let key = state.key; if(!key){ await cloudAdoptKey(true); key=state.key; }
@@ -2291,7 +2532,11 @@ function contextLine(){
     if(dueN) weakLine += `今天另有 ${dueN} 项复习到期。`;
     weakLine += `使用规则：①出变式题、举例、收尾追问时优先围绕这些点；②自然融入当前对话，不生硬转折，更不说"你很薄弱/你落后了"；③孩子连续做对相关题时真诚鼓励。`;
   }
-  return base + weakLine;
+  /* 本时段目标注入：收心仪式定下的目标，教练围绕它引导 */
+  let focusLine='';
+  const fo = focusOpen();
+  if(fo) focusLine = `\n【本时段目标】孩子刚通过收心仪式定下目标：「${fo.goal}」（计划 ${fo.plan} 分钟）。开场与引导都围绕这个目标展开，别跑偏；感觉孩子完成或快到时间时，提醒他点上方横幅的「完成 ✓」给专注度评分。`;
+  return base + weakLine + focusLine;
 }
 function textbookLine(){
   const t = p().textbook;
@@ -2509,7 +2754,7 @@ function snapWrong(){ document.getElementById('wrongFile').click(); }
 function onWrongFile(e){
   const file = e.target.files[0]; if(!file) return;
   e.target.value='';
-  compressImage(file, 900, async (dataUrl)=>{
+  cropPicker(file, 900, async (dataUrl)=>{
     pendingWrongImg = dataUrl;
     const btn = document.getElementById('btnSnap');
     btn.disabled=true; btn.textContent='🔍 识别中…';
@@ -2538,6 +2783,89 @@ function onWrongFile(e){
     btn.disabled=false; btn.textContent='📷 拍照识别错题';
   });
 }
+/* 学科名工具（全局）： conceptReview/diagData 等共用，避免局部定义导致 ReferenceError */
+function subjName(s){ return (SUBJECT[s]||['其他'])[0]; }
+/* ===== 拍照框选：拍完先框出要解答的那道题，不用手盖前后题 ===== */
+function imgToDataUrl(img, maxW, cb){
+  let w=img.width, h=img.height;
+  const scale = Math.min(1, maxW/Math.max(w,h));
+  w=Math.round(w*scale); h=Math.round(h*scale);
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  cv.getContext('2d').drawImage(img,0,0,w,h);
+  cb(cv.toDataURL('image/jpeg',0.8));
+}
+function cropPicker(file, maxW, cb){
+  const reader = new FileReader();
+  reader.onload = function(){
+    const img = new Image();
+    img.onload = function(){ showCropOverlay(img, maxW, cb); };
+    img.onerror = function(){ compressImage(file, maxW, cb); }; /* 解码失败降级：直接用原图 */
+    img.src = reader.result;
+  };
+  reader.onerror = function(){ compressImage(file, maxW, cb); };
+  reader.readAsDataURL(file);
+}
+function closeCrop(){ const ov=document.getElementById('cropOverlay'); if(ov) ov.remove(); }
+function showCropOverlay(img, maxW, cb){
+  closeCrop();
+  const vw = Math.min(window.innerWidth-36, 720);
+  const vh = window.innerHeight - 230;
+  const scale = Math.min(vw/img.width, vh/img.height);
+  const dw = Math.round(img.width*scale), dh = Math.round(img.height*scale);
+  const wrap = document.createElement('div');
+  wrap.id='cropOverlay';
+  wrap.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(17,17,20,.94);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px">
+      <div style="position:relative;z-index:10;color:#fff;font-size:14px;margin-bottom:10px;text-align:center">✂️ 手指在图上拖一个框，框住要解答的那道题<br><span style="font-size:12px;opacity:.75">不框选直接点「用整张图」也可以</span></div>
+      <div id="cropStage" style="position:relative;touch-action:none;cursor:crosshair;border-radius:8px;overflow:hidden">
+        <img src="${img.src}" style="display:block;width:${dw}px;height:${dh}px;pointer-events:none;user-select:none;-webkit-user-select:none">
+        <div id="cropRect" style="position:absolute;display:none;border:2px dashed #4ade80;border-radius:6px;box-shadow:0 0 0 200vmax rgba(0,0,0,.5);pointer-events:none"></div>
+      </div>
+      <div style="position:relative;z-index:10;display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center">
+        <button id="cropFull" style="padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;font-size:14px">用整张图</button>
+        <button id="cropCancel" style="padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;font-size:14px">重拍</button>
+        <button id="cropOk" style="padding:10px 18px;border-radius:10px;border:none;background:#4ade80;color:#063;font-weight:700;font-size:14px">✂️ 就框这个</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const stage = document.getElementById('cropStage'), rect = document.getElementById('cropRect');
+  let sx=0, sy=0, active=false, hasSel=false;
+  const pos = t=>{
+    const r = stage.getBoundingClientRect();
+    return { x: Math.min(Math.max(t.clientX-r.left,0), r.width), y: Math.min(Math.max(t.clientY-r.top,0), r.height) };
+  };
+  const draw = (a,b)=>{
+    const x=Math.min(a.x,b.x), y=Math.min(a.y,b.y), w=Math.abs(a.x-b.x), h=Math.abs(a.y-b.y);
+    rect.style.left=x+'px'; rect.style.top=y+'px'; rect.style.width=w+'px'; rect.style.height=h+'px';
+    rect.style.display='block';
+    return {x,y,w,h};
+  };
+  const down = p=>{ sx=p.x; sy=p.y; active=true; draw({x:sx,y:sy},{x:sx,y:sy}); };
+  const move = p=>{ if(!active) return; draw({x:sx,y:sy},p); hasSel=true; };
+  stage.addEventListener('touchstart', e=>{ e.preventDefault(); down(pos(e.touches[0])); }, {passive:false});
+  stage.addEventListener('touchmove',  e=>{ e.preventDefault(); move(pos(e.touches[0])); }, {passive:false});
+  stage.addEventListener('touchend',   ()=>{ active=false; });
+  stage.addEventListener('mousedown',  e=>{ down(pos(e)); });
+  stage.addEventListener('mousemove',  e=>{ move(pos(e)); });
+  stage.addEventListener('mouseup',    ()=>{ active=false; });
+  stage.addEventListener('mouseleave', ()=>{ active=false; });
+  const finish = dataUrl=>{ closeCrop(); cb(dataUrl); };
+  document.getElementById('cropFull').onclick = ()=>{ imgToDataUrl(img, maxW, finish); };
+  document.getElementById('cropCancel').onclick = ()=>{ closeCrop(); }; /* 不调cb = 放弃本次 */
+  document.getElementById('cropOk').onclick = ()=>{
+    const r = rect.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    if(!hasSel || r.width<12 || r.height<12){ imgToDataUrl(img, maxW, finish); return; } /* 框太小当整图 */
+    const nx = img.width  * (r.left - s.left) / s.width;
+    const ny = img.height * (r.top  - s.top ) / s.height;
+    const nw = img.width  * r.width  / s.width;
+    const nh = img.height * r.height / s.height;
+    const cs = Math.min(1, maxW/Math.max(nw,nh));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(nw*cs)); cv.height = Math.max(1, Math.round(nh*cs));
+    cv.getContext('2d').drawImage(img, nx, ny, nw, nh, 0, 0, cv.width, cv.height);
+    finish(cv.toDataURL('image/jpeg',0.85));
+  };
+}
 function compressImage(file, maxW, cb){
   const reader = new FileReader();
   reader.onload = function(){
@@ -2560,7 +2888,7 @@ function snapChat(){ document.getElementById('chatFile').click(); }
 function onChatFile(e){
   const file = e.target.files[0]; if(!file) return;
   e.target.value='';
-  compressImage(file, 900, async (dataUrl)=>{
+  cropPicker(file, 900, async (dataUrl)=>{
     pushChat('user', dataUrl, 'image'); renderChat();
     const box = document.getElementById('chatBox');
     try{
@@ -2584,7 +2912,10 @@ function onChatFile(e){
         else if(buddyMode==='reading') sys=readingSystem();
         else sys=socraticSystem();
         sys += contextLine()+textbookLine()+'\n'+DRAW_HINT;
-        const raw = await callVision(dataUrl, sys+'\n\n孩子发来一张题目/作业的照片。请：①先一句话说清你看到了什么（题目、已知条件）；②用苏格拉底方式只提一个问题引导他思考，不要直接给答案；③需要画示意图/几何图/分数图时，用 ```svg 画图让他直观看懂；④回复最后另起一行，用【题目速记】开始、以【/题目速记】结束，一句话概括这道题的已知条件与所求（60字内，不含答案）。');
+        const vPrompt = sys+'\n\n孩子发来一张题目/作业的照片。请：①先一句话说清你看到了什么（题目、已知条件）；②用苏格拉底方式只提一个问题引导他思考，不要直接给答案；③需要画示意图/几何图/分数图时，用 ```svg 画图让他直观看懂；④回复最后另起一行，用【题目速记】开始、以【/题目速记】结束，一句话概括这道题的已知条件与所求（60字内，不含答案）。';
+        let raw;
+        try{ raw = await callVision(dataUrl, vPrompt); }
+        catch(e1){ /* iOS Safari 偶发 Load failed（网络抖动/请求体大）：自动重试一次 */ await new Promise(r=>setTimeout(r,900)); raw = await callVision(dataUrl, vPrompt); }
         const t=document.getElementById('typing'); if(t)t.remove();
         // 存题目速记：后续轮次转文字模型提速（轻量降级）
         let shown = raw;
@@ -2600,7 +2931,7 @@ function onChatFile(e){
       pushChat('assistant','📷 图片已收到，我们结合它继续～'); renderChat();
     }catch(err){
       const t=document.getElementById('typing'); if(t)t.remove();
-      pushChat('assistant','（看图失败：'+err.message+'）'); renderChat();
+      pushChat('assistant','（看图没成功：网络抖了一下。已经自动重试过一次还不行，稍等几秒再拍一次就好～）'); renderChat();
     }
   });
 }
@@ -2956,7 +3287,7 @@ document.getElementById('profilePick').addEventListener('click', e=>{
   const b = e.target.closest('button'); if(b) switchProfile(b.dataset.grade);
 });
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-document.getElementById('modebar').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) setBuddyMode(b.dataset.mode); });
+document.getElementById('modebar').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b){ setBuddyMode(b.dataset.mode); maybeRitual(); } });
 document.getElementById('btnSend').addEventListener('click', sendChat);
 document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); } });
 document.getElementById('btnAddWrong').addEventListener('click', addWrong);
@@ -3029,7 +3360,7 @@ function onPaperFile(e){
   const file = e.target.files[0]; if(!file) return;
   e.target.value='';
   if(!paperState){ toast('请先出一份卷子'); return; }
-  compressImage(file, 1100, async (dataUrl)=>{
+  cropPicker(file, 1100, async (dataUrl)=>{
     document.getElementById('paperBox').insertAdjacentHTML('beforeend','<div class="hint" id="paperGrading" style="margin-top:8px">🔍 批改中，约十几秒…</div>');
     try{
       const [sn] = SUBJECT[paperState.subject]||['自测'];
@@ -3080,7 +3411,10 @@ document.getElementById('paperFile').addEventListener('change', onPaperFile);
 document.getElementById('btnSnapChat').addEventListener('click', snapChat);
 document.getElementById('chatFile').addEventListener('change', onChatFile);
 
+focusCleanup();
 renderAll();
+renderFocusBanner();
+setInterval(function(){ try{ renderFocusBanner(); }catch(_){} }, 60000); /* 横幅"已进行 N 分钟"每分钟刷新 */
 </script>
 
 <script>
