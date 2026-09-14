@@ -63,6 +63,8 @@ h3{font-size:14px; font-weight:600; margin:0 0 12px; color:var(--txt);}
 .btn:active{opacity:.75;}
 .btn-p{background:var(--accent); color:#fff;}
 .btn-ghost{background:#f1f3f7; color:#5f6673;}
+/* 选中态必须压过 ghost（收心仪式目标/时长/三件事的选中高亮），否则点击无变色反馈 */
+.btn.btn-p, .btn-ghost.btn-p{background:var(--accent); color:#fff; border-color:var(--accent);}
 .btn-sm{padding:6px 12px; font-size:13px; border-radius:8px;}
 .btn-block{width:100%;}
 input,textarea,select{
@@ -390,6 +392,8 @@ nav button.on{color:var(--accent); font-weight:600;}
       <input id="setModel" value="deepseek-v4-flash" data-page-node-id="cWHwtDPKmkV3dpTbXQQHx0">
       <label>攻坚模型（数学难题等自动切换，留空=始终用主力模型）</label>
       <input id="setProModel" value="glm-5" placeholder="如 glm-5 / kimi-k2.6">
+      <label>拍照识别模型（看图答疑/批改用，报"已被禁用"就换一个）</label>
+      <input id="setVisionModel" value="glm-4.5v" placeholder="如 glm-4.5v / gpt-4o-mini">
       <label data-page-node-id="TApSfGMgKkEHX9Pg3qiyIn">API Key</label>
       <input id="setKey" type="password" placeholder="sk-..." data-page-node-id="qNp6amgEbKbAZDpBrb5y6O">
       <div class="hint" id="aiUsageHint" style="margin-top:6px">今日 AI 用量：统计中…</div>
@@ -405,8 +409,11 @@ nav button.on{color:var(--accent); font-weight:600;}
       <input id="setSbUrl" placeholder="https://xxxx.supabase.co" data-page-node-id="AGDEUa92xCJzwYZTPROMmy">
       <label data-page-node-id="BwFnezWQCATxlcdAdioB7A">Supabase anon key</label>
       <input id="setSbKey" type="password" placeholder="eyJ..." data-page-node-id="ifTvvJ0H0YID7shm8ikcII">
-      <div class="hint" style="margin-top:6px" data-page-node-id="ehP7zQQLQSkmjsPn87TeHE">填好后数据会自动同步到云端，家长端（另一个 App 页面）就能看到成长看板。</div>
-      <button class="btn btn-p btn-block" id="btnSaveCloud" style="margin-top:12px" data-page-node-id="KcRjEtkW021UO0k0NlfuZ4">保存并测试同步</button>
+      <div class="hint" style="margin-top:6px" data-page-node-id="ehP7zQQLQSkmjsPn87TeHE">填好后数据会自动同步到云端，家长端（另一个 App 页面）就能看到成长看板。新设备登录会自动取回数据；换设备没看到旧数据时点下面「从云端取回」。</div>
+      <div class="wrong-acts" style="margin-top:10px">
+        <button class="btn btn-p btn-block" id="btnSaveCloud" data-page-node-id="KcRjEtkW021UO0k0NlfuZ4">保存并测试同步</button>
+        <button class="btn btn-ghost btn-block" id="btnCloudPull" style="margin-top:8px">⬇️ 从云端取回数据</button>
+      </div>
     </div>
     <div class="card" data-page-node-id="LDFF9eXX5MiQGFZd4AviVR">
       <h3 data-page-node-id="EJLNdViD65QBDAQIE4R3oE">数据</h3>
@@ -441,7 +448,7 @@ const LS_KEY = 'aiCoachData_v2';
 const BASE = 'https://autorouter.top/v1';
 const DEFAULT_KEY = ''; /* 安全：Key 不写入网页源码，由云同步加密下发（见 cloudAdoptKey） */
 const DEFAULT_MODEL = 'deepseek-v4-flash';
-const VISION_MODEL = 'glm-5v-turbo';
+const DEFAULT_VISION = 'glm-4.5v'; /* 拍照识别默认模型；glm-5v-turbo 已被中转站禁用，可在「我的」页改 */
 
 const GRADES = ['初一','四年级'];
 const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
@@ -478,7 +485,7 @@ function blankProfile(){
   return {name:'', wrongs:[], recites:[], reviews:{}, streak:0, lastDate:'', heat:{}, mastered:0, recMastered:0, tasks:{}, chat:{socratic:[],feynman:[],recite:[],reading:[],thinking:[],english:[],interest:[]}, books:[], interests:[], thinkingStats:{level:1,solved:0,history:[]}, lastReview:'', textbook:{}};
 }
 function defaultState(){
-  const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null};
+  const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', visionModel:DEFAULT_VISION, proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null};
   GRADES.forEach(g=>{ s.profiles[g]=blankProfile(); });
   s.profiles['初一'].name='大宝'; s.profiles['四年级'].name='小宝';
   return s;
@@ -493,6 +500,7 @@ function load(){
         const merged = Object.assign(def, s);
         /* Key 不再内置：本地没有时由 cloudAdoptKey 从私有云同步自动获取 */
         if(!merged.proModel || merged.proModel==='deepseek-v4') merged.proModel='glm-5'; /* deepseek-v4在中转站无可用渠道，自动迁移到glm-5 */
+        if(!merged.visionModel || merged.visionModel==='glm-5v-turbo') merged.visionModel=DEFAULT_VISION; /* glm-5v-turbo已被中转站禁用，自动迁移 */
         GRADES.forEach(g=>{
           const pf = merged.profiles[g];
           pf.recites = pf.recites || [];
@@ -503,6 +511,10 @@ function load(){
           pf.interests = pf.interests || [];
           pf.thinkingStats = pf.thinkingStats || {level:1,solved:0,history:[]};
           pf.focusLog = pf.focusLog || [];
+          pf.tasks = pf.tasks || {};
+          pf.wrongs = pf.wrongs || [];
+          pf.reviews = pf.reviews || {};
+          pf.heat = pf.heat || {};
         });
         return merged;
       }
@@ -1434,7 +1446,7 @@ async function sendChat(hiddenQ, displayText){
     let userTurn, model, _mt, _tp, base=(state.base||BASE).replace(/\/$/,'');
     if(useVision){
       userTurn = [{type:'text', text: text + itemCtx + '\n[附上刚才拍的题的照片]（若回复末尾还没有【题目速记】，请另起一行用【题目速记】一句话概括本题已知条件与所求，60字内，不含答案，以【/题目速记】结束）'}, {type:'image_url', image_url:{url:currentItem.img}}];
-      model = VISION_MODEL; _mt=1400; _tp=0.6;
+      model = visionModel(); _mt=1400; _tp=0.6;
     } else {
       userTurn = text + itemCtx;
       /* 草稿字数真实统计：长文本且存在写作任务时注入实测字数，杜绝AI瞎估字数 */
@@ -1644,7 +1656,7 @@ function renderWrong(){
       ${w.mistake?`<div class="wrong-m">我错在：${esc(w.mistake)}</div>`:''}
       ${w.status==='done'
         ? `<div class="wrong-due">已掌握 ✓</div>`
-        : `<div class="wrong-due ${dueSoon?'today':''}">${dueSoon?'⏰ 今天到期':('下次复习 '+w.nextDate.slice(5))}</div>`}
+        : `<div class="wrong-due ${dueSoon?'today':''}">${dueSoon?'⏰ 今天到期':(w.nextDate?('下次复习 '+w.nextDate.slice(5)):'待安排')}</div>`}
       <div class="wrong-acts">
         <button class="btn btn-sm btn-ghost" onclick="askAI('${w.id}')">🤖 直接出变式题</button>
         ${w.status!=='done'?`<button class="btn btn-sm btn-p" onclick="startFlow('wrong','${w.id}')">🚀 流程复盘</button>`:''}
@@ -2259,8 +2271,9 @@ function openRitual(){
         <button class="mic-mini" title="语音说目标" onclick="voiceToField('ritGoalCustom',this)">🎤</button>
       </div>
       <div style="font-size:13px;font-weight:600;margin:12px 0 6px">计划学多久</div>
-      <div id="ritPlans" style="display:flex;gap:6px">
+      <div id="ritPlans" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${[15,25,40].map(m=>`<button class="btn btn-ghost btn-sm" data-plan="${m}" onclick="ritPickPlan(this,${m})">${m} 分钟</button>`).join('')}
+        <input id="ritPlanCustom" type="number" inputmode="numeric" min="1" max="120" placeholder="自己填" style="width:86px" oninput="ritPlanCustomInput(this)">
       </div>
       <button class="btn btn-p btn-block" id="ritGo" style="margin-top:14px">🚀 开始学习</button>
     </div></div>`;
@@ -2297,14 +2310,26 @@ function ritPickPlan(el,m){
   window._rit.plan=m;
   document.getElementById('ritPlans').querySelectorAll('button').forEach(b=>b.classList.remove('btn-p'));
   el.classList.add('btn-p');
+  const pc=document.getElementById('ritPlanCustom'); if(pc) pc.value='';
+}
+function ritPlanCustomInput(el){
+  const v=parseInt(el.value,10);
+  if(v>=1 && v<=120){
+    window._rit.plan=v;
+    document.getElementById('ritPlans').querySelectorAll('button').forEach(b=>b.classList.remove('btn-p'));
+    el.style.borderColor='var(--accent)'; el.style.fontWeight='600';
+  }else{ el.style.borderColor=''; el.style.fontWeight=''; }
 }
 function ritualStart(){
   const r=window._rit||{goal:'',plan:25};
   let goal=(document.getElementById('ritGoalCustom')||{}).value||'';
   goal=goal.trim()||r.goal;
   if(!goal){ toast('先选一个或写一个小目标吧'); return; }
+  let plan=r.plan||25;
+  const pcv=parseInt((document.getElementById('ritPlanCustom')||{}).value,10);
+  if(pcv>=1) plan=Math.min(180,pcv); /* 自己填的时长优先 */
   const now=new Date();
-  p().focusLog.push({d:today(), h:now.getHours(), ts:Date.now(), plan:r.plan||25, mins:0, r:0, goal, open:1});
+  p().focusLog.push({d:today(), h:now.getHours(), ts:Date.now(), plan:plan, mins:0, r:0, goal, open:1});
   state.lastBuddyTs=Date.now();
   save(); closeRitual(); renderFocusBanner(); focusScheduleTimer();
   toast('收心完成，目标已定 🎯 教练会陪你完成它');
@@ -2525,6 +2550,8 @@ function renderMe(){
   document.getElementById('meProfile').innerHTML = `当前使用：<b>${st.emoji} ${st.label}</b>（切换在顶部）<br><span class="hint">🎯 学籍：${SCHOOL_CTX[state.active]} · AI 已对齐学籍、教材进度与福建省考试要求</span>`;
   document.getElementById('setBase').value = state.base||BASE;
   document.getElementById('setModel').value = state.model||DEFAULT_MODEL;
+  document.getElementById('setProModel').value = state.proModel||'glm-5';
+  document.getElementById('setVisionModel').value = state.visionModel||DEFAULT_VISION;
   document.getElementById('setKey').value = state.key||'';
   document.getElementById('setFamily').value = state.familyCode||'';
   document.getElementById('setSbUrl').value = (state.supabase&&state.supabase.url)||'';
@@ -2589,11 +2616,14 @@ function saveSettings(){
   state.base = document.getElementById('setBase').value.trim()||BASE;
   state.model = document.getElementById('setModel').value.trim()||DEFAULT_MODEL;
   state.proModel = (document.getElementById('setProModel')||{value:''}).value.trim();
+  const vm=(document.getElementById('setVisionModel')||{value:''}).value.trim();
+  state.visionModel = vm||DEFAULT_VISION;
   state.proCooldown = 0; /* 改了配置就清掉降级冷却，立即生效 */
   const k = document.getElementById('setKey').value.trim();
   if(k) state.key = k;
   save(); updateUsageHint(); toast('设置已保存');
 }
+function visionModel(){ return state.visionModel || DEFAULT_VISION; }
 function exportData(){
   const out = JSON.parse(JSON.stringify(state)); delete out.guard; /* 口令哈希不进备份 */
   const blob = new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
@@ -2767,7 +2797,7 @@ async function testAI(){
   }
   const out=['主力: '+await probe(main)];
   if(pro && pro!==main) out.push('攻坚: '+await probe(pro));
-  out.push('拍照: '+await probe(VISION_MODEL));
+  out.push('拍照: '+await probe(visionModel()));
   el.textContent=out.join(' ｜ ');
   btn.disabled=false; btn.textContent=orig;
 }
@@ -2777,7 +2807,7 @@ if(!state.key) cloudAdoptKey(true); /* 启动时本地无Key则自动从云端�
 async function callVision(base64DataUrl, prompt){
   const key = state.key; if(!key) throw new Error('请先在"我的"页填写 API Key');
   const base = (state.base||BASE).replace(/\/$/,'');
-  const data = await aiFetch(base, key, {model:VISION_MODEL, messages:[{role:'user', content:[
+  const data = await aiFetch(base, key, {model:visionModel(), messages:[{role:'user', content:[
     {type:'text', text:prompt},
     {type:'image_url', image_url:{url:base64DataUrl}}
   ]}], max_tokens:2000, temperature:0.3, stream:false});
@@ -3260,7 +3290,7 @@ async function cloudPush(silent){
     }else{
       // 自定义国内同步接口（EdgeOne Pages + KV）：PUT profiles + AI配置元数据（受家庭码保护）
       const payload = Object.assign({}, state.profiles);
-      if(state.key) payload.__sync = {aiKey:state.key, model:state.model||'', proModel:state.proModel||''}; /* 只有持有Key的设备才写meta，防止空Key覆盖 */
+      if(state.key) payload.__sync = {aiKey:state.key, model:state.model||'', proModel:state.proModel||'', visionModel:state.visionModel||''}; /* 只有持有Key的设备才写meta，防止空Key覆盖 */
       const res = await fetch(base+'?code='+encodeURIComponent(state.familyCode),{
         method:'PUT',
         headers:{'Content-Type':'application/json'},
@@ -3271,8 +3301,6 @@ async function cloudPush(silent){
     if(!silent) toast('同步成功 ☁️');
   }catch(e){ if(!silent) toast('同步失败：'+e.message); }
 }
-let _cloudTimer=null;
-function cloudAutoPush(){ if(!sbReady()) return; clearTimeout(_cloudTimer); _cloudTimer=setTimeout(()=>cloudPush(true), 800); }
 /* ===== Key 云端下发：填一次 Key，全家设备自动获取（家庭码保护） ===== */
 async function cloudFetchRaw(){
   const {url} = state.supabase; if(!url || !state.familyCode) return null;
@@ -3292,6 +3320,7 @@ async function cloudAdoptKey(silent){
     state.key = meta.aiKey;
     if(meta.model) state.model = meta.model;
     if(meta.proModel) state.proModel = meta.proModel;
+    if(meta.visionModel) state.visionModel = meta.visionModel;
     save();
     if(!silent) toast('已从云端自动获取 AI 配置 ✅');
     return true;
@@ -3306,8 +3335,9 @@ function saveCloudSettings(){
   if(url && fam && (key || !isSbUrl(url))){
     state.supabase = {url, key}; state.familyCode = fam;
     save();
-    toast('已保存，正在测试同步…');
-    cloudPush(false);
+    toast('已保存，正在从云端取回数据…');
+    /* 先拉后推：新设备配置时先把云端已有档案取回来，绝不能用本地空数据把云端覆盖掉 */
+    cloudPull(true).then(ok=>{ cloudPush(false); if(ok) toast('云端数据已取回 ✅'); });
   } else if(!url && !key && !fam){
     state.supabase={url:'',key:''}; state.familyCode='';
     save(); toast('已清除云端设置');
@@ -3315,6 +3345,78 @@ function saveCloudSettings(){
     toast(isSbUrl(url) ? '三项都要填，或全部留空清除' : '国内接口：地址+家庭码即可，Key 可留空');
   }
 }
+/* ===== 新设备数据取回：按档案合并（错题/背诵按 id 并集，进度取更优） ===== */
+function profileEmpty(pf){
+  return !pf || ((!pf.wrongs||!pf.wrongs.length) && (!pf.recites||!pf.recites.length) && (!pf.chat||Object.keys(pf.chat).every(k=>!pf.chat[k]||!pf.chat[k].length)));
+}
+async function cloudPull(silent){
+  if(!sbReady()) return false;
+  const data = await cloudFetchRaw();
+  if(!data || typeof data!=='object'){ if(!silent) toast('云端暂无数据'); return false; }
+  let merged=0;
+  Object.keys(data).forEach(g=>{
+    if(g==='__sync') return;
+    const R = data[g];
+    if(!R || typeof R!=='object') return;
+    if(!state.profiles[g]){ state.profiles[g]=R; merged++; return; }
+    const L = state.profiles[g];
+    if(profileEmpty(L) && !profileEmpty(R)){ Object.keys(R).forEach(k=>{ L[k]=R[k]; }); merged++; return; }
+    /* 双方都有数据：并集合并，绝不丢任何一边 */
+    if(Array.isArray(R.wrongs) && R.wrongs.length){
+      L.wrongs = L.wrongs||[];
+      const ids=new Set(L.wrongs.map(w=>w.id));
+      R.wrongs.forEach(w=>{ if(w.id && !ids.has(w.id)){ L.wrongs.push(w); ids.add(w.id); } });
+      L.wrongs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      merged++;
+    }
+    if(Array.isArray(R.recites) && R.recites.length){
+      L.recites = L.recites||[];
+      const ids=new Set(L.recites.map(r=>r.id));
+      R.recites.forEach(r=>{ if(r.id && !ids.has(r.id)){ L.recites.push(r); ids.add(r.id); } });
+      merged++;
+    }
+    ['mastered','recMastered','streak'].forEach(f=>{ if((R[f]||0)>(L[f]||0)) L[f]=R[f]; });
+    if(R.reviews) Object.keys(R.reviews).forEach(k=>{ L.reviews=L.reviews||{}; if(!L.reviews[k]) L.reviews[k]=R.reviews[k]; });
+    if(R.heat) Object.keys(R.heat).forEach(k=>{ L.heat=L.heat||{}; L.heat[k]=Math.max(L.heat[k]||0, R.heat[k]||0); });
+    if(R.textbook && !L.textbook) L.textbook=R.textbook;
+    if(R.writingGoal && !L.writingGoal) L.writingGoal=R.writingGoal;
+    if(R.lastReview && !L.lastReview) L.lastReview=R.lastReview;
+  });
+  if(merged){
+    /* 云端档案可能是旧版本缺新字段，统一自愈（与 load 迁移同款） */
+    GRADES.forEach(g=>{
+      const pf = state.profiles[g]; if(!pf) return;
+      pf.recites = pf.recites || [];
+      pf.recMastered = pf.recMastered || 0;
+      pf.chat = pf.chat || {};
+      ['socratic','feynman','recite','reading','thinking','english','interest'].forEach(k=>{ pf.chat[k]=pf.chat[k]||[]; });
+      pf.books = pf.books || [];
+      pf.interests = pf.interests || [];
+      pf.thinkingStats = pf.thinkingStats || {level:1,solved:0,history:[]};
+      pf.focusLog = pf.focusLog || [];
+      pf.tasks = pf.tasks || {};
+      pf.wrongs = pf.wrongs || [];
+      pf.reviews = pf.reviews || {};
+      pf.heat = pf.heat || {};
+    });
+    save(); try{ renderAll(); }catch(_){}
+    if(!silent) toast('已从云端取回 '+merged+' 项数据 ✅');
+  }
+  else if(!silent) toast('本地数据已是最新');
+  return merged>0;
+}
+async function cloudGuardPush(){
+  /* 防覆盖保护：本地档案全空而云端有数据时不推送（典型场景：新设备刚配好还没拉取） */
+  if(!sbReady()) return;
+  const grades=GRADES||Object.keys(state.profiles);
+  const allEmpty = grades.every(g=>profileEmpty(state.profiles[g]));
+  if(!allEmpty){ cloudPush(true); return; }
+  const remote = await cloudFetchRaw();
+  const remoteHas = remote && Object.keys(remote).some(k=>k!=='__sync' && remote[k] && !profileEmpty(remote[k]));
+  if(remoteHas){ await cloudPull(true); } else { cloudPush(true); }
+}
+let _cloudTimer=null;
+function cloudAutoPush(){ if(!sbReady()) return; clearTimeout(_cloudTimer); _cloudTimer=setTimeout(cloudGuardPush, 800); }
 
 /* ===== 事件绑定 & 渲染 ===== */
 function renderAll(){ applyGradeStyle(); renderTasks(); renderDue(); renderChat(); renderWrong(); renderRecite(); renderGrowth(); renderMe(); renderTodayRoute(); }
@@ -3332,6 +3434,7 @@ document.getElementById('btnSaveReview').addEventListener('click', submitReview)
 document.getElementById('btnGenPlan').addEventListener('click', genPlan);
 document.getElementById('btnSaveSet').addEventListener('click', ()=>askGuard('修改 AI 接入设置', saveSettings));
 document.getElementById('btnSaveCloud').addEventListener('click', ()=>askGuard('修改云端同步', saveCloudSettings));
+document.getElementById('btnCloudPull').addEventListener('click', ()=>askGuard('从云端取回数据', ()=>cloudPull(false)));
 document.getElementById('btnExport').addEventListener('click', ()=>askGuard('导出备份', exportData));
 document.getElementById('btnClear').addEventListener('click', ()=>askGuard('清空当前档案', clearData));
 document.getElementById('btnGuardSet').addEventListener('click', ()=>askGuard('设置/修改家长口令', async ()=>{ if(await setupGuard()){} }));
@@ -3452,6 +3555,7 @@ renderAll();
 renderFocusBanner();
 focusScheduleTimer(); /* 重新打开页面时，恢复未完成的倒计时 */
 setInterval(function(){ try{ renderFocusBanner(); if(!window._focusTimer) focusScheduleTimer(); }catch(_){} }, 60000); /* 横幅"还剩 N 分钟"每分钟刷新，并自愈定时器 */
+if(sbReady()) cloudPull(true); /* 新设备打开时自动取回云端档案（按档案合并，不覆盖本地新数据） */
 </script>
 
 <script>
