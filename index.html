@@ -814,11 +814,29 @@ const MODE_DESC = {
 /* 当前正在做的题（P0-1：贯穿上下文，让教练"看见"孩子手上的题） */
 let currentItem = {img:'', imgs:[], desc:'', essay:'', subject:'', kp:'', updatedAt:0};
 function freshItem(){ return {img:'', imgs:[], desc:'', essay:'', subject:'', kp:'', updatedAt:0}; }
-/* 多图并入（作文多页场景），最多保留最近3张；imgs[0] 同步给 img 兼容旧逻辑 */
+/* 多图并入（作文多页场景），最多保留最近4张；imgs 末张 同步给 img 兼容旧逻辑 */
 function itemAddImg(dataUrl){
-  currentItem.imgs = (currentItem.imgs||[]).concat([dataUrl]).slice(-3);
+  if(!dataUrl) return;
+  currentItem.imgs = (currentItem.imgs||[]).concat([dataUrl]).slice(-4);
   currentItem.img = currentItem.imgs[currentItem.imgs.length-1];
   currentItem.updatedAt = Date.now();
+}
+/* 批量并入（相册一次选 2-4 张 / 多页连拍）：一次调用，避免逐张切片丢页 */
+function itemAddImgs(arr){
+  const list=(arr||[]).filter(Boolean);
+  if(!list.length) return;
+  currentItem.imgs = (currentItem.imgs||[]).concat(list).slice(-4);
+  currentItem.img = currentItem.imgs[currentItem.imgs.length-1] || currentItem.img;
+  currentItem.updatedAt = Date.now();
+}
+/* 多页作文转写合并：新转写含旧全文则替换；旧的更全则保留；各自独立则按页序拼接——绝不覆盖丢页 */
+function mergeEssayText(oldT,newT){
+  oldT=(oldT||'').trim(); newT=(newT||'').trim();
+  if(!oldT) return newT;
+  if(!newT) return oldT;
+  if(newT.indexOf(oldT)>=0) return newT;   /* 本次重读了全部页 */
+  if(oldT.indexOf(newT)>=0) return oldT;   /* 旧全文更全，保留 */
+  return oldT + '\n' + newT;               /* 分页各自转写 → 按页序拼接 */
 }
 /* 需要"看图引导"的搭子模式 */
 const VISUAL_MODES = ['socratic','feynman','reading','thinking','english'];
@@ -1217,6 +1235,9 @@ function renderTextBlock(text){
     }
     if(line.trim()===''){ i++; continue; }
     if(/^\s*```/.test(line)){ i++; continue; } /* 隐藏孤立的代码围栏行 */
+    /* markdown 小标题（### 整体把脉 / ## xxx）→ 加粗标题行，别让孩子看到裸露的 ### */
+    const hm = line.match(/^\s*#{1,4}\s*(.+?)\s*$/);
+    if(hm && hm[1]){ html += '<p style="font-weight:700;font-size:15px;margin:10px 0 2px">'+md(hm[1])+'</p>'; i++; continue; }
     html += '<p style="white-space:pre-wrap;word-break:break-word;line-height:1.65;margin:4px 0">'+md(line)+'</p>';
     i++;
   }
@@ -1446,11 +1467,15 @@ async function sendChat(hiddenQ, displayText){
     const isEssayCtx = !!(currentItem.essay || (p().writingGoal) || (p().flow && (p().flow.type==='essay'||p().flow.type==='essayup')) || /(作文|写话|日记|这篇文章|我的作文|习作)/.test(text));
     const needImgAgain = /(看不清|图上|图片|图中|再看看图|拍糊)/.test(text);
     const hasImgCtx = currentItem.imgs && currentItem.imgs.length;
-    const useVision = hasImgCtx && VISUAL_MODES.includes(buddyMode) && ((!currentItem.desc && !currentItem.essay) || needImgAgain);
+    /* 多页作文：整体把脉这一步强制把照片全带重读一遍，杜绝"只读到最后一页"（正文转写可能有缺页） */
+    const recheckMulti = isEssayCtx && (currentItem.imgs||[]).length>1 && (p().flow||{}).type==='essayup' && (p().flow.step||0)<=1;
+    const useVision = hasImgCtx && VISUAL_MODES.includes(buddyMode) && ((!currentItem.desc && !currentItem.essay) || needImgAgain || recheckMulti);
     let itemCtx = '';
     if(currentItem.essay){
       /* 作文：把全文交给教练（文字模型也能基于全文具体点评、引用原文），这是"像老师"的关键 */
-      itemCtx = '\n【孩子的作文全文（已从照片逐字转写）】\n' + currentItem.essay +
+      const nEssayPage = (currentItem.imgs||[]).length;
+      itemCtx = '\n【孩子的作文全文（已从照片逐字转写' + (nEssayPage>1?('，共'+nEssayPage+'页已按页序合并'):'') + '）】\n' + currentItem.essay +
+        (nEssayPage>1 ? '\n【重要】这篇作文是多页照片，上面是各页合并后的全文。点评时必须覆盖整篇（包括第一页/前几页的内容），严禁只依据最后一张照片，严禁只评论结尾。' : '') +
         '\n【引导要求】你的点评必须紧扣上面原文：引用孩子的原词原句，指出具体哪一段/哪一句好在哪、哪里可以怎么改；'
         + '按"先整体（立意/结构/详略）→再局部（段落顺序、描写是否具体）→最后词句"的顺序引导，每次只聚焦一个层次，'
         + '先让孩子自己说怎么改，绝不代写整段（可示范一小句）。严禁泛泛而谈"要多用修辞""要写得生动"这类空话。';
@@ -1467,12 +1492,17 @@ async function sendChat(hiddenQ, displayText){
     let userTurn, model, _mt, _tp, base=(state.base||BASE).replace(/\/$/,'');
     if(useVision){
       /* 多图全带（作文常有多页，只带一张会丢内容）；提示词按作文/题目分流 */
+      const visImgs = (currentItem.imgs||[currentItem.img]).filter(Boolean);
+      const multiPage = visImgs.length>1;
       const visHint = isEssayCtx
-        ? '\n[附上孩子作业的照片，可能有1-3页]（若上面还没有【作文转写】，请先把照片里的作文全文逐字转写，放在【作文转写】与【/作文转写】标记之间，再作整体点评与引导；错别字照抄不纠正）'
+        ? (`\n[附上孩子作业的照片，共${visImgs.length}张，多为同一篇作文的多页]`
+           + ((multiPage||!currentItem.essay)
+              ? '（请先把**每一页**逐字读完，按页序合并成完整全文放在【作文转写】与【/作文转写】之间——多页必须合并输出，绝不能只转写最后一页；然后再作整体点评与引导；错别字照抄不纠正）'
+              : '（若内容与已知全文有出入，请把合并后的完整全文重新放在【作文转写】与【/作文转写】之间；再作整体点评与引导）'))
         : '\n[附上刚才拍的题的照片]（若回复末尾还没有【题目速记】，请另起一行用【题目速记】一句话概括本题已知条件与所求，60字内，不含答案，以【/题目速记】结束）';
       userTurn = [{type:'text', text: text + itemCtx + visHint},
-        ...(currentItem.imgs||[currentItem.img]).filter(Boolean).map(u=>({type:'image_url', image_url:{url:u}}))];
-      model = visionModel(); _mt=isEssayCtx?3000:1400; _tp=0.6;
+        ...visImgs.map(u=>({type:'image_url', image_url:{url:u}}))];
+      model = visionModel(); _mt=isEssayCtx?(multiPage?3600:3000):1400; _tp=0.6;
     } else {
       userTurn = text + itemCtx;
       /* 草稿字数真实统计：长文本且存在写作任务时注入实测字数，杜绝AI瞎估字数 */
@@ -1526,8 +1556,10 @@ async function sendChat(hiddenQ, displayText){
     const jmEssay = reply.match(/【作文转写】([\s\S]*?)【\/作文转写】/);
     if(jmEssay){
       const full = jmEssay[1].trim();
-      if(full && full.length > (currentItem.essay||'').length){
-        currentItem.essay = full.slice(0,1500);
+      /* 多页合并：新转写含旧全文才替换，分页各自转写则拼接——绝不因后一页覆盖前一页 */
+      const merged = mergeEssayText(currentItem.essay, full);
+      if(merged && merged !== (currentItem.essay||'')){
+        currentItem.essay = merged.slice(0,2400);
         if(!currentItem.desc) currentItem.desc = full.replace(/\s+/g,'').slice(0,50);
         save();
       }
@@ -1892,8 +1924,8 @@ const FLOW_DEFS = {
     title:'🎓 作文升格流程', mode:'socratic', needRef:false,
     ref:()=>null,
     steps:[
-      {label:'整体把脉', hint:'先看全文，讲清好在哪、不足在哪、往哪升格', mt:1600,
-        q:()=>`我已经把写好的作文发给你了（全文在我的上下文里；若上下文里没有全文，就看聊天记录里的照片）。请先给我一次完整的「整体把脉」，必须包含下面四项，每一项都要引用我的原词原句，严禁空话（不能说"要多用修辞""要写得生动"这种话）：\n① 🎯 立意：我这篇想表达什么、表达得清不清楚；\n② 🏗 结构：全文分几段、顺序是什么、哪段写得厚哪段单薄、详略是否得当；\n③ ✅ 好在哪：具体指出2个亮点，引用我的原句并说清为什么好；\n④ 🔧 最该升格的1点：指出最该先改的那个问题（引用我的原句），并用一句话说清往哪个方向改（只给方向，不要替我写）。\n讲完这四项后，再问我一个问题：让我自己判断这篇最该先改哪里。等我回答。`},
+      {label:'整体把脉', hint:'先看全文（多页要合起来看），讲清好在哪、不足在哪、往哪升格', mt:1600,
+        q:()=>`我已经把写好的作文发给你了（全文在我的上下文里；若我发的是多页照片，必须把各页合起来当作一整篇读，绝不允许只看最后一页或只看其中一页；若上下文里没有全文，就看聊天记录里的照片）。请先给我一次完整的「整体把脉」，必须包含下面四项，每一项都要引用我的原词原句，严禁空话（不能说"要多用修辞""要写得生动"这种话）：\n① 🎯 立意：我这篇想表达什么、表达得清不清楚；\n② 🏗 结构：全文分几段、顺序是什么、哪段写得厚哪段单薄、详略是否得当；\n③ ✅ 好在哪：具体指出2个亮点，引用我的原句并说清为什么好；\n④ 🔧 最该升格的1点：指出最该先改的那个问题（引用我的原句），并用一句话说清往哪个方向改（只给方向，不要替我写）。\n讲完这四项后，再问我一个问题：让我自己判断这篇最该先改哪里。等我回答。`},
       {label:'逐段加厚', hint:'挑最弱一段，教我怎么写具体', mt:900,
         q:()=>`现在带我加厚最薄弱的那一段（全文见我的上下文）。要求：①只聚焦这一段，用放大镜追问引导我自己补写——当时看到什么颜色/形状、听到什么声音、心里什么感受、能打个什么比方；②做一处「升格对比」示范：从我的原文里挑最平淡的一句，先放原句→再给升格句→用一句话说清差别（更具体/更有画面/更真情实感）；③示范只做这一处，其余必须我自己改，改完发给你再点评。`},
       {label:'词句润色', hint:'挑1-2处错别字病句，我自己改', mt:700,
@@ -2904,12 +2936,14 @@ async function probeVisionSmart(base,key,el,out){
   return '❌ 所有候选模型都不通（检查 Key 额度或中转站状态）';
 }
 async function callVision(base64DataUrl, prompt){
+  /* 支持一次传多张图（作文多页必须合读）：数组按页序拼进同一条消息 */
+  const imgs = (Array.isArray(base64DataUrl)?base64DataUrl:[base64DataUrl]).filter(Boolean);
   const key = state.key; if(!key) throw new Error('请先在"我的"页填写 API Key');
   const base = (state.base||BASE).replace(/\/$/,'');
   const _one=(m)=>aiFetch(base, key, {model:m, messages:[{role:'user', content:[
     {type:'text', text:prompt},
-    {type:'image_url', image_url:{url:base64DataUrl}}
-  ]}], max_tokens:2000, temperature:0.3, stream:false});
+    ...imgs.map(u=>({type:'image_url', image_url:{url:u}}))
+  ]}], max_tokens: imgs.length>1?3600:2200, temperature:0.3, stream:false});
   let data=null, got=null;
   const _try=async(m)=>{
     const d=await _one(m);
@@ -2970,17 +3004,20 @@ function onWrongFile(e){
 /* 学科名工具（全局）： conceptReview/diagData 等共用，避免局部定义导致 ReferenceError */
 function subjName(s){ return (SUBJECT[s]||['其他'])[0]; }
 /* ===== 图片来源：统一支持「拍照 / 从相册选」（拍好的作业不用重拍） ===== */
+/* 支持相册多选的入口（一次选 2-4 张，作文多页一起读） */
+const MULTI_IMG_INPUTS = ['chatFile'];
 function imageSourceSheet(inputId){
   const inp = document.getElementById(inputId);
   if(!inp){ toast('功能未就绪，刷新页面再试'); return; }
+  const canMulti = MULTI_IMG_INPUTS.indexOf(inputId)>=0;
   const old = document.getElementById('imgSrcSheet'); if(old) old.remove();
   const wrap = document.createElement('div'); wrap.id='imgSrcSheet';
   wrap.innerHTML = `<div style="position:fixed;inset:0;background:rgba(17,17,20,.55);z-index:9997;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)document.getElementById('imgSrcSheet').remove()">
     <div style="background:#fff;border-radius:18px 18px 0 0;max-width:520px;width:100%;padding:16px 14px 22px">
       <b style="font-size:16px">选择图片来源</b>
-      <div class="hint" style="margin:2px 0 12px">作业已经拍好了？直接「从相册选」，不用再拍一次 📷→🖼️</div>
+      <div class="hint" style="margin:2px 0 12px">${canMulti?'作业已经拍好了？直接「从相册选」，作文/多页一次选 2-4 张，教练会把各页合起来整体读 📄':'作业已经拍好了？直接「从相册选」，不用再拍一次 📷→🖼️'}</div>
       <button class="btn btn-p btn-block" style="height:54px" onclick="imageSourcePick('${inputId}','camera')">📷 现在拍照</button>
-      <button class="btn btn-ghost btn-block" style="height:54px;margin-top:10px" onclick="imageSourcePick('${inputId}','album')">🖼️ 从相册选</button>
+      <button class="btn btn-ghost btn-block" style="height:54px;margin-top:10px" onclick="imageSourcePick('${inputId}','album')">${canMulti?'🖼️ 从相册选（可多选 2-4 张）':'🖼️ 从相册选'}</button>
       <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="document.getElementById('imgSrcSheet').remove()">取消</button>
     </div></div>`;
   document.body.appendChild(wrap);
@@ -2990,8 +3027,14 @@ function imageSourcePick(inputId, mode){
   const ov = document.getElementById('imgSrcSheet'); if(ov) ov.remove();
   if(!inp) return;
   try{
-    if(mode==='camera') inp.setAttribute('capture','environment'); /* 直接开相机 */
-    else inp.removeAttribute('capture'); /* 打开相册/系统选择（iOS 会弹 照片图库/拍照/浏览） */
+    if(mode==='camera'){
+      inp.setAttribute('capture','environment'); /* 直接开相机 */
+      inp.removeAttribute('multiple');           /* 拍照一次一张，多页连拍即可 */
+    }else{
+      inp.removeAttribute('capture'); /* 打开相册/系统选择（iOS 会弹 照片图库/拍照/浏览） */
+      if(MULTI_IMG_INPUTS.indexOf(inputId)>=0) inp.setAttribute('multiple',''); /* 相册可一次选多张 */
+      else inp.removeAttribute('multiple');
+    }
   }catch(_){}
   try{ inp.value=''; }catch(_){} /* 允许连续选同一张 */
   inp.click();
@@ -3096,91 +3139,110 @@ function compressImage(file, maxW, cb){
 
 /* ===== 拍照判题（复习闭环） ===== */
 function snapChat(){ imageSourceSheet('chatFile'); }
-function onChatFile(e){
-  const file = e.target.files[0]; if(!file) return;
+async function onChatFile(e){
+  /* 一次可选多张（相册多选 2-4 页 / 多页连拍）：作文两页以上必须一起读，否则只会读到最后一页 */
+  const files = Array.from(e.target.files||[]).filter(f=>f && /^image\//.test(f.type||'')).slice(0,4);
   e.target.value='';
-  cropPicker(file, 900, async (dataUrl)=>{
-    pushChat('user', dataUrl, 'image'); renderChat();
-    const box = document.getElementById('chatBox');
-    try{
-      // 复习态：直接判题
-      if(practiceWrongId){
-        box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">批改中…</div>'); box.scrollTop=box.scrollHeight;
-        const w = p().wrongs.find(x=>x.id===practiceWrongId)||null;
-        const raw = await callVision(dataUrl, buildJudgePrompt(w));
-        const t=document.getElementById('typing'); if(t)t.remove();
-        practicePassed = /答案\s*对/.test(raw) && !/答案\s*错/.test(raw); /* 批改通过才解锁完全掌握 */
-        pushChat('assistant', raw); renderChat(); speak(raw);
-        showPracticeDone(practiceWrongId);
-        return;
-      }
-      // 答疑/引导类模式：带图引导（教练"看见"题，画图讲解，不再误判对错）
-      if(VISUAL_MODES.includes(buddyMode) && buddyMode!=='recite'){
-        box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">看图中…</div>'); box.scrollTop=box.scrollHeight;
-        let sys;
-        if(buddyMode==='socratic') sys=socraticSystem();
-        else if(buddyMode==='feynman') sys=feynmanSystem();
-        else if(buddyMode==='reading') sys=readingSystem();
-        else sys=socraticSystem();
-        sys += contextLine()+textbookLine()+'\n'+DRAW_HINT;
-        /* 自路由双分支：作文/长文手写稿走"全文转写→整体把脉→引导"，数学等题目走原有"速记+一个问题"。
-           作文场景是重灾区（用户 2026-09-14 两次反馈）：绝不能用数学题的"一句话+60字速记"应付一篇作文 */
-        const vPrompt = sys+'\n\n孩子发来作业照片（可能是手写作文/写话/日记，也可能是数学等题目）。先判断内容类型，再按对应分支回复：\n'+
-        '【分支A·作文/写话/长篇手写稿】（方格稿纸、成段落的文章）——这是重点，必须做"整体把脉"，绝不允许只说一句笼统评语：\n'+
-        '①【作文转写】先把全文逐字转写（辨认手写字，保持原文分段，错别字照抄不纠正），放在【作文转写】与【/作文转写】标记之间；\n'+
-        '②转写后紧接着用「整体把脉」小节，按这四项写，每项都必须引用孩子的原词原句，禁止"要多用修辞/要写得生动"这类空话：\n'+
-        '　🎯 立意：这篇想表达什么、表达得清不清楚；\n'+
-        '　🏗 结构：全文几段、顺序怎样、哪段最厚哪段单薄、详略是否得当；\n'+
-        '　✅ 好在哪：具体指出2个亮点（引用原句 + 说清为什么好）；\n'+
-        '　🔧 最该升格的1点：指出最该先改的那个问题（引用原句）+ 一句话说清升格方向（只给方向，不代写）。\n'+
-        '③最后提1个问题，让孩子自己判断/说说打算怎么改（不给答案、不代改）。\n'+
-        '【分支B·数学等题目】：\n'+
-        '①一句话说清你看到了什么（题目、已知条件）；②用苏格拉底方式只提一个问题引导他思考，不要直接给答案；③需要画示意图/几何图/分数图时，用 ```svg 画图让他直观看懂；④回复最后另起一行，用【题目速记】开始、以【/题目速记】结束，一句话概括这道题的已知条件与所求（60字内，不含答案）。';
-        let raw;
-        try{ raw = await callVision(dataUrl, vPrompt); }
-        catch(e1){ /* iOS Safari 偶发 Load failed（网络抖动/请求体大）：自动重试一次 */ await new Promise(r=>setTimeout(r,900)); raw = await callVision(dataUrl, vPrompt); }
-        const t=document.getElementById('typing'); if(t)t.remove();
-        // 双标记提取：作文转写存全文（后续轮次文字模型也能基于全文引导），题目速记存摘要
-        let shown = raw;
-        const jmEssay = raw.match(/【作文转写】([\s\S]*?)【\/作文转写】/);
-        const jm = raw.match(/【题目速记】([\s\S]*?)【\/题目速记】/);
-        if(jmEssay){
-          shown = raw.replace(/【作文转写】[\s\S]*?【\/作文转写】/,'').trim() || raw;
-          itemAddImg(dataUrl);
-          currentItem.essay = jmEssay[1].trim().slice(0,1500);
-          currentItem.desc = jmEssay[1].trim().replace(/\s+/g,'').slice(0,50);
-        }else if(jm){
-          shown = raw.replace(/【题目速记】[\s\S]*?【\/题目速记】/,'').trim() || raw;
-          itemAddImg(dataUrl);
-          currentItem.desc = jm[1].trim().slice(0,150);
-        }else{
-          itemAddImg(dataUrl);
-        }
-        /* 安全网：模型没按标记转写（手写难辨等），但只要处在写作/作文场景，也切到升格流程（流程会自动重看照片） */
-        const essayLike = !!jmEssay || (!jm && raw.length>150 && !!(p().writingGoal || (p().flow&&p().flow.type==='essay') || /(作文|写话|习作|日记)/.test(raw)));
-        pushChat('assistant', shown); renderChat(); speak(shown);
-        save();
-        toast(essayLike?'📄 作文已读完，接着跟我聊怎么改 👀':'图片已收进当前题目，接着问它就行 👀');
-        /* 作文照片：一律切到「作文升格流程」从整体把脉开始——
-           关键：即使孩子当前正处在"写作引导流程（从零写）"里也要切走（否则会继续追问选素材，不评这篇作文） */
-        if(essayLike && (jmEssay ? (currentItem.essay||'').length>=80 : true) && (p().flow||{}).type!=='essayup'){
-          const wasFlow=(p().flow||{}).type;
-          if(wasFlow) flowExit(true);
-          if(wasFlow==='essay'){ pushChat('sys','📄 已经读到你的作文，我们从「写作引导」转到「作文升格」，先从整体把脉这篇 ↘️'); renderChat(); }
-          setTimeout(()=>{ try{ startFlow('essayup'); }catch(_){} }, 800);
-        }
-        return;
-      }
-      // 其余模式：仅存图，作为上下文
-      itemAddImg(dataUrl);
-      pushChat('assistant','📷 图片已收到，我们结合它继续～'); renderChat();
-    }catch(err){
+  if(!files.length) return;
+  const box = document.getElementById('chatBox');
+  /* 多张（相册一次选多页）：整图压缩保留字迹清晰度；单张仍走框选，可裁掉无关部分 */
+  const dataUrls = [];
+  if(files.length===1){
+    dataUrls.push(await new Promise(res=>cropPicker(files[0],900,res)));
+  }else{
+    for(const f of files){ dataUrls.push(await new Promise(res=>compressImage(f,1400,res))); }
+  }
+  if(!dataUrls.length) return;
+  /* 是否接着上一张（同一份多页作业）：作文上下文/升格流程中/上一张15分钟内 → 合并；否则视为新题，重置上下文 */
+  const sameItem = !!(currentItem.essay || (p().flow&&p().flow.type==='essayup') || p().writingGoal || (Date.now()-(currentItem.updatedAt||0) < 15*60*1000));
+  if(!sameItem && (currentItem.imgs||[]).length){ currentItem=freshItem(); }
+  /* 关键修复：把「本次新照片 + 上下文里已累计的页」一起交给教练（最多4张），多页作文必须合读 */
+  const imgsForAI = (currentItem.imgs||[]).concat(dataUrls).filter(Boolean).slice(-4);
+  dataUrls.forEach(u=>pushChat('user', u, 'image')); renderChat();
+  try{
+    // 复习态：直接判题
+    if(practiceWrongId){
+      box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">批改中…</div>'); box.scrollTop=box.scrollHeight;
+      const w = p().wrongs.find(x=>x.id===practiceWrongId)||null;
+      const raw = await callVision(imgsForAI, buildJudgePrompt(w));
       const t=document.getElementById('typing'); if(t)t.remove();
-      /* 图先存进当前题目：孩子接着打字时会自动带图重试，不用重拍 */
-      currentItem=freshItem(); itemAddImg(dataUrl);
-      pushChat('assistant','（看图没成功：网络抖了一下。已经自动重试过一次还不行，稍等几秒再拍一次就好～）'); renderChat();
+      practicePassed = /答案\s*对/.test(raw) && !/答案\s*错/.test(raw); /* 批改通过才解锁完全掌握 */
+      pushChat('assistant', raw); renderChat(); speak(raw);
+      showPracticeDone(practiceWrongId);
+      return;
     }
-  });
+    // 答疑/引导类模式：带图引导（教练"看见"题，画图讲解，不再误判对错）
+    if(VISUAL_MODES.includes(buddyMode) && buddyMode!=='recite'){
+      box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">看图中…</div>'); box.scrollTop=box.scrollHeight;
+      let sys;
+      if(buddyMode==='socratic') sys=socraticSystem();
+      else if(buddyMode==='feynman') sys=feynmanSystem();
+      else if(buddyMode==='reading') sys=readingSystem();
+      else sys=socraticSystem();
+      sys += contextLine()+textbookLine()+'\n'+DRAW_HINT;
+      /* 自路由双分支：作文/长文手写稿走"全文转写→整体把脉→引导"，数学等题目走原有"速记+一个问题"。
+         作文场景是重灾区（用户 2026-09-14 两次反馈）：绝不能用数学题的"一句话+60字速记"应付一篇作文 */
+      const nPage = imgsForAI.length;
+      const pageNote = nPage>1
+        ? `\n\n【图片说明】本次共 ${nPage} 张照片，按顺序为第1页…第${nPage}页，很可能是同一份作业的连续页面。必须把**每一页**都逐字读完再下判断，严禁只看最后一张、或只看其中某一页就评论。\n`
+        : '\n\n【图片说明】本次 1 张照片。\n';
+      const vPrompt = sys+pageNote+'孩子发来作业照片（可能是手写作文/写话/日记，也可能是数学等题目）。先判断内容类型，再按对应分支回复：\n'+
+      '【分支A·作文/写话/长篇手写稿】（方格稿纸、成段落的文章）——这是重点，必须做"整体把脉"，绝不允许只说一句笼统评语：\n'+
+      '①【作文转写】先把**每一页**都逐字转写，按页序（第1页→第2页→…）合并成连贯的一整篇全文（辨认手写字，保持原文分段，错别字照抄不纠正），放在【作文转写】与【/作文转写】标记之间；若你判断某些页属于同一篇，必须合并输出完整全文，绝不能只写最后一页；\n'+
+      '②转写后紧接着用「整体把脉」小节，按这四项写，每项都必须引用孩子的原词原句，禁止"要多用修辞/要写得生动"这类空话：\n'+
+      '　🎯 立意：这篇想表达什么、表达得清不清楚；\n'+
+      '　🏗 结构：全文几段、顺序怎样、哪段最厚哪段单薄、详略是否得当；\n'+
+      '　✅ 好在哪：具体指出2个亮点（引用原句 + 说清为什么好）；\n'+
+      '　🔧 最该升格的1点：指出最该先改的那个问题（引用原句）+ 一句话说清升格方向（只给方向，不代写）。\n'+
+      '③最后提1个问题，让孩子自己判断/说说打算怎么改（不给答案、不代改）。\n'+
+      '【分支B·数学等题目】：\n'+
+      '①一句话说清你看到了什么（题目、已知条件）；②用苏格拉底方式只提一个问题引导他思考，不要直接给答案；③需要画示意图/几何图/分数图时，用 ```svg 画图让他直观看懂；④回复最后另起一行，用【题目速记】开始、以【/题目速记】结束，一句话概括这道题的已知条件与所求（60字内，不含答案）。';
+      let raw;
+      try{ raw = await callVision(imgsForAI, vPrompt); }
+      catch(e1){ /* iOS Safari 偶发 Load failed（网络抖动/请求体大）：自动重试一次 */ await new Promise(r=>setTimeout(r,900)); raw = await callVision(imgsForAI, vPrompt); }
+      const t=document.getElementById('typing'); if(t)t.remove();
+      // 双标记提取：作文转写存全文（后续轮次文字模型也能基于全文引导），题目速记存摘要
+      let shown = raw;
+      const jmEssay = raw.match(/【作文转写】([\s\S]*?)【\/作文转写】/);
+      const jm = raw.match(/【题目速记】([\s\S]*?)【\/题目速记】/);
+      if(jmEssay){
+        shown = raw.replace(/【作文转写】[\s\S]*?【\/作文转写】/,'').trim() || raw;
+        const t2 = jmEssay[1].trim();
+        /* 多页合并存入（绝不覆盖丢页）：新转写含旧全文则替换，否则按页序拼接 */
+        currentItem.essay = mergeEssayText(currentItem.essay, t2).slice(0,2400);
+        currentItem.desc = t2.replace(/\s+/g,'').slice(0,50);
+        itemAddImgs(dataUrls);
+      }else if(jm){
+        shown = raw.replace(/【题目速记】[\s\S]*?【\/题目速记】/,'').trim() || raw;
+        itemAddImgs(dataUrls);
+        currentItem.desc = jm[1].trim().slice(0,150);
+      }else{
+        itemAddImgs(dataUrls);
+      }
+      /* 安全网：模型没按标记转写（手写难辨等），但只要处在写作/作文场景，也切到升格流程（流程会自动重看照片） */
+      const essayLike = !!jmEssay || (!jm && raw.length>150 && !!(p().writingGoal || (p().flow&&p().flow.type==='essay') || /(作文|写话|习作|日记)/.test(raw)));
+      pushChat('assistant', shown); renderChat(); speak(shown);
+      save();
+      toast(essayLike?(nPage>1?`📄 已读完这 ${nPage} 页作文，接着跟我聊怎么改 👀`:'📄 作文已读完，接着跟我聊怎么改 👀'):'图片已收进当前题目，接着问它就行 👀');
+      /* 作文照片：一律切到「作文升格流程」从整体把脉开始——
+         关键：即使孩子当前正处在"写作引导流程（从零写）"里也要切走（否则会继续追问选素材，不评这篇作文） */
+      if(essayLike && (jmEssay ? (currentItem.essay||'').length>=80 : true) && (p().flow||{}).type!=='essayup'){
+        const wasFlow=(p().flow||{}).type;
+        if(wasFlow) flowExit(true);
+        if(wasFlow==='essay'){ pushChat('sys','📄 已经读到你的作文，我们从「写作引导」转到「作文升格」，先从整体把脉这篇 ↘️'); renderChat(); }
+        setTimeout(()=>{ try{ startFlow('essayup'); }catch(_){} }, 800);
+      }
+      return;
+    }
+    // 其余模式：仅存图，作为上下文
+    itemAddImgs(dataUrls);
+    pushChat('assistant','📷 图片已收到，我们结合它继续～'); renderChat();
+  }catch(err){
+    const t=document.getElementById('typing'); if(t)t.remove();
+    /* 图先存进当前题目：孩子接着打字时会自动带图重试，不用重拍 */
+    currentItem=freshItem(); itemAddImgs(dataUrls);
+    pushChat('assistant','（看图没成功：网络抖了一下。已经自动重试过一次还不行，稍等几秒再拍一次就好～）'); renderChat();
+  }
 }
 function buildJudgePrompt(w){
   let ctx = '';
