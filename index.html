@@ -392,8 +392,8 @@ nav button.on{color:var(--accent); font-weight:600;}
       <input id="setModel" value="deepseek-v4-flash" data-page-node-id="cWHwtDPKmkV3dpTbXQQHx0">
       <label>攻坚模型（数学难题等自动切换，留空=始终用主力模型）</label>
       <input id="setProModel" value="glm-5" placeholder="如 glm-5 / kimi-k2.6">
-      <label>拍照识别模型（看图答疑/批改用，报"已被禁用"就换一个）</label>
-      <input id="setVisionModel" value="glm-4.5v" placeholder="如 glm-4.5v / gpt-4o-mini">
+      <label>拍照识别模型（看图答疑/批改用；点"一键测试"会自动找到能用的并切换）</label>
+      <input id="setVisionModel" value="gemini-3.5-flash" placeholder="如 gemini-3.5-flash / gpt-5.4-mini">
       <label data-page-node-id="TApSfGMgKkEHX9Pg3qiyIn">API Key</label>
       <input id="setKey" type="password" placeholder="sk-..." data-page-node-id="qNp6amgEbKbAZDpBrb5y6O">
       <div class="hint" id="aiUsageHint" style="margin-top:6px">今日 AI 用量：统计中…</div>
@@ -448,7 +448,7 @@ const LS_KEY = 'aiCoachData_v2';
 const BASE = 'https://autorouter.top/v1';
 const DEFAULT_KEY = ''; /* 安全：Key 不写入网页源码，由云同步加密下发（见 cloudAdoptKey） */
 const DEFAULT_MODEL = 'deepseek-v4-flash';
-const DEFAULT_VISION = 'glm-4.5v'; /* 拍照识别默认模型；glm-5v-turbo 已被中转站禁用，可在「我的」页改 */
+const DEFAULT_VISION = 'gemini-3.5-flash'; /* 拍照识别默认；autorouter 已下架 glm-4.5v/glm-5v 系视觉模型（2026-09-14 实测清单） */
 
 const GRADES = ['初一','四年级'];
 const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
@@ -500,7 +500,7 @@ function load(){
         const merged = Object.assign(def, s);
         /* Key 不再内置：本地没有时由 cloudAdoptKey 从私有云同步自动获取 */
         if(!merged.proModel || merged.proModel==='deepseek-v4') merged.proModel='glm-5'; /* deepseek-v4在中转站无可用渠道，自动迁移到glm-5 */
-        if(!merged.visionModel || merged.visionModel==='glm-5v-turbo') merged.visionModel=DEFAULT_VISION; /* glm-5v-turbo已被中转站禁用，自动迁移 */
+        if(!merged.visionModel || merged.visionModel==='glm-5v-turbo' || merged.visionModel==='glm-4.5v') merged.visionModel=DEFAULT_VISION; /* glm-5v/glm-4.5v 均无可用渠道，自动迁移 */
         GRADES.forEach(g=>{
           const pf = merged.profiles[g];
           pf.recites = pf.recites || [];
@@ -2797,20 +2797,60 @@ async function testAI(){
   }
   const out=['主力: '+await probe(main)];
   if(pro && pro!==main) out.push('攻坚: '+await probe(pro));
-  out.push('拍照: '+await probe(visionModel()));
+  out.push('拍照: '+await probeVisionSmart(base,key,el,out));
   el.textContent=out.join(' ｜ ');
   btn.disabled=false; btn.textContent=orig;
 }
 if(!state.key) cloudAdoptKey(true); /* 启动时本地无Key则自动从云端获取 */
 
 /* ===== 视觉模型（拍照识别） ===== */
+/* 中转站可用视觉模型候选（2026-09-14 实测 /api/pricing 清单，glm-4.5v/glm-5v 系列已全部下架） */
+const VISION_CANDIDATES = ['gemini-3.5-flash','gpt-5.4-mini','doubao-seed-2-0-lite','glm-5','grok-4-1-fast-non-reasoning','gemini-3.6-flash'];
+/* 1x1 测试图：验证"图片输入"完整链路，纯文本能通不代表能看图 */
+const PROBE_IMG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+async function visionProbeOnce(base,key,m){
+  try{
+    await aiFetch(base,key,{model:m, messages:[{role:'user', content:[
+      {type:'text', text:'这是一张测试图，回复OK两个字母即可'},
+      {type:'image_url', image_url:{url:PROBE_IMG}}
+    ]}], max_tokens:20, temperature:0, stream:false});
+    return true;
+  }catch(e){ return false; }
+}
+/* 拍照模型智能探测：先测当前配置，不通则自动扫描候选并切换到第一个能看图的 */
+async function probeVisionSmart(base,key,el,out){
+  const cur=visionModel();
+  if(await visionProbeOnce(base,key,cur)) return '✅ '+cur;
+  el.textContent=(out.join(' ｜ ')+' ｜ 拍照: ⏳ '+cur+' 不通，正在自动寻找可用模型…').slice(0,200);
+  for(const m of VISION_CANDIDATES){
+    if(m===cur) continue;
+    if(await visionProbeOnce(base,key,m)){
+      state.visionModel=m; save(); /* 自动切换并持久化，经云同步下发全家设备 */
+      return '✅ '+m+'（已自动切换）';
+    }
+  }
+  return '❌ 所有候选模型都不通（检查 Key 额度或中转站状态）';
+}
 async function callVision(base64DataUrl, prompt){
   const key = state.key; if(!key) throw new Error('请先在"我的"页填写 API Key');
   const base = (state.base||BASE).replace(/\/$/,'');
-  const data = await aiFetch(base, key, {model:visionModel(), messages:[{role:'user', content:[
+  const _one=(m)=>aiFetch(base, key, {model:m, messages:[{role:'user', content:[
     {type:'text', text:prompt},
     {type:'image_url', image_url:{url:base64DataUrl}}
   ]}], max_tokens:2000, temperature:0.3, stream:false});
+  let data;
+  try{
+    data = await _one(visionModel());
+  }catch(e){
+    /* 运行时兜底：当前拍照模型临时不可用（渠道下线/限流），自动换下一个能看图的并记住 */
+    let switched=null;
+    for(const m of VISION_CANDIDATES){
+      if(m===visionModel()) continue;
+      try{ data = await _one(m); switched=m; break; }catch(_){}
+    }
+    if(!switched) throw e;
+    state.visionModel=switched; save();
+  }
   const msg = data.choices && data.choices[0] && data.choices[0].message;
   return (msg && (msg.content || msg.reasoning_content)) || '';
 }
