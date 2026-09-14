@@ -812,7 +812,14 @@ const MODE_DESC = {
   interest:'聊聊你最近好奇的事，我会给你一个有趣的小知识或延伸问题。'
 };
 /* 当前正在做的题（P0-1：贯穿上下文，让教练"看见"孩子手上的题） */
-let currentItem = {img:'', desc:'', subject:'', kp:'', updatedAt:0};
+let currentItem = {img:'', imgs:[], desc:'', essay:'', subject:'', kp:'', updatedAt:0};
+function freshItem(){ return {img:'', imgs:[], desc:'', essay:'', subject:'', kp:'', updatedAt:0}; }
+/* 多图并入（作文多页场景），最多保留最近3张；imgs[0] 同步给 img 兼容旧逻辑 */
+function itemAddImg(dataUrl){
+  currentItem.imgs = (currentItem.imgs||[]).concat([dataUrl]).slice(-3);
+  currentItem.img = currentItem.imgs[currentItem.imgs.length-1];
+  currentItem.updatedAt = Date.now();
+}
 /* 需要"看图引导"的搭子模式 */
 const VISUAL_MODES = ['socratic','feynman','reading','thinking','english'];
 /* 讲解多元化指令：凡涉及图形/对比/流程/孩子说看不懂，必须画图 */
@@ -1161,7 +1168,7 @@ function setBuddyMode(m){
   document.querySelectorAll('#modebar button').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
   document.getElementById('modeDesc').textContent = MODE_DESC[m];
   // 切换搭子即视为开启新话题，清空上一题的贯穿上下文
-  if(m!=='socratic'){ currentItem={img:'',desc:'',subject:'',kp:'',updatedAt:0}; }
+  if(m!=='socratic'){ currentItem=freshItem(); }
   confusionStreak=0;
   reciteCheckId=null; // 切换模式即退出验收，防止残留拦截普通提问
   if(p().flow){ p().flow=null; save(); } // 切换模式即退出流程，防止残留吞掉普通提问
@@ -1360,7 +1367,9 @@ async function sendChat(hiddenQ, displayText){
     ak[today()] = (ak[today()]||0)+1;
   }
   // 判题意图：答疑中已拍图、且孩子说"帮我判/对不对"，走视觉判题（不打断引导纪律）
-  if(!hiddenQ && currentItem.img && buddyMode!=='recite' && /(帮我判|判一下|批改|对不对|对吗|写对没|写错没|检查.*(对|错)|看看.*(对|错)|批一下|帮我看看.*(对|错))/.test(text)){
+  // 作文除外：作文没有"对/错"，要按升格流程引导（否则会被当成数学题判"答案对/错"）
+  const _essayCtx0 = !!(currentItem.essay || p().writingGoal || /(作文|写话|习作|周记)/.test(text));
+  if(!hiddenQ && currentItem.img && buddyMode!=='recite' && !_essayCtx0 && /(帮我判|判一下|批改|对不对|对吗|写对没|写错没|检查.*(对|错)|看看.*(对|错)|批一下|帮我看看.*(对|错))/.test(text)){
     await judgeCurrentItem(text);
     return;
   }
@@ -1377,11 +1386,13 @@ async function sendChat(hiddenQ, displayText){
     } else if(!old && !words){
       p().writingGoal = {words: 0, task: text.slice(0,60), best: 0, ts: Date.now()}; save();
     }
-    if(!p().flow || p().flow.type!=='essay'){
+    if(!p().flow || (p().flow.type!=='essay' && p().flow.type!=='essayup')){
+      /* 已有作文全文（拍照来的）→ 走升格流程改这篇；否则走写作流程从零写 */
+      if(currentItem.essay){ startFlow('essayup'); renderChat(); return; }
       startFlow('essay'); renderChat();
       return; /* 写作流程接管，第一步（审题）已自动开始 */
     }
-    /* 已在写作流程中：任务要求更新即可，本条消息走正常对话（带硬性要求注入） */
+    /* 已在写作/升格流程中：任务要求更新即可，本条消息走正常对话（带硬性要求注入） */
   }
   const box = document.getElementById('chatBox');
   box.insertAdjacentHTML('beforeend','<div class="typing" id="typing">正在想…</div>');
@@ -1431,11 +1442,20 @@ async function sendChat(hiddenQ, displayText){
       sys += '\n【输入来源·语音】本条及紧接的用户消息来自语音识别转写，可能有同音字或口误（例如"观潮"被识别成"冠潮"）。请：①结合当前对话上下文（前面提到的题目、刚拍的照片、所用教材进度、以及当前辅导模式）推断孩子真实意图，不要因个别错字而答非所问，也不要反复要求孩子重新打字确认；②除非完全无法确定，否则不要停下来问"你是说X还是Y"，直接按最可能的理解继续引导或提问；③若确实拿不准，只在回复开头用一句温和的话确认理解（如"你是想问《观潮》里潮水像什么对吗？"），让孩子点头或纠正即可，不要中断辅导流程。';
     }
     // 当前题目上下文（贯穿上下文 P0-1）
-    // 轻量降级：首轮看图后已存【题目速记】desc，后续轮次转纯文字模型提速；孩子说"看不清/图中"才重新回传图
+    // 轻量降级：首轮看图后已存摘要/作文全文，后续轮次转纯文字模型提速；孩子说"看不清/图中"才重新回传图
+    const isEssayCtx = !!(currentItem.essay || (p().writingGoal) || (p().flow && p().flow.type==='essay') || /(作文|写话|日记|这篇文章|我的作文|习作)/.test(text));
     const needImgAgain = /(看不清|图上|图片|图中|再看看图|拍糊)/.test(text);
-    const useVision = currentItem.img && VISUAL_MODES.includes(buddyMode) && (!currentItem.desc || needImgAgain);
+    const hasImgCtx = currentItem.imgs && currentItem.imgs.length;
+    const useVision = hasImgCtx && VISUAL_MODES.includes(buddyMode) && ((!currentItem.desc && !currentItem.essay) || needImgAgain);
     let itemCtx = '';
-    if(currentItem.img || currentItem.desc){
+    if(currentItem.essay){
+      /* 作文：把全文交给教练（文字模型也能基于全文具体点评、引用原文），这是"像老师"的关键 */
+      itemCtx = '\n【孩子的作文全文（已从照片逐字转写）】\n' + currentItem.essay +
+        '\n【引导要求】你的点评必须紧扣上面原文：引用孩子的原词原句，指出具体哪一段/哪一句好在哪、哪里可以怎么改；'
+        + '按"先整体（立意/结构/详略）→再局部（段落顺序、描写是否具体）→最后词句"的顺序引导，每次只聚焦一个层次，'
+        + '先让孩子自己说怎么改，绝不代写整段（可示范一小句）。严禁泛泛而谈"要多用修辞""要写得生动"这类空话。';
+      if(useVision) itemCtx += '\n（如附图，可结合照片里孩子的原始笔迹与老师批注一起看。）';
+    }else if(currentItem.img || currentItem.desc){
       itemCtx = '\n【当前正在做的题·上下文】' + (currentItem.desc?('题目/知识点：'+currentItem.desc+'\n'):'');
       if(useVision) itemCtx += '这张照片是刚才拍的题（如有图请结合它持续引导）：[见附图]。';
       itemCtx += '请基于它持续引导，不要让孩子重新描述整道题。';
@@ -1446,8 +1466,13 @@ async function sendChat(hiddenQ, displayText){
     history.pop(); // 移除刚 push 的当前用户消息，下面以（可能多模态）形式重新追加
     let userTurn, model, _mt, _tp, base=(state.base||BASE).replace(/\/$/,'');
     if(useVision){
-      userTurn = [{type:'text', text: text + itemCtx + '\n[附上刚才拍的题的照片]（若回复末尾还没有【题目速记】，请另起一行用【题目速记】一句话概括本题已知条件与所求，60字内，不含答案，以【/题目速记】结束）'}, {type:'image_url', image_url:{url:currentItem.img}}];
-      model = visionModel(); _mt=1400; _tp=0.6;
+      /* 多图全带（作文常有多页，只带一张会丢内容）；提示词按作文/题目分流 */
+      const visHint = isEssayCtx
+        ? '\n[附上孩子作业的照片，可能有1-3页]（若上面还没有【作文转写】，请先把照片里的作文全文逐字转写，放在【作文转写】与【/作文转写】标记之间，再作整体点评与引导；错别字照抄不纠正）'
+        : '\n[附上刚才拍的题的照片]（若回复末尾还没有【题目速记】，请另起一行用【题目速记】一句话概括本题已知条件与所求，60字内，不含答案，以【/题目速记】结束）';
+      userTurn = [{type:'text', text: text + itemCtx + visHint},
+        ...(currentItem.imgs||[currentItem.img]).filter(Boolean).map(u=>({type:'image_url', image_url:{url:u}}))];
+      model = visionModel(); _mt=isEssayCtx?3000:1400; _tp=0.6;
     } else {
       userTurn = text + itemCtx;
       /* 草稿字数真实统计：长文本且存在写作任务时注入实测字数，杜绝AI瞎估字数 */
@@ -1497,7 +1522,17 @@ async function sendChat(hiddenQ, displayText){
       }
     }
     if(!reply) reply='（这次网络开小差了，再点一下发送试试 🙂）';
-    // 提取【题目速记】→ 存入 currentItem，后续轮次转文字模型提速；并从展示内容中剥离标记
+    // 提取【作文转写】（作文照片）与【题目速记】（题目照片）→ 存入 currentItem；并从展示内容中剥离标记
+    const jmEssay = reply.match(/【作文转写】([\s\S]*?)【\/作文转写】/);
+    if(jmEssay){
+      const full = jmEssay[1].trim();
+      if(full && full.length > (currentItem.essay||'').length){
+        currentItem.essay = full.slice(0,1500);
+        if(!currentItem.desc) currentItem.desc = full.replace(/\s+/g,'').slice(0,50);
+        save();
+      }
+      reply = reply.replace(/【作文转写】[\s\S]*?【\/作文转写】/,'').trim() || reply;
+    }
     const jm = reply.match(/【题目速记】([\s\S]*?)【\/题目速记】/);
     if(jm){
       if(currentItem.img && !currentItem.desc){ currentItem.desc = jm[1].trim().slice(0,150); save(); }
@@ -1584,7 +1619,7 @@ function finishPractice(id, level){
   if(level==='master'){ w.status='done'; p().mastered=(p().mastered||0)+1; ledgerMark(w.kp, w.subject, 'done'); toast('太棒了，这道彻底拿下 🎉'); }
   else if(level==='ok'){ w.status='redo'; w.nextDate=addDays(today(),1); w.reviews=(w.reviews||0)+1; ledgerMark(w.kp, w.subject, 'learning'); toast('理解得不错，明天再巩固一次 👍'); }
   else { w.status='redo'; w.nextDate=today(); ledgerMark(w.kp, w.subject, 'weak'); toast('没关系，我们再多练几次，今天再看看 💪'); }
-  practiceWrongId=null; confusionStreak=0; currentItem={img:'',desc:'',subject:'',kp:'',updatedAt:0};
+  practiceWrongId=null; confusionStreak=0; currentItem=freshItem();
   save(); renderWrong(); renderDue(); renderGrowth();
   if(document.getElementById('tab-buddy').classList.contains('active')){ pushChat('sys','✅ 本次复习已完成'); renderChat(); }
 }
@@ -1592,7 +1627,7 @@ async function askAI(wrongId){
   const w = p().wrongs.find(x=>x.id===wrongId); if(!w) return;
   practiceWrongId = wrongId; activeReciteId = null; confusionStreak=0; practicePassed=false;
   // 把原题注入贯穿上下文，复习时教练"记得"这道题
-  currentItem = {img:w.img||'', desc:w.desc||'', subject:w.subject||'', kp:w.kp||'', updatedAt:Date.now()};
+  currentItem = {img:w.img||'', imgs:w.img?[w.img]:[], desc:w.desc||'', essay:'', subject:w.subject||'', kp:w.kp||'', updatedAt:Date.now()};
   switchTab('buddy');
   let q, disp;
   if(w.subject==='english'){
@@ -1851,6 +1886,22 @@ const FLOW_DEFS = {
         q:()=>`带我对照检查这篇作文：①字数达到要求了吗？没达到就继续带我加厚，绝不宣布完成；②把审题时的要点清单逐条对照打勾；③挑1-2个错别字或病句，用提问引导我自己改。全部过关后才恭喜我完成。`},
     ],
     doneMsg:'作文达标啦！字数够了、要点清单也过了一遍，可以誊写到作文本上 🎉'
+  },
+  /* 作文升格：针对"已经写完的作文"（孩子拍照发来）做整体→局部→词句的引导式修改 */
+  essayup:{
+    title:'🎓 作文升格流程', mode:'socratic', needRef:false,
+    ref:()=>null,
+    steps:[
+      {label:'整体把脉', hint:'先看全文，聊立意和结构', mt:900,
+        q:()=>`我已经把写好的作文拍照发给你了（全文在我的上下文里）。请带我给自己这篇作文「把脉」，从整体开始：①先用一句话说清我这篇的中心——写了什么、想表达什么（如果我说偏了，温和纠正）；②带我看结构：全文分几个部分？哪部分写得厚、哪部分单薄？（先问我，再补答案）；③按重要性排一下，告诉我这篇最值得先改的1个地方，并说清为什么先改它。不要替我改任何一个字。`},
+      {label:'逐段加厚', hint:'挑最弱一段，教我怎么写具体', mt:900,
+        q:()=>`现在带我加厚最薄弱的那一段（全文见我的上下文）。要求：①只聚焦这一段，用放大镜追问引导我自己补写——当时看到什么颜色/形状、听到什么声音、心里什么感受、能打个什么比方；②做一处「升格对比」示范：从我的原文里挑最平淡的一句，先放原句→再给升格句→用一句话说清差别（更具体/更有画面/更真情实感）；③示范只做这一处，其余必须我自己改，改完发给你再点评。`},
+      {label:'词句润色', hint:'挑1-2处错别字病句，我自己改', mt:700,
+        q:()=>`带我润色词句（基于我上下文里的作文全文）：①挑出1-2处错别字或用得不准的词，只告诉我"哪一句有问题"，不给答案，让我自己找出来改；②再挑1个可以更生动的句子，用提问引导我换个说法；③我改对了就明确肯定，并说清好在哪里。`},
+      {label:'对照检查', hint:'要求逐条过一遍，确认可誊写', mt:700,
+        q:()=>`带我对照检查这篇作文：①把题目和任务要求（字数、必须写的要点）逐条对照打勾；②看开头是否点题、结尾是否收束；③标点与格式有没有问题。全部过关后告诉我"可以誊写到作文本上了"，并把我这次自己改出来的亮点总结成2句话，让我记住自己的进步。`},
+    ],
+    doneMsg:'这篇作文升格完成啦！改的都是你自己写出来的，这才是真本事 🎉'
   },
   preview:{
     title:'📖 明日预习流程', mode:'socratic', needRef:false,
@@ -3072,22 +3123,46 @@ function onChatFile(e){
         else if(buddyMode==='reading') sys=readingSystem();
         else sys=socraticSystem();
         sys += contextLine()+textbookLine()+'\n'+DRAW_HINT;
-        const vPrompt = sys+'\n\n孩子发来一张题目/作业的照片。请：①先一句话说清你看到了什么（题目、已知条件）；②用苏格拉底方式只提一个问题引导他思考，不要直接给答案；③需要画示意图/几何图/分数图时，用 ```svg 画图让他直观看懂；④回复最后另起一行，用【题目速记】开始、以【/题目速记】结束，一句话概括这道题的已知条件与所求（60字内，不含答案）。';
+        /* 自路由双分支：作文/长文手写稿走"全文转写→整体点评→引导"，数学等题目走原有"速记+一个问题"。
+           作文场景是重灾区（用户 2026-09-14 反馈）：绝不能用数学题的"一句话+60字速记"应付一篇作文 */
+        const vPrompt = sys+'\n\n孩子发来作业照片（可能是手写作文/写话/日记，也可能是数学等题目）。先判断内容类型，再按对应分支回复：\n'+
+        '【分支A·作文/写话/长篇手写稿】（方格稿纸、成段落的文章）：\n'+
+        '①先把全文逐字转写（辨认手写字，保持原文分段，错别字照抄不纠正），放在【作文转写】和【/作文转写】标记之间；\n'+
+        '②转写完后，以二十年教龄特级语文教师视角给【整体点评】：先真诚肯定2个具体亮点（必须引用原文词句），再指出当前最需要改进的1个整体问题（结构/选材/描写详略，只挑最重要的一个，不说教）；\n'+
+        '③最后提1个引导孩子自己思考改进的问题（不给答案、不代改）。\n'+
+        '【分支B·数学等题目】：\n'+
+        '①一句话说清你看到了什么（题目、已知条件）；②用苏格拉底方式只提一个问题引导他思考，不要直接给答案；③需要画示意图/几何图/分数图时，用 ```svg 画图让他直观看懂；④回复最后另起一行，用【题目速记】开始、以【/题目速记】结束，一句话概括这道题的已知条件与所求（60字内，不含答案）。';
         let raw;
         try{ raw = await callVision(dataUrl, vPrompt); }
         catch(e1){ /* iOS Safari 偶发 Load failed（网络抖动/请求体大）：自动重试一次 */ await new Promise(r=>setTimeout(r,900)); raw = await callVision(dataUrl, vPrompt); }
         const t=document.getElementById('typing'); if(t)t.remove();
-        // 存题目速记：后续轮次转文字模型提速（轻量降级）
+        // 双标记提取：作文转写存全文（后续轮次文字模型也能基于全文引导），题目速记存摘要
         let shown = raw;
+        const jmEssay = raw.match(/【作文转写】([\s\S]*?)【\/作文转写】/);
         const jm = raw.match(/【题目速记】([\s\S]*?)【\/题目速记】/);
-        if(jm){ shown = raw.replace(/【题目速记】[\s\S]*?【\/题目速记】/,'').trim() || raw; }
+        if(jmEssay){
+          shown = raw.replace(/【作文转写】[\s\S]*?【\/作文转写】/,'').trim() || raw;
+          itemAddImg(dataUrl);
+          currentItem.essay = jmEssay[1].trim().slice(0,1500);
+          currentItem.desc = jmEssay[1].trim().replace(/\s+/g,'').slice(0,50);
+        }else if(jm){
+          shown = raw.replace(/【题目速记】[\s\S]*?【\/题目速记】/,'').trim() || raw;
+          itemAddImg(dataUrl);
+          currentItem.desc = jm[1].trim().slice(0,150);
+        }else{
+          itemAddImg(dataUrl);
+        }
         pushChat('assistant', shown); renderChat(); speak(shown);
-        currentItem={img:dataUrl, desc:(jm?jm[1].trim().slice(0,150):''), subject:'', kp:'', updatedAt:Date.now()};
-        toast('图片已收进当前题目，接着问它就行 👀');
+        save();
+        toast(jmEssay?'📄 作文全文已读完并收进档案，接着跟我聊怎么改 👀':'图片已收进当前题目，接着问它就行 👀');
+        /* 作文照片：转写成功后自动进入「作文升格流程」，保证"从整体开始引导"不落空（正文≥150字才算真作文） */
+        if(jmEssay && (currentItem.essay||'').length>=150 && (!p().flow || (p().flow.type!=='essay' && p().flow.type!=='essayup'))){
+          setTimeout(()=>{ try{ startFlow('essayup'); }catch(_){} }, 800);
+        }
         return;
       }
       // 其余模式：仅存图，作为上下文
-      currentItem={img:dataUrl, desc:'', subject:'', kp:'', updatedAt:Date.now()};
+      itemAddImg(dataUrl);
       pushChat('assistant','📷 图片已收到，我们结合它继续～'); renderChat();
     }catch(err){
       const t=document.getElementById('typing'); if(t)t.remove();
