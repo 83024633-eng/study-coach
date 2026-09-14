@@ -448,7 +448,7 @@ const LS_KEY = 'aiCoachData_v2';
 const BASE = 'https://autorouter.top/v1';
 const DEFAULT_KEY = ''; /* 安全：Key 不写入网页源码，由云同步加密下发（见 cloudAdoptKey） */
 const DEFAULT_MODEL = 'deepseek-v4-flash';
-const DEFAULT_VISION = 'gemini-3.5-flash'; /* 拍照识别默认；autorouter 已下架 glm-4.5v/glm-5v 系视觉模型（2026-09-14 实测清单） */
+const DEFAULT_VISION = 'gemini-3.6-flash'; /* 拍照识别默认；gemini-3.5-flash 渠道已于 2026-09-14 停用（返回 no longer available 提示文本） */
 
 const GRADES = ['初一','四年级'];
 const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
@@ -500,7 +500,7 @@ function load(){
         const merged = Object.assign(def, s);
         /* Key 不再内置：本地没有时由 cloudAdoptKey 从私有云同步自动获取 */
         if(!merged.proModel || merged.proModel==='deepseek-v4') merged.proModel='glm-5'; /* deepseek-v4在中转站无可用渠道，自动迁移到glm-5 */
-        if(!merged.visionModel || merged.visionModel==='glm-5v-turbo' || merged.visionModel==='glm-4.5v') merged.visionModel=DEFAULT_VISION; /* glm-5v/glm-4.5v 均无可用渠道，自动迁移 */
+        if(!merged.visionModel || /^(glm-(4\.5|5)v|gemini-3\.5-flash)/.test(merged.visionModel)) merged.visionModel=DEFAULT_VISION; /* glm-5v/glm-4.5v/gemini-3.5-flash 渠道均已停用，自动迁移 */
         GRADES.forEach(g=>{
           const pf = merged.profiles[g];
           pf.recites = pf.recites || [];
@@ -1482,6 +1482,19 @@ async function sendChat(hiddenQ, displayText){
     if(!reply){
       /* 空回复自动重试一次，不让孩子干等手动重发 */
       try{ reply = await callAI(msgsAI); }catch(_){}
+    }
+    /* 停用渠道会以 200 流式返回"no longer available/请切换"这类提示文本（不报错），识别后自动换候选视觉模型重试 */
+    if(useVision && isDeadVisionReply(reply)){
+      for(const m of VISION_CANDIDATES){
+        if(m===model) continue;
+        let r2='';
+        try{ r2 = await aiStream(base,key,m,msgsAI,_mt,_tp,function(txt){ liveBubble.innerHTML=renderAIHtml(txt); box.scrollTop=box.scrollHeight; }); }catch(_){ continue; }
+        if(!isDeadVisionReply(r2)){ reply=r2; state.visionModel=m; save(); break; }
+      }
+      if(isDeadVisionReply(reply)){ /* 全部视觉候选都停用：降级为纯文字模式，把图去掉继续引导 */
+        const textMsgs = msgsAI.slice(); textMsgs[textMsgs.length-1] = {role:'user', content: text + itemCtx + '\n[注：图片暂时无法识别，请根据文字描述继续引导]'};
+        try{ reply = await callAI(textMsgs); }catch(_){}
+      }
     }
     if(!reply) reply='（这次网络开小差了，再点一下发送试试 🙂）';
     // 提取【题目速记】→ 存入 currentItem，后续轮次转文字模型提速；并从展示内容中剥离标记
@@ -2805,16 +2818,23 @@ async function testAI(){
 if(!state.key) cloudAdoptKey(true); /* 启动时本地无Key则自动从云端获取 */
 
 /* ===== 视觉模型（拍照识别） ===== */
-/* 中转站可用视觉模型候选（2026-09-14 实测 /api/pricing 清单，glm-4.5v/glm-5v 系列已全部下架） */
-const VISION_CANDIDATES = ['gemini-3.5-flash','gpt-5.4-mini','doubao-seed-2-0-lite','glm-5','grok-4-1-fast-non-reasoning','gemini-3.6-flash'];
+/* 中转站可用视觉模型候选（2026-09-14 实测：gemini-3.5-flash 渠道停用，会以 200 返回"no longer available"提示文本而非报错） */
+const VISION_CANDIDATES = ['gemini-3.6-flash','gpt-5.4-mini','doubao-seed-2-0-lite','grok-4-1-fast-non-reasoning','gemini-3.1-flash-image','gemini-3.5-flash'];
+/* 停用渠道的典型回复：HTTP 200 但内容是"换模型"提示，必须当作失败处理 */
+const VISION_DEAD_RE = /no longer available|please switch to|无可用渠道|已被禁用|不再可用|请切换到/i;
+const isDeadVisionReply = (t)=> !t || String(t).length<200 && VISION_DEAD_RE.test(t);
 /* 1x1 测试图：验证"图片输入"完整链路，纯文本能通不代表能看图 */
 const PROBE_IMG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 async function visionProbeOnce(base,key,m){
   try{
-    await aiFetch(base,key,{model:m, messages:[{role:'user', content:[
+    const d = await aiFetch(base,key,{model:m, messages:[{role:'user', content:[
       {type:'text', text:'这是一张测试图，回复OK两个字母即可'},
       {type:'image_url', image_url:{url:PROBE_IMG}}
     ]}], max_tokens:20, temperature:0, stream:false});
+    const msg=d.choices&&d.choices[0]&&d.choices[0].message;
+    const txt=(msg&&(msg.content||msg.reasoning_content))||'';
+    /* 200 + "停用提示文本"也算不通 */
+    if(isDeadVisionReply(txt)) return false;
     return true;
   }catch(e){ return false; }
 }
@@ -2839,21 +2859,27 @@ async function callVision(base64DataUrl, prompt){
     {type:'text', text:prompt},
     {type:'image_url', image_url:{url:base64DataUrl}}
   ]}], max_tokens:2000, temperature:0.3, stream:false});
-  let data;
+  let data=null, got=null;
+  const _try=async(m)=>{
+    const d=await _one(m);
+    const msg=d.choices&&d.choices[0]&&d.choices[0].message;
+    const txt=(msg&&(msg.content||msg.reasoning_content))||'';
+    if(isDeadVisionReply(txt)) throw new Error('模型已停用: '+String(txt).slice(0,60));
+    return txt;
+  };
   try{
-    data = await _one(visionModel());
+    got = await _try(visionModel());
   }catch(e){
-    /* 运行时兜底：当前拍照模型临时不可用（渠道下线/限流），自动换下一个能看图的并记住 */
+    /* 运行时兜底：渠道报错或以 200 返回"停用提示文本"，都自动换下一个能看图的并记住 */
     let switched=null;
     for(const m of VISION_CANDIDATES){
       if(m===visionModel()) continue;
-      try{ data = await _one(m); switched=m; break; }catch(_){}
+      try{ got = await _try(m); switched=m; break; }catch(_){}
     }
     if(!switched) throw e;
     state.visionModel=switched; save();
   }
-  const msg = data.choices && data.choices[0] && data.choices[0].message;
-  return (msg && (msg.content || msg.reasoning_content)) || '';
+  return got||'';
 }
 
 /* ===== 错题拍照 ===== */
