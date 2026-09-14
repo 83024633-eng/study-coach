@@ -1336,7 +1336,8 @@ function subjectLine(text){
 }
 async function sendChat(hiddenQ, displayText){
   const input = document.getElementById('chatInput');
-  let text = hiddenQ || input.value.trim();
+  /* hiddenQ 只认字符串：事件对象等意外入参一律回退到输入框内容（防"点发送没反应"） */
+  let text = (typeof hiddenQ==='string' && hiddenQ.trim()) ? hiddenQ : input.value.trim();
   if(!text) return;
   state.lastBuddyTs = Date.now(); /* 专注力：记录最近活跃时间，30 分钟后再次进入会触发收心仪式 */
   /* 类型防护：任何对象/无效内容都不允许作为消息发出（防 [object Object]） */
@@ -3037,6 +3038,8 @@ function onChatFile(e){
       pushChat('assistant','📷 图片已收到，我们结合它继续～'); renderChat();
     }catch(err){
       const t=document.getElementById('typing'); if(t)t.remove();
+      /* 图先存进当前题目：孩子接着打字时会自动带图重试，不用重拍 */
+      currentItem={img:dataUrl, desc:'', subject:'', kp:'', updatedAt:Date.now()};
       pushChat('assistant','（看图没成功：网络抖了一下。已经自动重试过一次还不行，稍等几秒再拍一次就好～）'); renderChat();
     }
   });
@@ -3466,7 +3469,7 @@ document.getElementById('profilePick').addEventListener('click', e=>{
 });
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 document.getElementById('modebar').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b){ setBuddyMode(b.dataset.mode); maybeRitual(); } });
-document.getElementById('btnSend').addEventListener('click', sendChat);
+document.getElementById('btnSend').addEventListener('click', ()=>sendChat()); /* 必须包箭头函数：直接传 sendChat 会把 MouseEvent 当 hiddenQ，点发送永远报"消息没能正常生成" */
 document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); } });
 document.getElementById('btnAddWrong').addEventListener('click', addWrong);
 document.getElementById('btnAddRecite').addEventListener('click', addRecite);
