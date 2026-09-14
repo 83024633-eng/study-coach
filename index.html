@@ -199,13 +199,13 @@ nav button.on{color:var(--accent); font-weight:600;}
       <div class="chat" id="chatBox"></div>
       <div id="modeShortcuts" style="display:none; margin-top:8px"></div>
       <div class="inputbar">
-        <button class="btn btn-ghost" id="btnSnapChat" title="拍照判题" style="flex-shrink:0;height:44px;width:46px;padding:0;font-size:20px">📷</button>
+        <button class="btn btn-ghost" id="btnSnapChat" title="拍照或从相册选图判题" style="flex-shrink:0;height:44px;width:46px;padding:0;font-size:20px">📷</button>
         <button class="btn btn-ghost" id="btnVoice" title="语音输入" style="flex-shrink:0;height:44px;width:46px;padding:0;font-size:20px">🎤</button>
         <textarea id="chatInput" placeholder="说出你的问题…（点左边🎤直接说话）" rows="1"></textarea>
         <button class="btn btn-ghost" id="btnTTS" title="朗读 AI 回复" style="flex-shrink:0;height:44px;width:46px;padding:0;font-size:20px">🔊</button>
         <button class="btn btn-p send" id="btnSend">发送</button>
       </div>
-      <input type="file" id="chatFile" accept="image/*" capture="environment" style="display:none" data-page-node-id="DAitHMrXsINQF6HwLqpNNc">
+      <input type="file" id="chatFile" accept="image/*" style="display:none" data-page-node-id="DAitHMrXsINQF6HwLqpNNc">
     </div>
   </section>
 
@@ -231,11 +231,11 @@ nav button.on{color:var(--accent); font-weight:600;}
       </select>
       <label data-page-node-id="wKpLbl">知识点（选填·自动归类用）</label>
       <input id="wKp" placeholder="如：一元一次方程·去分母（拍照会自动识别）" data-page-node-id="wKpInp">
-      <button class="btn btn-ghost btn-block" id="btnSnap" style="margin-top:10px" data-page-node-id="zmXepEzzIsewa7rS80QWeW">📷 拍照识别错题</button>
+      <button class="btn btn-ghost btn-block" id="btnSnap" style="margin-top:10px" data-page-node-id="zmXepEzzIsewa7rS80QWeW">📷 拍照 / 从相册选图识别错题</button>
       <div id="wrongImgPrev" style="margin-top:8px"></div>
       <button class="btn btn-p btn-block" id="btnAddWrong" style="margin-top:10px" data-page-node-id="O4SZTpiDcysIKiDCEletsk">保存错题</button>
-      <input type="file" id="wrongFile" accept="image/*" capture="environment" style="display:none" data-page-node-id="go3F79QbOEGXUqcBCthIRV">
-      <input type="file" id="reciteFile" accept="image/*" capture="environment" style="display:none" onchange="onReciteFile(event)">
+      <input type="file" id="wrongFile" accept="image/*" style="display:none" data-page-node-id="go3F79QbOEGXUqcBCthIRV">
+      <input type="file" id="reciteFile" accept="image/*" style="display:none" onchange="onReciteFile(event)">
     </div>
 
     <div class="card" data-page-node-id="LnHBrpGsDq9uWI7zey60QQ">
@@ -254,7 +254,7 @@ nav button.on{color:var(--accent); font-weight:600;}
       <textarea id="rText" rows="4" placeholder="粘贴课文/段落原文；也可以点下方拍照识别"></textarea>
       <button class="btn btn-ghost btn-block" id="btnSnapReciteText" style="margin-top:10px" onclick="snapReciteText()">📷 拍课文自动录入原文</button>
       <button class="btn btn-ghost btn-block" id="btnSnapRecite" style="margin-top:10px" onclick="snapRecite()">📷 拍单词表自动录入</button>
-      <input type="file" id="reciteTextFile" accept="image/*" capture="environment" style="display:none" onchange="onReciteTextFile(event)">
+      <input type="file" id="reciteTextFile" accept="image/*" style="display:none" onchange="onReciteTextFile(event)">
       <button class="btn btn-p btn-block" id="btnAddRecite" style="margin-top:10px" data-page-node-id="jZQqgt7sMtFoTw4xtSBWLM">📚 开始背诵（口诀+导图+自测）</button>
     </div>
 
@@ -293,7 +293,7 @@ nav button.on{color:var(--accent); font-weight:600;}
       </div>
       <button class="btn btn-p btn-block" id="btnGenPaper" style="margin-top:10px" onclick="genPaper()">✨ AI 出卷，开始计时</button>
       <div id="paperBox"></div>
-      <input type="file" id="paperFile" accept="image/*" capture="environment" style="display:none">
+      <input type="file" id="paperFile" accept="image/*" style="display:none">
     </div>
 
     <div id="wrongList" data-page-node-id="Y8dKKDLzOlHB3CgrzR3Cx2"></div>
@@ -341,7 +341,7 @@ nav button.on{color:var(--accent); font-weight:600;}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-sm btn-p" onclick="addExam()">记一笔</button>
-        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('examFile').click()">📷 拍成绩单录入</button>
+        <button class="btn btn-sm btn-ghost" onclick="imageSourceSheet('examFile')">📷 拍成绩单录入</button>
       </div>
       <input type="file" id="examFile" accept="image/*" style="display:none" onchange="onExamFile(event)">
       <div class="hint" style="margin-top:6px">拍成绩单 AI 自动识别考试名和成绩；记录只进自己的档案，AI 对孩子永不提排名。</div>
@@ -1669,7 +1669,7 @@ function renderWrong(){
 }
 
 /* ===== 背诵 ===== */
-function snapRecite(){ const inp=document.getElementById('reciteFile'); if(inp) inp.click(); }
+function snapRecite(){ imageSourceSheet('reciteFile'); }
 function onReciteFile(e){
   const file=e.target.files[0]; if(!file) return; e.target.value='';
   cropPicker(file, 1000,async (dataUrl)=>{
@@ -1711,7 +1711,7 @@ function addRecite(){
   sendChat();
 }
 /* 拍课文/段落 → AI 识别完整原文，填入录入框（验收对照+口诀生成的根基） */
-function snapReciteText(){ const inp=document.getElementById('reciteTextFile'); if(inp) inp.click(); }
+function snapReciteText(){ imageSourceSheet('reciteTextFile'); }
 function onReciteTextFile(e){
   const file=e.target.files[0]; if(!file) return; e.target.value='';
   cropPicker(file, 1000,async (dataUrl)=>{
@@ -2857,7 +2857,7 @@ async function callVision(base64DataUrl, prompt){
 }
 
 /* ===== 错题拍照 ===== */
-function snapWrong(){ document.getElementById('wrongFile').click(); }
+function snapWrong(){ imageSourceSheet('wrongFile'); }
 function onWrongFile(e){
   const file = e.target.files[0]; if(!file) return;
   e.target.value='';
@@ -2892,6 +2892,33 @@ function onWrongFile(e){
 }
 /* 学科名工具（全局）： conceptReview/diagData 等共用，避免局部定义导致 ReferenceError */
 function subjName(s){ return (SUBJECT[s]||['其他'])[0]; }
+/* ===== 图片来源：统一支持「拍照 / 从相册选」（拍好的作业不用重拍） ===== */
+function imageSourceSheet(inputId){
+  const inp = document.getElementById(inputId);
+  if(!inp){ toast('功能未就绪，刷新页面再试'); return; }
+  const old = document.getElementById('imgSrcSheet'); if(old) old.remove();
+  const wrap = document.createElement('div'); wrap.id='imgSrcSheet';
+  wrap.innerHTML = `<div style="position:fixed;inset:0;background:rgba(17,17,20,.55);z-index:9997;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)document.getElementById('imgSrcSheet').remove()">
+    <div style="background:#fff;border-radius:18px 18px 0 0;max-width:520px;width:100%;padding:16px 14px 22px">
+      <b style="font-size:16px">选择图片来源</b>
+      <div class="hint" style="margin:2px 0 12px">作业已经拍好了？直接「从相册选」，不用再拍一次 📷→🖼️</div>
+      <button class="btn btn-p btn-block" style="height:54px" onclick="imageSourcePick('${inputId}','camera')">📷 现在拍照</button>
+      <button class="btn btn-ghost btn-block" style="height:54px;margin-top:10px" onclick="imageSourcePick('${inputId}','album')">🖼️ 从相册选</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="document.getElementById('imgSrcSheet').remove()">取消</button>
+    </div></div>`;
+  document.body.appendChild(wrap);
+}
+function imageSourcePick(inputId, mode){
+  const inp = document.getElementById(inputId);
+  const ov = document.getElementById('imgSrcSheet'); if(ov) ov.remove();
+  if(!inp) return;
+  try{
+    if(mode==='camera') inp.setAttribute('capture','environment'); /* 直接开相机 */
+    else inp.removeAttribute('capture'); /* 打开相册/系统选择（iOS 会弹 照片图库/拍照/浏览） */
+  }catch(_){}
+  try{ inp.value=''; }catch(_){} /* 允许连续选同一张 */
+  inp.click();
+}
 /* ===== 拍照框选：拍完先框出要解答的那道题，不用手盖前后题 ===== */
 function imgToDataUrl(img, maxW, cb){
   let w=img.width, h=img.height;
@@ -2991,7 +3018,7 @@ function compressImage(file, maxW, cb){
 }
 
 /* ===== 拍照判题（复习闭环） ===== */
-function snapChat(){ document.getElementById('chatFile').click(); }
+function snapChat(){ imageSourceSheet('chatFile'); }
 function onChatFile(e){
   const file = e.target.files[0]; if(!file) return;
   e.target.value='';
@@ -3537,7 +3564,7 @@ function tickPaperTimer(){
     if(left<=0){ clearInterval(paperTimer); el.textContent='时间到'; toast('⏰ 时间到！把写好的卷子拍照交卷吧'); }
   }, 1000);
 }
-function snapPaper(){ document.getElementById('paperFile').click(); }
+function snapPaper(){ imageSourceSheet('paperFile'); }
 function onPaperFile(e){
   const file = e.target.files[0]; if(!file) return;
   e.target.value='';
