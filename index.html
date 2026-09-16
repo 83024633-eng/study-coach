@@ -328,6 +328,11 @@ nav button.on{color:var(--accent); font-weight:600;}
       <div class="hint" style="margin-bottom:6px">两层看：<b>知识点</b>（哪块内容不会）红=薄弱 / 黄=掌握中 / 绿=已会；<b>学科能力点</b>（哪种能力拖后腿，如"表达·写具体""答题规范"）来自老师批改的作业，连续两次命中自动转红。哪里弱，先攻哪里。</div>
       <div id="weakList"></div>
     </div>
+    <div class="card" style="border-color:var(--accent)">
+      <h3>🔍 空白探测 <span class="hint" style="font-weight:400">· 找出"从没考过"的地方</span></h3>
+      <div class="hint" style="margin-bottom:8px">错题本看得见"错过的"，看不见"从没考过的"——而大考丢分常常就来自后者。教练每周抽 <b>3 道小题</b>，专门测账本里还没记录的知识点，3 分钟把盲区点亮。</div>
+      <div id="probeBox"></div>
+    </div>
     <div class="card">
       <h3>🧠 专注力画像</h3>
       <div class="hint" style="margin-bottom:6px">每次用「收心仪式」开始学习、结束时点一下评分，教练就知道孩子哪个时段最专注：难科目排进黄金时段，容易走神的时段只安排背诵、朗读这类轻任务。</div>
@@ -340,19 +345,29 @@ nav button.on{color:var(--accent); font-weight:600;}
       <div id="goalShow" class="hint" style="margin-top:6px"></div>
     </div>
     <div class="card">
-      <h3>📊 大考记录</h3>
+      <h3>📊 考试记录 <span class="hint" style="font-weight:400">· 分数 + 失分点回流</span></h3>
+      <div id="examTrend" style="margin-bottom:6px"></div>
       <div id="examList"></div>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <input id="exDate" type="date" style="flex:1;min-width:120px">
-        <input id="exName" placeholder="考试名(如期中)" style="flex:1;min-width:90px">
-        <input id="exScore" placeholder="分数/排名" style="flex:1;min-width:80px">
+        <input id="exDate" type="date" style="flex:1;min-width:118px">
+        <select id="exSubject" style="flex:1;min-width:74px">
+          <option value="math">数学</option><option value="chinese">语文</option><option value="english">英语</option>
+          <option value="physics">物理</option><option value="chem">化学</option><option value="bio">生物</option>
+          <option value="hist">历史</option><option value="geo">地理</option><option value="politics">道法</option><option value="other">其他</option>
+        </select>
+        <input id="exName" placeholder="考试名(如期中)" style="flex:1;min-width:88px">
       </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-sm btn-p" onclick="addExam()">记一笔</button>
-        <button class="btn btn-sm btn-ghost" onclick="imageSourceSheet('examFile')">📷 拍成绩单录入</button>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        <input id="exScore" placeholder="得分 87" style="flex:1;min-width:74px">
+        <input id="exFull" placeholder="满分 100" style="flex:1;min-width:74px">
       </div>
-      <input type="file" id="examFile" accept="image/*" style="display:none" onchange="onExamFile(event)">
-      <div class="hint" style="margin-top:6px">拍成绩单 AI 自动识别考试名和成绩；记录只进自己的档案，AI 对孩子永不提排名。</div>
+      <input id="exKps" placeholder="失分知识点，逗号分隔（选填，如：分数应用题,单位换算）" style="width:100%;margin-top:6px">
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-p" onclick="addExam()">记一笔并回流</button>
+        <button class="btn btn-sm btn-ghost" onclick="imageSourceSheet('examFile')">📷 拍试卷/成绩单</button>
+      </div>
+      <input type="file" id="examFile" accept="image/*" style="display:none" onchange="onExamPaper(event)">
+      <div class="hint" style="margin-top:6px">拍<b>试卷</b>能自动读出失分知识点，直接转进薄弱点地图、排出补足任务。记录只进自己的档案，AI 对孩子永不提排名。</div>
     </div>
     <div class="card">
       <h3>🗓️ 下周学习计划（教练编排）</h3>
@@ -490,7 +505,7 @@ const TASKS = {
 };
 
 function blankProfile(){
-  return {name:'', wrongs:[], recites:[], reviews:{}, streak:0, lastDate:'', heat:{}, mastered:0, recMastered:0, tasks:{}, chat:{socratic:[],feynman:[],recite:[],reading:[],thinking:[],english:[],interest:[]}, books:[], interests:[], thinkingStats:{level:1,solved:0,history:[]}, lastReview:'', textbook:{}, hwReviews:[]};
+  return {name:'', wrongs:[], recites:[], reviews:{}, streak:0, lastDate:'', heat:{}, mastered:0, recMastered:0, tasks:{}, chat:{socratic:[],feynman:[],recite:[],reading:[],thinking:[],english:[],interest:[]}, books:[], interests:[], thinkingStats:{level:1,solved:0,history:[]}, lastReview:'', textbook:{}, hwReviews:[], ledger:{}, kpPool:{}, probes:[], exams:[]};
 }
 function defaultState(){
   const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', visionModel:DEFAULT_VISION, proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null};
@@ -524,6 +539,13 @@ function load(){
           pf.reviews = pf.reviews || {};
           pf.heat = pf.heat || {};
           pf.hwReviews = pf.hwReviews || [];
+          /* P0/P1 新字段：知识账本 / 应知知识点池 / 空白探测 / 考试记录 */
+          pf.ledger = pf.ledger || {};
+          pf.kpPool = pf.kpPool || {};
+          pf.probes = pf.probes || [];
+          pf.exams = pf.exams || [];
+          /* 旧版考试记录缺 id/科目/失分点/计划字段，统一补齐（否则删除按钮会误删） */
+          pf.exams.forEach(e=>{ if(!e.id) e.id=uid(); if(!e.kps) e.kps=[]; if(!e.plan) e.plan=[]; if(!e.subject) e.subject='other'; });
         });
         return merged;
       }
@@ -720,6 +742,10 @@ function renderTodayRoute(){
   /* 老师批改作业生成的"能力点补足"微任务（到期未完成的） */
   const hwPlans=[];
   (p().hwReviews||[]).forEach(h=>{ (h.plan||[]).forEach((x,i)=>{ if(!x.done && addDays(h.date,x.day)<=today()) hwPlans.push({hwId:h.id, idx:i, x}); }); });
+  /* P1 考试失分补足 + P0 空白探测提醒 */
+  const exPlans = examPlansPending();
+  const cvg = kpCoverage();
+  const showProbe = probeDue();
   const taskLeft = tasks.length;
   let html = `<div class="card" style="background:linear-gradient(135deg,var(--accent-bg),#fff);border-color:var(--accent)">
     <h3>${greet}，${name} 👋 今天这样安排</h3>`;
@@ -729,6 +755,8 @@ function renderTodayRoute(){
   if(dueR.length) items.push(`<b style="color:var(--red)">${dueR.length}</b> 段背诵待巩固`);
   if(conceptDue.length) items.push(`<b>${conceptDue.length}</b> 个已会概念到防遗忘检查点`);
   if(hwPlans.length) items.push(`<b>${hwPlans.length}</b> 条能力点补足（老师批改的作业）`);
+  if(exPlans.length) items.push(`<b>${exPlans.length}</b> 条考试失分补足`);
+  if(showProbe) items.push(`🔍 <b style="color:var(--red)">${cvg.gap.length}</b> 个知识点从没被验证过`);
   if(taskLeft) items.push(`<b>${taskLeft}</b> 项今日任务`);
   if(!items.length) items.push('今天都清啦 🎉 想学点什么？点「搭子」挑一个');
   html += `<div style="font-size:14px;line-height:1.9;margin:6px 0">${items.map(x=>'· '+x).join('<br>')}</div>`;
@@ -749,6 +777,22 @@ function renderTodayRoute(){
         </div>`).join('')
       + `<button class="btn btn-sm btn-p" style="margin-top:6px" onclick="startFlow('hwreview','${hwPlans[0].hwId}')">🚀 开始订正</button>`
       + `</div>`;
+  }
+  if(exPlans.length){
+    html += `<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px">
+      <div style="font-size:12.5px;font-weight:600;margin-bottom:4px">📊 考试失分补足</div>`
+      + exPlans.slice(0,4).map(t=>`<div style="display:flex;gap:7px;align-items:flex-start;font-size:12.5px;margin:5px 0">
+          <div class="box" style="flex:0 0 auto" onclick="toggleExamPlan('${t.examId}',${t.idx})"></div>
+          <div style="line-height:1.5"><b>${esc(t.x.kp||'')}</b>：${esc(t.x.task)}</div>
+        </div>`).join('')
+      + `</div>`;
+  }
+  if(showProbe){
+    html += `<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px;font-size:12.5px;line-height:1.6">
+      🔍 <b>空白探测</b>：还有 <b style="color:var(--red)">${cvg.gap.length}</b> 个应知知识点从没被验证过（错题本看不见它们）
+      <div><button class="btn btn-sm btn-p" style="margin-top:6px" onclick="gotoProbe()">3 分钟测一下</button></div>
+      ${probeResultText()?`<div class="hint" style="font-size:11.5px;margin-top:4px">${esc(probeResultText())}，可以顺手补一下</div>`:''}
+      </div>`;
   }
   html += `</div>`;
   box.innerHTML = html;
@@ -1699,19 +1743,32 @@ async function askAI(wrongId){
 }
 
 /* ===== 错题 ===== */
-/* 知识账本（V1）：正向掌握记录，错题/复习自动沉淀，状态可回退可前进 */
-function ledgerMark(kp, subject, status){
-  if(!kp || !kp.trim()) return;
+/* 知识账本（V1）：正向掌握记录，错题/复习/空白探测/考试四种来源统一沉淀，状态可回退可前进 */
+function ledgerMark(kp, subject, status, src){
+  if(!kp || !String(kp).trim()) return;
   const L = p().ledger = p().ledger||{};
-  const key = (subject||'other')+'::'+kp.trim();
-  const cur = L[key] || {subject:subject||'other', kp:kp.trim(), status:'weak', hits:0, updatedAt:0};
+  const name = String(kp).trim();
+  const key = (subject||'other')+'::'+name;
+  const cur = L[key] || {subject:subject||'other', kp:name, status:'weak', hits:0, updatedAt:0};
   const rank = {weak:0, learning:1, done:2};
-  if(status==='weak') cur.status = (rank[cur.status]>rank.weak && status!==cur.status)?'learning':'weak';
-  else if(rank[status]>=rank[cur.status]) cur.status = status;
+  if(status==='weak'){
+    /* 考试命中是最硬的弱信号：直接压到薄弱（家长最容易误以为"平时都会"） */
+    if(src==='exam'){ cur.status='weak'; cur.examAt=today(); }
+    else cur.status = (rank[cur.status]>rank.weak && cur.status!=='weak')?'learning':'weak';
+  }else if(rank[status]>=rank[cur.status]){
+    cur.status = status;
+  }
+  if(src==='probe') cur.probedAt = today();
+  if(src==='probe' && status==='done' && cur.status!=='done') cur.status='done';
+  cur.lastSrc = src||'wrong';
   cur.hits=(cur.hits||0)+1; cur.updatedAt=Date.now();
   /* 概念巩固排期（P2 防遗忘）：已会的知识点 2 天后自动进入"概念回顾"检查点，退步则取消排期 */
   cur.nextDate = (cur.status==='done') ? addDays(today(),2) : null;
   L[key]=cur;
+}
+function ledgerOf(kp, subject){
+  const k=String(kp||'').trim(); if(!k) return null;
+  return (p().ledger||{})[((subject||'other')+'::'+k)] || null;
 }
 function addWrong(){
   const desc = document.getElementById('wDesc').value.trim();
@@ -2582,18 +2639,25 @@ function renderGrowth(){
   s.textContent = msgs.length ? msgs.join(' · ') : '还没有记录，先完成一次睡前复盘吧。';
   renderWeakness();
   renderExams();
+  renderProbe();
   renderGoal();
   try{ renderFocusProfile(); }catch(_){}
   try{ renderWeekPlan(); }catch(_){}
   try{ renderWeekDiagnosis(); }catch(_){}
   // 给家长端看的速览（随云同步下发）
+  const _cvg = kpCoverage();
+  const _lastProbe = probeLast();
+  const _exams = (p().exams||[]).filter(e=>examRatio(e)!==null).slice(0,3).map(e=>({name:e.name||'考试', pct:examRatio(e), date:e.date||''}));
   p().coachSummary = {
     date: today(),
     asks: (p().asks && p().asks[today()]) || 0,
     due, recDue,
     stuck: (p().lastReview && p().lastReview.stuck) || '',
-    weakTop: (p().weakCache||[]).slice(0,3).map(x=>x.k+'('+x.done+'/'+x.total+')'),
-    focus: focusSummaryText()
+    weakTop: (p().weakCache||[]).slice(0,3).map(x=>x.k+'('+(x.total?(x.done+'/'+x.total):(x.st&&x.st.label||''))+')'),
+    focus: focusSummaryText(),
+    coverage: _cvg.total ? {covered:_cvg.covered, total:_cvg.total, pct:_cvg.pct, gap:_cvg.gap.length} : null,
+    probe: _lastProbe ? {date:_lastProbe.date, right:_lastProbe.right, total:_lastProbe.total} : null,
+    exam: _exams.length ? _exams : null
   };
 }
 /* 薄弱点地图：三态（薄弱红/掌握中黄/已会绿）+ 科目掌握度总览（V1 知识账本） */
@@ -2601,7 +2665,8 @@ function renderWeakness(){
   const box = document.getElementById('weakList'); if(!box) return;
   const ws = p().wrongs||[];
   const _absAll = abilityStats();
-  if(!ws.length && !_absAll.length){ box.innerHTML='<div class="muted" style="font-size:13px">还没有数据。记的错题越多、拍的老师批改作业越多，这张地图越准。</div>'; p().weakCache=[]; return; }
+  const _led = Object.keys(p().ledger||{}).length;
+  if(!ws.length && !_absAll.length && !_led){ box.innerHTML='<div class="muted" style="font-size:13px">还没有数据。记的错题越多、拍的老师批改作业越多、做的空白探测越多，这张地图越准。</div>'; p().weakCache=[]; return; }
   /* 科目掌握度总览 */
   const sub={};
   ws.forEach(w=>{ const sn=SUBJECT[w.subject]?SUBJECT[w.subject][0]:'其他'; if(!sub[sn])sub[sn]={t:0,d:0}; sub[sn].t++; if(w.status==='done')sub[sn].d++; });
@@ -2613,32 +2678,54 @@ function renderWeakness(){
       <span class="hint" style="width:76px;text-align:right">${pct}% (${sub[sn].d}/${sub[sn].t})</span>
     </div>`;
   }).join('');
-  /* 知识点三态明细 */
+  /* 知识点三态明细：以知识账本为主（错题/复习/空白探测/考试 四种来源统一沉淀），
+     账本里还没有的老数据从错题兜底聚合；考试命中过的点强制标红（最硬的弱信号） */
+  const Lmap = p().ledger||{};
   const map = {};
+  Object.keys(Lmap).forEach(key=>{
+    const l=Lmap[key]; if(!l||!l.kp) return;
+    map[(l.subject||'other')+'::'+l.kp] = {k:l.kp, subject:l.subject||'other', total:0, done:0, due:0,
+      status:l.status||'weak', examAt:l.examAt||'', lastSrc:l.lastSrc||'', probedAt:l.probedAt||''};
+  });
   ws.forEach(w=>{
-    const key = (w.kp && w.kp.trim()) ? w.kp.trim() : (SUBJECT[w.subject]?SUBJECT[w.subject][0]:'其他')+'·未标注';
-    if(!map[key]) map[key]={total:0, done:0, due:0};
+    const kp=(w.kp&&w.kp.trim())?w.kp.trim():''; if(!kp) return;
+    const key=(w.subject||'other')+'::'+kp;
+    if(!map[key]) map[key]={k:kp, subject:w.subject||'other', total:0, done:0, due:0, status:null, examAt:'', lastSrc:'wrong', probedAt:''};
     map[key].total++;
     if(w.status==='done') map[key].done++;
     if(w.status==='redo' && w.nextDate && w.nextDate<=today()) map[key].due++;
   });
-  const arr = Object.keys(map).map(k=>({k, ...map[k]})).sort((a,b)=> (b.total-b.done)-(a.total-a.done) || b.total-a.total).slice(0,8);
+  const rankOf=x=> x.examHit?0 : (x.status==='done'?3 : (x.status==='learning'?2 : 1));
+  const arr = Object.keys(map).map(key=>{
+    const m=map[key];
+    const examHit = !!(m.examAt && m.examAt>=addDays(today(),-30));
+    let st;
+    if(examHit) st={c:'var(--red)', label:'薄弱'};
+    else if(m.status==='done') st={c:'#0F6E56', label:'已会'};
+    else if(m.status==='learning') st={c:'#BA7517', label:'掌握中'};
+    else if(m.status==='weak') st={c:'var(--red)', label:'薄弱'};
+    else { const p0=m.total?Math.round(m.done/m.total*100):0; st = p0>=100?{c:'#0F6E56',label:'已会'}:p0>=50?{c:'#BA7517',label:'掌握中'}:{c:'var(--red)',label:'薄弱'}; }
+    const pct = m.total ? Math.round(m.done/m.total*100)
+      : (m.status==='done' ? 100 : m.status==='learning' ? 50 : (examHit ? 12 : 20));
+    return Object.assign({}, m, {st, pct, examHit});
+  }).sort((a,b)=> rankOf(a)-rankOf(b) || (b.total-a.total) || ((b.probedAt||'')>(a.probedAt||'')?1:-1)).slice(0,8);
   p().weakCache = arr;
-  if(!ws.length){ box.innerHTML=''; }
-  else box.innerHTML = `<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">科目掌握度</div>${subHtml}</div><div style="height:1px;background:var(--line);margin:10px 0"></div>` + arr.map(a=>{
-    const pct = Math.round(a.done/a.total*100);
-    /* 三态：全会=绿(已会) / 半数以上=黄(掌握中) / 其余=红(薄弱) */
-    const st = pct>=100 ? {c:'#0F6E56', label:'已会'} : pct>=50 ? {c:'#BA7517', label:'掌握中'} : {c:'var(--red)', label:'薄弱'};
-    return `<div style="margin:8px 0">
+  const srcText = m => m.total ? (m.done+'/'+m.total+' 题')
+    : (m.lastSrc==='probe' ? '🔍 探测判定' : (m.lastSrc==='exam' ? '📊 考试录入' : (m.lastSrc==='wrong' ? '📝 错题录入' : '—')));
+  const knowHtml = arr.length ? arr.map(a=>`
+    <div style="margin:8px 0">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
-        <span>${a.k} <span style="font-size:11px;color:${st.c};border:1px solid ${st.c};border-radius:8px;padding:0 6px">${st.label}</span></span>
-        <span class="hint">${a.done}/${a.total}${a.due?` · ⏰${a.due}待复习`:''}</span>
+        <span>${esc(a.k)} <span style="font-size:11px;color:${a.st.c};border:1px solid ${a.st.c};border-radius:8px;padding:0 6px">${a.st.label}</span>${a.examHit?' <span style="font-size:10.5px;background:#FCEBEB;color:#A32D2D;border-radius:8px;padding:0 6px">📊 考试命中</span>':''}</span>
+        <span class="hint">${srcText(a)}${a.due?` · ⏰${a.due}待复习`:''}</span>
       </div>
       <div style="height:8px;background:var(--line);border-radius:6px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${st.c};border-radius:6px"></div>
+        <div style="height:100%;width:${a.pct}%;background:${a.st.c};border-radius:6px"></div>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('')
+    : '<div class="hint" style="font-size:12px">知识点记录还不多，先做一次「🔍 空白探测」或记几道错题。</div>';
+  box.innerHTML = (subHtml?(`<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:500;margin-bottom:3px">科目掌握度 · 错题完成度</div>${subHtml}</div><div style="height:1px;background:var(--line);margin:10px 0"></div>`):'')
+    + `<div style="font-size:12px;font-weight:500;margin-bottom:2px">知识点掌握度 <span class="hint" style="font-weight:400">· 来源：错题 / 空白探测 / 考试</span></div>`
+    + knowHtml;
   /* 学科能力点（第二层）：来自老师批改的作业——考的是"能力"不是"知识点" */
   const abs = _absAll;
   box.innerHTML += `<div style="height:1px;background:var(--line);margin:12px 0"></div>
@@ -2659,7 +2746,336 @@ function renderWeakness(){
   }
 }
 
-/* ===== V2：学期目标 + 大考记录 ===== */
+/* ===== P0：应知知识点池 + 空白探测（找出"从没考过"的盲区） ===== */
+const POOL_SUBJECTS = ['math','chinese','english'];
+function isSeg4(){ return state.active==='四年级'; }
+function segName(){ return isSeg4() ? '小学四年级' : '初中一年级'; }
+/* 统一"要 JSON 的 AI 调用"：拿 Key → 请求 → 稳健解析（复用读图的解析加固） */
+async function aiJSON(prompt, maxTokens){
+  let key=state.key; if(!key){ await cloudAdoptKey(true); key=state.key; }
+  if(!key) throw new Error('请先在"我的"页填写 API Key');
+  const base=(state.base||BASE).replace(/\/$/,'');
+  const d=await aiFetch(base,key,{model:aiModel('standard'),messages:[{role:'user',content:prompt}],max_tokens:maxTokens||2200,temperature:0.2,stream:false});
+  const obj=extractHwJSON(aiContent(d));
+  if(!obj) throw new Error('模型这次没给出可解析的结果，再试一次');
+  return obj;
+}
+function kpPoolOf(sub){ return ((p().kpPool||{})[sub]||[]); }
+function kpPoolAll(){
+  const out=[];
+  POOL_SUBJECTS.forEach(s=>kpPoolOf(s).forEach(x=>{ if(x&&x.kp) out.push({subject:s, kp:x.kp, unit:x.unit||''}); }));
+  return out;
+}
+function poolReady(){ return kpPoolAll().length>0; }
+/* 账本里"有记录"的知识点（薄弱/掌握中/已会都算被验证过） */
+function ledgerKeys(){
+  const L=p().ledger||{}, set=new Set();
+  Object.keys(L).forEach(k=>{ if(L[k]&&L[k].kp) set.add(L[k].subject+'::'+L[k].kp); });
+  return set;
+}
+/* 覆盖率 + 盲区：盲区 = 应知清单里账本还没有记录的知识点（"没考过"的那部分） */
+function kpCoverage(){
+  const all=kpPoolAll();
+  if(!all.length) return {total:0, covered:0, pct:0, gap:[]};
+  const keys=ledgerKeys(), gap=[]; let covered=0;
+  all.forEach(x=>{ if(keys.has(x.subject+'::'+x.kp)) covered++; else gap.push(x); });
+  return {total:all.length, covered, pct:Math.round(covered/all.length*100), gap};
+}
+function probeLast(){ const a=p().probes||[]; return a.length?a[0]:null; }
+function probeDaysAgo(){
+  const l=probeLast(); if(!l||!l.date) return 999;
+  return Math.round((new Date(today()+'T00:00:00')-new Date(l.date+'T00:00:00'))/86400000);
+}
+function probeDue(){ const c=kpCoverage(); return !!(c.total && c.gap.length>=3 && probeDaysAgo()>=7); }
+/* 应知清单：按教材进度让 AI 列知识点（16-22 个，可考查短词） */
+function poolPrompt(sub){
+  const tb=(p().textbook||{})[sub]||{};
+  const unit=(tb.ver||'')+(tb.unit?(' · 当前进度：'+tb.unit):'');
+  return '你是'+segName()+'的资深老师（厦门，主流教材，贴合福建省考试要求）。请列出这个孩子**当前学期应该掌握的知识点清单**，用于做掌握度盘点。\n'
+   +'学科：'+subjName(sub)+'；教材与进度：'+(unit||'未填写（按该学段当前学期的主流通用进度）')+'\n'
+   +'要求：① 16-22 个，覆盖主要板块；② 每个知识点是**可考查的短词**（4-10 字，如"分数应用题""单位换算""多音字辨析"），不要写成一句话；'
+   +'③ unit 填它属于哪个单元或板块（如"第三单元""数与代数"）；④ 只输出 JSON，不要任何解释：{"kps":[{"kp":"知识点","unit":"单元"}]}';
+}
+async function genKpPool(sub){
+  const obj=await aiJSON(poolPrompt(sub), 2200);
+  const arr=(obj&&Array.isArray(obj.kps)?obj.kps:[]).map(x=>({kp:String((x&&x.kp)||'').trim(), unit:String((x&&x.unit)||'').trim()})).filter(x=>x.kp);
+  if(!arr.length) throw new Error('没能生成清单');
+  p().kpPool=p().kpPool||{}; p().kpPool[sub]=arr.slice(0,24);
+  save();
+  return arr.length;
+}
+async function genAllPools(){
+  const box=document.getElementById('probeBox');
+  const fill=POOL_SUBJECTS.filter(s=>{ const tb=(p().textbook||{})[s]; return tb&&(tb.ver||tb.unit); });
+  const targets=fill.length?fill:POOL_SUBJECTS.slice();
+  const total=targets.length; let ok=0, fail=0;
+  for(let i=0;i<total;i++){
+    if(box) box.innerHTML='<div class="typing">正在按教材进度生成「'+subjName(targets[i])+'」应知清单…（'+(i+1)+'/'+total+'）</div>';
+    try{ await genKpPool(targets[i]); ok++; }catch(e){ fail++; }
+  }
+  renderProbe();
+  toast(ok?('已生成 '+ok+' 科应知清单 ✨'+(fail?('，'+fail+' 科失败可重试'):'')):'生成失败，检查一下「我的」页的 API Key');
+}
+/* 探测出题：优先测盲区，尽量同一学科 */
+function pickGapForProbe(){
+  const c=kpCoverage(); if(!c.gap.length) return [];
+  const first=c.gap[0].subject;
+  const same=c.gap.filter(x=>x.subject===first).slice(0,3);
+  if(same.length>=3) return same;
+  return same.concat(c.gap.filter(x=>x.subject!==first)).slice(0,3);
+}
+function probeQPrompt(picks){
+  const list=picks.map((x,i)=>(i+1)+'. ['+subjName(x.subject)+'] '+x.kp).join('\n');
+  return '你是'+segName()+'老师（厦门，贴合福建省考试要求）。请针对下面每个知识点各出 1 道小题，用来快速检查孩子是否真的掌握。\n'+list+'\n'
+   +'要求：① 题目要短，能口算或一两句话作答（3 分钟内做完 3 题）；② 直接给题目本身，不要额外说明；③ 必须能客观判定对错；④ 不出选择题，让孩子自己写答案；\n'
+   +'⑤ 只输出 JSON，不要任何解释：{"items":[{"kp":"对应知识点（原样照抄）","subject":"科目键(仅限 math/chinese/english)","q":"题干","key":"答案要点（2-3 句，写清关键步骤或关键结论，作为判分依据）"}]}\n'
+   +'注意：items 的顺序必须与上面 1..'+picks.length+' 一一对应，数量必须相同。';
+}
+function probeJudgePrompt(items, ans){
+  let s='你是'+segName()+'老师。下面是 '+items.length+' 道小题、每题的答案要点，以及孩子的作答。请逐题判断孩子是否掌握：宽容但必须扣住关键点，关键步骤或关键结论有一个错就算没通过。\n';
+  items.forEach((it,i)=>{ s+='\n第'+(i+1)+'题（知识点：'+it.kp+'）\n题目：'+it.q+'\n答案要点：'+(it.key||'（无）')+'\n孩子作答：'+(ans[i]||'（没写）')+'\n'; });
+  s+='\n只输出 JSON，不要解释：{"results":[{"i":0,"ok":true,"why":"一句话点评：做对了就点明他抓住了哪个关键；没做对就指出漏了哪一步，不要只写\"错了\""}]}\n'
+   +'注意：i 从 0 开始，必须覆盖全部 '+items.length+' 题；ok 只能是 true 或 false。';
+}
+let probeRun=null; /* {items:[{kp,subject,q,key,ans,ok,why}], busy, result:{right,total}} */
+async function startProbe(){
+  const picks=pickGapForProbe();
+  if(!picks.length){ toast('应知清单上的点都验证过了，更新教材进度后再生成一次清单吧'); return; }
+  probeRun={items:[], busy:true, result:null};
+  renderProbe();
+  try{
+    const obj=await aiJSON(probeQPrompt(picks), 2400);
+    const items=(obj.items||[]).map((it,i)=>({
+      kp:String((it&&it.kp)||(picks[i]&&picks[i].kp)||'').trim(),
+      subject:String((it&&it.subject)||(picks[i]&&picks[i].subject)||'other').trim(),
+      q:String((it&&it.q)||'').trim(), key:String((it&&it.key)||'').trim()
+    })).filter(x=>x.q);
+    if(!items.length) throw new Error('没能出题');
+    probeRun={items, busy:false, result:null};
+  }catch(e){ probeRun=null; toast('出题失败：'+e.message+'（稍后再试）'); }
+  renderProbe();
+}
+async function submitProbe(){
+  if(!probeRun||probeRun.busy||probeRun.result) return;
+  const ans=[]; let filled=0;
+  probeRun.items.forEach((it,i)=>{ const el=document.getElementById('pAns'+i); const v=el?(el.value||'').trim():''; if(v) filled++; ans.push(v); });
+  if(!filled){ toast('先写一下答案再交卷～'); return; }
+  probeRun.busy=true; renderProbe();
+  try{
+    const obj=await aiJSON(probeJudgePrompt(probeRun.items, ans), 1600);
+    const results=(obj.results||[]).map((r,i)=>({i:(typeof r.i==='number'?r.i:i), ok:r.ok===true, why:String((r&&r.why)||'')}));
+    probeRun.items.forEach((it,i)=>{
+      const r=results.find(x=>x.i===i)||{ok:false, why:''};
+      const cur=ledgerOf(it.kp, it.subject);
+      if(r.ok) ledgerMark(it.kp, it.subject, (cur&&cur.status==='learning')?'done':'learning', 'probe');
+      else ledgerMark(it.kp, it.subject, 'weak', 'probe');
+      it.ans=ans[i]; it.ok=r.ok; it.why=r.why;
+    });
+    const right=probeRun.items.filter(x=>x.ok).length;
+    p().probes=p().probes||[];
+    p().probes.unshift({id:uid(), date:today(), subject:'mixed',
+      items:probeRun.items.map(x=>({kp:x.kp, subject:x.subject, q:x.q, ok:!!x.ok})), right, total:probeRun.items.length});
+    p().probes=p().probes.slice(0,30);
+    const k=today(); p().heat[k]=(p().heat[k]||0)+1;
+    save();
+    probeRun.result={right, total:probeRun.items.length};
+    probeRun.busy=false;
+    renderProbe(); renderWeakness(); renderTodayRoute();
+    toast('探测完成：'+right+'/'+probeRun.items.length+' 答对，已写进知识账本 🔍');
+  }catch(e){ probeRun.busy=false; toast('判分失败：'+e.message); renderProbe(); }
+}
+function probeAgain(){ probeRun=null; renderProbe(); }
+function gotoProbe(){
+  switchTab('growth');
+  try{ const el=document.getElementById('probeBox'); if(el) el.scrollIntoView({block:'center'}); }catch(_){}
+}
+function probeResultText(){
+  const l=probeLast(); if(!l) return '';
+  const bad=(l.items||[]).filter(x=>!x.ok).map(x=>x.kp).slice(0,3);
+  return bad.length ? ('上次探测有 '+bad.length+' 个点没过关：'+bad.join('、')) : '';
+}
+/* 空白探测卡渲染 */
+function renderProbe(){
+  const box=document.getElementById('probeBox'); if(!box) return;
+  if(!poolReady()){
+    box.innerHTML=`<div class="hint" style="font-size:12.5px;line-height:1.6;margin-bottom:8px">先让我知道这学期该学什么：点下面按钮，我按孩子的教材进度列出应知知识点，之后就能算出「还有多少没被验证过」。</div>
+      <button class="btn btn-sm btn-p" onclick="genAllPools()">✨ 生成应知知识清单</button>`;
+    return;
+  }
+  const c=kpCoverage(), last=probeLast(), days=probeDaysAgo();
+  let html=`<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px">
+        <span>掌握覆盖度</span><span class="hint">${c.covered}/${c.total} 个知识点已被验证</span></div>
+      <div style="height:10px;background:var(--line);border-radius:6px;overflow:hidden"><div style="height:100%;width:${c.pct}%;background:var(--accent);border-radius:6px"></div></div>
+      <div class="hint" style="font-size:11.5px;margin-top:4px">还有 <b style="color:var(--red)">${c.gap.length}</b> 个知识点从没被验证过${last?(' · 上次探测：'+(days<=0?'今天':days+' 天前')):''}</div>
+    </div>`;
+  if(c.gap.length){
+    html += `<div style="margin:6px 0;line-height:2.1">${c.gap.slice(0,8).map(x=>`<span class="chip" style="background:#FCEBEB;color:#A32D2D">${esc(x.kp)}</span>`).join(' ')}${c.gap.length>8?` <span class="hint" style="font-size:11.5px">…还有 ${c.gap.length-8} 个</span>`:''}</div>`;
+  }else{
+    html += `<div class="hint" style="font-size:12px;margin:6px 0">应知清单上的知识点都验证过了 👏 教材进度往前走之后，再生成一次新清单。</div>`;
+  }
+  if(probeRun && probeRun.busy){
+    html += `<div class="typing" style="margin-top:6px">${probeRun.result?'正在判卷…':'正在按你的盲区出题…'}</div>`;
+  }else if(probeRun && !probeRun.result){
+    html += `<div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px">`;
+    html += probeRun.items.map((it,i)=>`<div style="margin:9px 0">
+        <div style="font-size:13px;line-height:1.6"><b>${i+1}.</b> ${esc(it.q)}</div>
+        <div class="hint" style="font-size:11.5px;margin:2px 0">测：${esc(it.kp)}</div>
+        <input id="pAns${i}" placeholder="写下你的答案（一句话也行）" style="width:100%">
+      </div>`).join('');
+    html += `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-p" onclick="submitProbe()">✅ 交卷</button>
+        <button class="btn btn-sm btn-ghost" onclick="probeAgain()">取消</button>
+      </div>
+      <div class="hint" style="font-size:11.5px;margin-top:6px">写不出来也没关系，空着交卷同样算「没掌握」，正好让账本记下真实情况。</div>`;
+    html += `</div>`;
+  }else if(probeRun && probeRun.result){
+    const r=probeRun.result;
+    html += `<div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:6px">本轮结果：${r.right}/${r.total}</div>`
+      + probeRun.items.map((it,i)=>`<div style="margin:8px 0;font-size:12.5px;line-height:1.55">
+          <span style="color:${it.ok?'#0F6E56':'var(--red)'};font-weight:500">${it.ok?'✔ 掌握':'✘ 没掌握'}</span>
+          <span class="chip" style="margin-left:4px">${esc(it.kp)}</span>
+          ${it.why?`<div class="hint" style="font-size:11.5px;margin-top:2px">${esc(it.why)}</div>`:''}
+        </div>`).join('')
+      + `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-p" onclick="probeAgain()">🔍 再测一轮</button>
+          ${probeRun.items.some(x=>!x.ok)?`<button class="btn btn-sm btn-ghost" style="border-color:var(--accent);color:var(--accent)" onclick="switchTab('buddy');setBuddyMode('socratic')">💡 带我把没过的弄懂</button>`:''}
+        </div>
+      <div class="hint" style="font-size:11.5px;margin-top:6px">答对的点已记进账本（再测一次都对就转「已会」）；没过的点标为薄弱，已进薄弱点地图。</div>
+    </div>`;
+  }else{
+    html += `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-p" onclick="startProbe()" ${c.gap.length?'':'disabled'}>🎯 3 分钟探测（3 题）</button>
+      <button class="btn btn-sm btn-ghost" onclick="genAllPools()">🔄 重新生成清单</button>
+    </div>`;
+  }
+  box.innerHTML=html;
+}
+
+/* ===== P1：考试结果回流（分数趋势 + 失分知识点校准三态） ===== */
+function examRatio(e){
+  const s=parseFloat(String((e&&e.score)||'').replace(/[^\d.]/g,''));
+  const f=parseFloat(String((e&&e.full)||'').replace(/[^\d.]/g,''));
+  if(!isFinite(s)||!isFinite(f)||f<=0) return null;
+  return Math.round(s/f*100);
+}
+function examTrendHtml(){
+  const ex=(p().exams||[]).filter(e=>examRatio(e)!==null).slice(0,5).reverse();
+  if(ex.length<2) return '';
+  const bars=ex.map(e=>{
+    const r=examRatio(e), h=Math.max(6, Math.round(r*0.42));
+    const col = r>=90?'#0F6E56' : r>=80?'#BA7517' : 'var(--red)';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+      <span style="font-size:10.5px;color:${col}">${r}%</span>
+      <div style="width:100%;height:44px;display:flex;align-items:flex-end"><div style="width:100%;height:${h}px;background:${col};border-radius:4px 4px 0 0"></div></div>
+      <span class="hint" style="font-size:10px;text-align:center">${esc(String(e.name||'').slice(0,6))}</span>
+    </div>`; }).join('');
+  return `<div style="font-size:12px;font-weight:500;margin-bottom:4px">近 ${ex.length} 次得分率</div>
+    <div style="display:flex;gap:6px;align-items:flex-end;padding:4px 0 6px;border-bottom:1px solid var(--line)">${bars}</div>`;
+}
+function examKpAction(kp){ return '针对「'+kp+'」：先把课本上的定义/例题讲给我听（用你自己的话），再做 2 道同类题，做完拍照给我批改'; }
+function examApplyKps(exam, kps){
+  const sub=exam.subject||'other';
+  exam.kps=(kps||[]).map(x=>({kp:String((x&&x.kp)||'').trim(), lose:String((x&&x.lose)||''), note:String((x&&x.note)||'')})).filter(x=>x.kp).slice(0,10);
+  if(!exam.kps.length) return 0;
+  /* 考过的失分点 = 最硬的弱信号，直接写进账本并标记考试命中 */
+  exam.kps.forEach(x=>ledgerMark(x.kp, sub, 'weak', 'exam'));
+  if(!exam.plan || !exam.plan.length){
+    exam.plan=exam.kps.slice(0,3).map((x,i)=>({kp:x.kp, task:examKpAction(x.kp), day:i, done:false}));
+  }
+  return exam.kps.length;
+}
+function renderExams(){
+  const trend=document.getElementById('examTrend'); if(trend) trend.innerHTML=examTrendHtml();
+  const box=document.getElementById('examList'); if(!box) return;
+  const ex=p().exams||[];
+  if(!ex.length){ box.innerHTML='<div class="hint" style="font-size:12px">还没有考试记录。考完拍张试卷/成绩单，教练就能把失分点转进薄弱点地图。</div>'; return; }
+  box.innerHTML=ex.slice(0,5).map(e=>{
+    const sn=(SUBJECT[e.subject]||['其他','b'])[0], r=examRatio(e);
+    const todo=(e.plan||[]).filter(x=>!x.done).length;
+    return `<div style="padding:6px 0;border-bottom:1px dashed var(--line)">
+      <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center">
+        <span><span class="chip">${sn}</span> ${esc(e.name||'考试')} <span class="hint">${(e.date||'').slice(5)}</span></span>
+        <span style="display:flex;gap:8px;align-items:center"><b>${esc(e.score||'—')}${e.full?('/'+esc(e.full)):''}</b>${r!==null?`<span class="chip ${r>=90?'t':'a'}">${r}%</span>`:''}${e.rank?`<span class="hint">第${esc(e.rank)}名</span>`:''}<button class="btn btn-sm btn-ghost" style="padding:0 6px;color:var(--red)" onclick="delExam('${e.id}')">×</button></span>
+      </div>
+      ${(e.kps||[]).length?`<div style="margin-top:4px;line-height:2">${e.kps.slice(0,6).map(x=>`<span class="chip" style="background:#FCEBEB;color:#A32D2D">${esc(x.kp)}</span>`).join(' ')}</div>`:''}
+      ${(e.plan||[]).length?`<div style="margin-top:4px">${e.plan.map((x,i)=>`<div style="display:flex;gap:7px;align-items:flex-start;font-size:12px;margin:4px 0">
+          <div class="box ${x.done?'done':''}" style="flex:0 0 auto" onclick="toggleExamPlan('${e.id}',${i})">${x.done?'✓':''}</div>
+          <div style="line-height:1.5">${esc(x.task)}<span class="hint"> · ${x.day===0?'今天':x.day===1?'明天':'后天'}</span></div>
+        </div>`).join('')}${todo?`<div class="hint" style="font-size:11.5px">还有 ${todo} 条失分补足没做完，已排进今日路线</div>`:''}</div>`:''}
+      </div>`;
+  }).join('');
+}
+function addExam(){
+  const date=(document.getElementById('exDate')||{}).value||today();
+  const subject=(document.getElementById('exSubject')||{}).value||'other';
+  const name=(document.getElementById('exName').value||'').trim();
+  const score=(document.getElementById('exScore').value||'').trim();
+  const full=(document.getElementById('exFull').value||'').trim();
+  const kpsRaw=(document.getElementById('exKps').value||'').trim();
+  if(!name && !score){ toast('填一下考试名或分数'); return; }
+  const exam={id:uid(), date, subject, name:name||'考试', score, full, rank:'', kps:[], plan:[]};
+  const kps=kpsRaw? kpsRaw.split(/[，,、;；\/\s]+/).filter(Boolean).map(k=>({kp:k})) : [];
+  const n=examApplyKps(exam, kps);
+  p().exams=p().exams||[]; p().exams.unshift(exam);
+  p().exams.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  ['exName','exScore','exFull','exKps'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const k=today(); p().heat[k]=(p().heat[k]||0)+1;
+  save(); renderExams(); renderWeakness(); renderTodayRoute(); renderProbe();
+  toast(n?('已记录：'+n+' 个失分知识点转进薄弱地图 📊'):'已记录 📊');
+}
+function toggleExamPlan(examId, idx){
+  const e=(p().exams||[]).find(x=>x.id===examId); if(!e||!e.plan||!e.plan[idx]) return;
+  e.plan[idx].done=!e.plan[idx].done;
+  if(e.plan[idx].done){ const k=today(); p().heat[k]=(p().heat[k]||0)+1; }
+  save(); renderExams(); renderTodayRoute();
+  toast(e.plan[idx].done?'✅ 这条失分补足做完了':'已取消');
+}
+function delExam(id){
+  const list=p().exams||[];
+  const i=list.findIndex(x=>x.id===id);
+  if(i>=0){ list.splice(i,1); }
+  else if(/^\d+$/.test(String(id||''))){ list.splice(Number(id),1); } /* 旧数据兼容：按下标传 */
+  save(); renderExams(); renderWeakness(); renderTodayRoute();
+}
+const EXAM_PAPER_PROMPT = '这是孩子考试试卷或成绩单的照片（可能 1-2 页）。请读出考试信息与**每一处失分对应的知识点**。\n'
+ +'要求：① 只列老师打叉/扣分的题，判对的不要；② kp 是 4-10 字可考查知识点短词（如"分数应用题""单位换算"），不是整道题的描述；'
+ +'③ 看不出就留空，绝不编造；④ 只输出 JSON，不要解释：\n'
+ +'{"date":"YYYY-MM-DD 看不出就空","name":"考试名(如期中/第三单元测)","subject":"语文/数学/英语/其他","score":"得分数字","full":"满分数字","kps":[{"kp":"知识点","lose":"扣了几分或错在哪（一句话）"}]}';
+async function onExamPaper(e){
+  const files=Array.from(e.target.files||[]).filter(f=>f && /^image\//.test(f.type||'')).slice(0,2);
+  e.target.value='';
+  if(!files.length) return;
+  toast('正在读试卷…');
+  try{
+    const pics=[];
+    for(const f of files){ pics.push(await new Promise(res=>compressImage(f,1400,res))); }
+    const raw=await callVision(pics, EXAM_PAPER_PROMPT);
+    let obj=extractHwJSON(raw);
+    if(!obj){ obj=await repairHwJSON(raw); }
+    if(!obj){ toast('没读出试卷内容，试试手填或重拍'); return; }
+    const subMap={'数学':'math','语文':'chinese','英语':'english','物理':'physics','化学':'chem','生物':'bio','历史':'hist','地理':'geo','道法':'politics','其他':'other'};
+    const subject=subMap[String(obj.subject||'').trim()]||'other';
+    const exam={id:uid(), date:String(obj.date||'').trim()||today(), subject,
+      name:String(obj.name||'').trim()||'考试', score:String(obj.score||'').trim(),
+      full:String(obj.full||'').trim(), rank:'', kps:[], plan:[]};
+    const n=examApplyKps(exam, Array.isArray(obj.kps)?obj.kps:[]);
+    p().exams=p().exams||[]; p().exams.unshift(exam);
+    p().exams.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const k=today(); p().heat[k]=(p().heat[k]||0)+1;
+    save(); renderExams(); renderWeakness(); renderTodayRoute(); renderProbe();
+    toast(n?('已录入：'+n+' 个失分知识点转进薄弱地图 📊'):'已录入考试，但没读出失分知识点');
+  }catch(err){ toast('识别失败：'+(err.message||'')+'（可手填）'); }
+}
+function onExamFile(e){ return onExamPaper(e); } /* 兼容旧入口 */
+/* 今日路线用：未完成的考试补足任务 + 该不该做空白探测 */
+function examPlansPending(){
+  const out=[];
+  (p().exams||[]).forEach(e=>{ (e.plan||[]).forEach((x,i)=>{ if(!x.done && addDays(e.date||today(), x.day||0)<=today()) out.push({examId:e.id, idx:i, x, exam:e}); }); });
+  return out;
+}
+
 function saveGoal(){
   const t = document.getElementById('goalText').value.trim();
   p().goal = t;
@@ -2670,43 +3086,6 @@ function renderGoal(){
   const el = document.getElementById('goalShow'); if(!el) return;
   const inp = document.getElementById('goalText'); if(inp && inp.value!==g) inp.value=g;
   el.innerHTML = g?`当前目标：<b>${esc(g)}</b>`:'还没定学期目标，和爸爸妈妈一起定一个吧';
-}
-function renderExams(){
-  const box = document.getElementById('examList'); if(!box) return;
-  const ex = p().exams||[];
-  box.innerHTML = ex.length ? ex.slice(0,6).map((e,i)=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line)">
-      <span>${(e.date||'').slice(5)} ${esc(e.name||'考试')}</span>
-      <span style="display:flex;gap:8px;align-items:center"><b>${esc(e.score||'—')}</b>${e.rank?`<span class="hint">第${esc(e.rank)}名</span>`:''}<button class="btn btn-sm btn-ghost" style="padding:0 6px;color:var(--red)" onclick="delExam(${i})">×</button></span>
-    </div>`).join('') : '<div class="hint" style="font-size:12px">还没有大考记录。考完拍张成绩单，教练帮你盯趋势。</div>';
-}
-function addExam(){
-  const date = document.getElementById('exDate').value || today();
-  const name = document.getElementById('exName').value.trim();
-  const score = document.getElementById('exScore').value.trim();
-  if(!name && !score){ toast('填一下考试名或分数'); return; }
-  p().exams = p().exams||[];
-  p().exams.unshift({date, name, score, rank:''});
-  document.getElementById('exName').value=''; document.getElementById('exScore').value='';
-  save(); renderExams(); toast('已记录 📊');
-}
-function delExam(i){ p().exams.splice(i,1); save(); renderExams(); }
-async function onExamFile(e){
-  const file = e.target.files[0]; if(!file) return; e.target.value='';
-  cropPicker(file, 900, async (dataUrl)=>{
-    toast('正在识别成绩单…');
-    try{
-      let key = state.key; if(!key){ await cloudAdoptKey(true); key=state.key; }
-      if(!key){ toast('请先在「我的」页填写 API Key'); return; }
-      const prompt = '这是成绩单/试卷照片。用 JSON 返回（不要多余文字）：{"date":"考试日期YYYY-MM-DD，看不出就空","name":"考试名称（如期中/期末/单元测），看不出填\'考试\'","score":"分数或等级","rank":"名次数字，看不出填空"}';
-      const raw = await callVision(dataUrl, prompt);
-      let obj=null; try{ obj=JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(_){}
-      if(obj && (obj.name||obj.score)){
-        p().exams = p().exams||[];
-        p().exams.unshift({date:obj.date||today(), name:obj.name||'考试', score:obj.score||'', rank:obj.rank||''});
-        save(); renderExams(); toast('成绩单已录入 ✓');
-      } else toast('没识别出成绩，试试手填');
-    }catch(err){ toast('识别失败：'+err.message); }
-  });
 }
 
 /* ===== 我的 ===== */
@@ -4042,6 +4421,42 @@ async function cloudPull(silent){
       merged++;
     }
     ['mastered','recMastered','streak'].forEach(f=>{ if((R[f]||0)>(L[f]||0)) L[f]=R[f]; });
+    if(Array.isArray(R.probes) && R.probes.length){
+      L.probes = L.probes||[];
+      const pids=new Set(L.probes.map(x=>x.id));
+      R.probes.forEach(x=>{ if(x.id && !pids.has(x.id)){ L.probes.push(x); pids.add(x.id); } });
+      L.probes.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      merged++;
+    }
+    if(Array.isArray(R.exams) && R.exams.length){
+      L.exams = L.exams||[];
+      const eids=new Set(L.exams.map(x=>x.id||((x.date||'')+(x.name||''))));
+      R.exams.forEach(x=>{ const k=x.id||((x.date||'')+(x.name||'')); if(!eids.has(k)){ L.exams.push(x); eids.add(k); } });
+      L.exams.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      merged++;
+    }
+    if(R.kpPool && typeof R.kpPool==='object'){
+      L.kpPool = L.kpPool||{};
+      Object.keys(R.kpPool).forEach(s=>{
+        const mine = L.kpPool[s]||[], seen = new Set(mine.map(x=>x&&x.kp));
+        (R.kpPool[s]||[]).forEach(x=>{ if(x&&x.kp && !seen.has(x.kp)){ mine.push(x); seen.add(x.kp); } });
+        if(mine.length) L.kpPool[s]=mine;
+      });
+      merged++;
+    }
+    if(R.ledger && typeof R.ledger==='object'){
+      L.ledger = L.ledger||{};
+      Object.keys(R.ledger).forEach(k=>{
+        const r=R.ledger[k]||{}, m=L.ledger[k];
+        if(!m){ L.ledger[k]=r; return; }
+        /* 状态以"更新更晚"的一边为准，避免旧设备把新结论覆盖回去 */
+        if((r.updatedAt||0)>(m.updatedAt||0)){ m.status=r.status; m.updatedAt=r.updatedAt; }
+        m.hits = Math.max(m.hits||0, r.hits||0);
+        if((r.examAt||'')>(m.examAt||'')) m.examAt = r.examAt;
+        if(!m.nextDate && r.nextDate) m.nextDate = r.nextDate;
+      });
+      merged++;
+    }
     if(R.reviews) Object.keys(R.reviews).forEach(k=>{ L.reviews=L.reviews||{}; if(!L.reviews[k]) L.reviews[k]=R.reviews[k]; });
     if(R.heat) Object.keys(R.heat).forEach(k=>{ L.heat=L.heat||{}; L.heat[k]=Math.max(L.heat[k]||0, R.heat[k]||0); });
     if(R.textbook && !L.textbook) L.textbook=R.textbook;
@@ -4065,6 +4480,11 @@ async function cloudPull(silent){
       pf.reviews = pf.reviews || {};
       pf.heat = pf.heat || {};
       pf.hwReviews = pf.hwReviews || [];
+      pf.ledger = pf.ledger || {};
+      pf.kpPool = pf.kpPool || {};
+      pf.probes = pf.probes || [];
+      pf.exams = pf.exams || [];
+      pf.exams.forEach(e=>{ if(!e.id) e.id=uid(); if(!e.kps) e.kps=[]; if(!e.plan) e.plan=[]; if(!e.subject) e.subject='other'; });
     });
     save(); try{ renderAll(); }catch(_){}
     if(!silent) toast('已从云端取回 '+merged+' 项数据 ✅');
