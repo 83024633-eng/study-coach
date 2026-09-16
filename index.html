@@ -3160,14 +3160,82 @@ function buildHwPrompt(){
   +'数学：'+ABILITY_GROUPS.math.join(' / ')+'\n'
   +'英语：'+ABILITY_GROUPS.english.join(' / ')+'\n'
   +'通用：'+ABILITY_GROUPS.other.join(' / ')+'\n'
-  +'【只输出 JSON】不要 markdown 代码块、不要任何解释文字，结构严格如下：\n'
+  +'【输出格式·硬性】你的回复**只能是一个 JSON 对象**：第一个字符必须是 {，最后一个字符必须是 }。\n'
+  +'不要 markdown 代码块、不要前后说明、不要"好的/以下是"之类的任何文字。宁可字段留空，也不能输出 JSON 以外的东西。\n'
+  +'结构严格如下：\n'
   +'{"subject":"语文/数学/英语/物理/化学/生物/历史/地理/道法/其他","score":"卷面得分，没有就空字符串","pages":页数(数字),\n'
   +'"teacherNote":"老师在作业上写的评语原文（含问号、感叹号照抄），没有就空字符串",\n'
   +'"rubric":[{"name":"评价表项目名","level":"等级或分数"}],\n'
   +'"items":[{"no":"题号（如 第3题 或 3）","stem":"题目要求（一句话）","myAnswer":"孩子实际写的（忠实转写，写得少就照实写少）","mark":"✗ 或 半对 或 批注","ability":"能力点（必须来自上面的清单）","note":"老师在这一题的红笔批注原文，没有就空","kp":"对应知识点短词，看不出就空"}],\n'
   +'"abilities":[{"name":"能力点名称（同上清单）","n":命中几道题(数字),"evidence":"用孩子原话或原答说明证据"}],\n'
   +'"plan":[{"ability":"能力点名称","task":"一条可直接执行的补足微任务（含具体骨架/步骤，如：按衣物/交通/路线/时间/安全各写一句，把第3题补到60字）","day":0}]}\n'
-  +'要求：① items 只列**老师判错/扣分/写了批注的题**，判对的不要列；② 一题最多一个 ability；③ plan 针对每个命中的能力点各给 1 条，day 取 0/1/2（0=今天）；④ abilities 是对 items 的汇总；⑤ 图片看不清时 pages 照实填、items 能读多少列多少，绝不编造。';
+  +'要求：\n'
+  +'① items 只列**老师判错/扣分/写了批注/明显空着没写的题**，判对的不列；\n'
+  +'② **就算老师没有逐题打 ✗，只写了总评、打了等级或只勾了评价表**，也必须填 teacherNote / rubric / abilities 三个字段，items 可以是空数组 []，**不能整段返回空**；\n'
+  +'③ 这是**手机相册里的作业照片或截图**（可能带状态栏、可能只拍到局部）——只要能看到老师的笔迹或评语，就按看到的内容如实填；\n'
+  +'④ 一题最多一个 ability；⑤ plan 针对每个命中的能力点各给 1 条，day 取 0/1/2（0=今天）；⑥ abilities 是对 items 的汇总（items 为空时，也可以根据老师评语/评价表推断，并在 evidence 里写明依据是评语）；\n'
+  +'⑦ 图片实在看不清时：pages 照实填，其余字段能读多少填多少，**绝不允许编造题目内容**。';
+}
+/* ===== 解析加固：模型常带前后说明、代码块，或被 max_tokens 截断 ===== */
+function jsonCloseFix(t){
+  let s=String(t||''); if(!s) return null;
+  let inStr=false, escp=false; const st=[];
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(escp){ escp=false; continue; }
+    if(c==='\\'){ escp=true; continue; }
+    if(c==='"'){ inStr=!inStr; continue; }
+    if(inStr) continue;
+    if(c==='{'||c==='[') st.push(c);
+    else if(c==='}'||c===']') st.pop();
+  }
+  if(inStr) s+='"';
+  while(st.length){ const o=st.pop(); s += (o==='{'?'}':']'); }
+  try{ return JSON.parse(s); }catch(_){ return null; }
+}
+function extractHwJSON(raw){
+  let s=String(raw||'').trim();
+  if(!s) return null;
+  s = s.replace(/^\s*```[a-zA-Z]*\s*/,'').replace(/\s*```\s*$/,'').trim();
+  try{ const o=JSON.parse(s); if(o&&typeof o==='object') return o; }catch(_){}
+  const a=s.indexOf('{'); if(a<0) return null;
+  const b=s.lastIndexOf('}');
+  const seg = (b>a) ? s.slice(a,b+1) : s.slice(a);
+  try{ const o=JSON.parse(seg); if(o&&typeof o==='object') return o; }catch(_){}
+  /* 截断修复：去掉末尾残缺片段后补全括号 */
+  const variants=[seg, seg.replace(/,\s*$/,''), seg.replace(/[,:]\s*"[^"]*$/,''), seg.replace(/[,:]\s*[^,{}[\]]*$/,'')];
+  for(const v of variants){ const o=jsonCloseFix(v); if(o&&typeof o==='object') return o; }
+  for(let i=seg.length-1;i>1;i--){
+    if(seg[i]!=='}'&&seg[i]!==']') continue;
+    const o=jsonCloseFix(seg.slice(0,i+1)); if(o&&typeof o==='object') return o;
+  }
+  return null;
+}
+/* 结构解析出来了但一点内容都没有 → 视为没读出 */
+function hwHasContent(o){
+  if(!o) return false;
+  const items=(o.items||[]).filter(it=>it&&(it.stem||it.myAnswer||it.note));
+  const rub=(o.rubric||[]).filter(r=>r&&r.name);
+  const abs=(o.abilities||[]).filter(a=>a&&a.name);
+  const plan=(o.plan||[]).filter(p=>p&&p.task);
+  return !!(items.length || rub.length || abs.length || plan.length || String(o.teacherNote||'').trim() || String(o.score||'').trim());
+}
+/* 兜底：让文字模型把"看图原文"整理成 JSON（不需要图，快且省） */
+async function repairHwJSON(raw){
+  const key=state.key; if(!key || !String(raw||'').trim()) return null;
+  const base=(state.base||BASE).replace(/\/$/,'');
+  const prompt='下面是一份「老师批改过的作业」的读图结果原文（可能夹着说明文字、markdown 代码块，或末尾被截断）。\n'
+   +'请把它整理成**严格 JSON**，只输出 JSON 本身，不要任何解释。结构：\n'
+   +'{"subject":"语文/数学/英语/其他","score":"","pages":1,"teacherNote":"","rubric":[{"name":"","level":""}],'
+   +'"items":[{"no":"","stem":"","myAnswer":"","mark":"✗","ability":"","note":"","kp":""}],'
+   +'"abilities":[{"name":"","n":1,"evidence":""}],"plan":[{"ability":"","task":"","day":0}]}\n'
+   +'只做格式整理：原文里已有的信息照搬，**不要新增原文没有的题目**；原文没有的字段留空字符串或空数组。\n'
+   +'原文：\n'+String(raw||'').slice(0,6000);
+  try{
+    const d=await aiFetch(base,key,{model:aiModel('standard'),messages:[{role:'user',content:prompt}],max_tokens:3000,temperature:0,stream:false});
+    const o=extractHwJSON(aiContent(d));
+    return (o&&typeof o==='object')?o:null;
+  }catch(_){ return null; }
 }
 async function onHwFile(e){
   const files = Array.from(e.target.files||[]).filter(f=>f && /^image\//.test(f.type||'')).slice(0,4);
@@ -3178,27 +3246,47 @@ async function onHwFile(e){
   for(const f of files){ pics.push(await new Promise(res=>compressImage(f,1400,res))); }
   if(!pics.length) return;
   wrap.insertAdjacentHTML('afterbegin','<div class="typing" id="hwTyping">📖 正在逐页读整份作业…</div>');
+  const say=(m)=>{ const t=document.getElementById('hwTyping'); if(t) t.remove(); wrap.insertAdjacentHTML('afterbegin','<div class="typing" id="hwTyping">'+m+'</div>'); };
+  const kill=()=>{ const t=document.getElementById('hwTyping'); if(t) t.remove(); };
+  let raw='';
   try{
-    const raw = await callVision(pics, buildHwPrompt());
-    const t=document.getElementById('hwTyping'); if(t) t.remove();
-    let obj=null;
-    try{ obj = JSON.parse(String(raw).replace(/```json|```/g,'').trim()); }catch(_){}
-    if(!obj || !Array.isArray(obj.items) || !obj.items.length){
-      wrap.insertAdjacentHTML('afterbegin','<div class="hint" style="color:var(--red)">没读出要订正的题。检查一下光线、把整页拍全（含老师批注）再试一次~</div>');
-      return;
-    }
-    hwSave(obj, pics);
+    raw = await callVision(pics, buildHwPrompt());
   }catch(err){
-    const t=document.getElementById('hwTyping'); if(t) t.remove();
-    wrap.insertAdjacentHTML('afterbegin','<div class="hint" style="color:var(--red)">读图失败了：'+esc(err.message)+'，稍等几秒再拍一次就好~</div>');
+    kill();
+    wrap.insertAdjacentHTML('afterbegin','<div class="hint" style="color:var(--red)">读图失败了：'+esc(err.message||'')+'，稍等几秒再拍一次就好~</div>');
+    return;
   }
+  let obj = extractHwJSON(raw);
+  /* 第一遍读出来的内容太"空"→ 带图再仔细重读一次（模型偶发漏看整页批改） */
+  if(!obj || !hwHasContent(obj)){
+    say('🔍 再仔细看一遍老师批改的痕迹…');
+    try{
+      const raw2 = await callVision(pics, buildHwPrompt()+'\n【补充】上一遍读到的内容太空。请重新逐页仔细看：老师有没有打叉、圈画、扣分、写批注、写评语？只要有笔迹就填进对应字段，连"态度?""请认真对待作业"这类评语也要**原文**填进 teacherNote 或 rubric。');
+      const o2 = extractHwJSON(raw2);
+      if(o2 && (hwHasContent(o2) || !obj)){ obj=o2; raw=raw2; }
+    }catch(_){}
+  }
+  /* 仍然不是 JSON → 让文字模型把"看图原文"整理成 JSON（不用重拍） */
+  if(!obj){
+    say('🧩 正在把读到的内容整理成表…');
+    obj = await repairHwJSON(raw);
+  }
+  kill();
+  if(obj && hwHasContent(obj)){ hwSave(obj, pics, raw); return; }
+  if(obj || String(raw||'').trim()){
+    if(obj) hwSave(obj, pics, raw); else hwSaveRaw(raw, pics);
+    wrap.insertAdjacentHTML('afterbegin','<div class="hint" style="color:var(--accent)">这次没读出逐题打叉/扣分的痕迹，先把教练读到的内容存下来了 👆 老师是不是只写了总评？点「🔁 重新整理」可以再试一次。</div>');
+    return;
+  }
+  wrap.insertAdjacentHTML('afterbegin','<div class="hint" style="color:var(--red)">这次没读到内容。检查一下光线、把整页拍全（含老师批注）再试一次~</div>');
 }
 function hwCauseOf(ab){
   if(/基础|字词|词汇|拼写|计算/.test(ab)) return 'concept';
   if(/思维|理解|表达|建模|推理|审题/.test(ab)) return 'method';
   return 'other';
 }
-function hwSave(obj, pics){
+function hwSave(obj, pics, raw){
+  obj = obj || {};
   const subMap = {'数学':'math','语文':'chinese','英语':'english','物理':'physics','化学':'chem','生物':'bio','历史':'hist','地理':'geo','道法':'politics','其他':'other'};
   const subject = subMap[obj.subject] || 'other';
   const hw = {
@@ -3206,17 +3294,22 @@ function hwSave(obj, pics){
     score: String(obj.score||'').trim(), pages: pics.length,
     imgs: pics.slice(0,2),
     teacherNote: String(obj.teacherNote||'').trim(),
+    raw: String(raw||'').slice(0,4000),
     rubric: (Array.isArray(obj.rubric)?obj.rubric:[]).slice(0,6).map(r=>({name:String(r.name||''), level:String(r.level||'')})).filter(r=>r.name),
     items: (obj.items||[]).slice(0,20).map(it=>({
       no:String(it.no||''), stem:String(it.stem||''), myAnswer:String(it.myAnswer||''),
       mark:String(it.mark||'✗'), ability:String(it.ability||''), note:String(it.note||''), kp:String(it.kp||'')
-    })),
+    })).filter(it=>it.stem||it.myAnswer||it.note),
     abilities: (Array.isArray(obj.abilities)?obj.abilities:[]).slice(0,8).map(a=>({name:String(a.name||''), n:parseInt(a.n)||1, evidence:String(a.evidence||'')})).filter(a=>a.name),
     plan: (Array.isArray(obj.plan)?obj.plan:[]).slice(0,6).map(x=>({
       ability:String(x.ability||''), task:String(x.task||''),
       day: Math.max(0, Math.min(2, parseInt(x.day)||0)), done:false
     })).filter(x=>x.task)
   };
+  /* 计划为空但有能力点 → 用内置动作兜底生成补足任务，保证"读完就能动手" */
+  if(!hw.plan.length && hw.abilities.length){
+    hw.plan = hw.abilities.slice(0,3).map((a,i)=>({ability:a.name, task:abilityAction(a.name), day:i, done:false}));
+  }
   /* 逐题入错题本：挂"能力点 + 老师原话 + 来源作业"，直接接上原有艾宾浩斯闭环 */
   hw.items.forEach(it=>{
     if(!it.stem && !it.myAnswer) return;
@@ -3236,7 +3329,35 @@ function hwSave(obj, pics){
   const k=today(); p().heat[k]=(p().heat[k]||0)+1;
   save();
   renderHwReviews(); renderWrong(); renderDue(); renderGrowth(); renderTodayRoute();
-  toast('✅ 读完整份作业了：'+hw.items.length+' 处待订正，已排进错题本和今日路线');
+  if(hw.items.length) toast('✅ 读完整份作业了：'+hw.items.length+' 处待订正，已排进错题本和今日路线');
+  else toast('✅ 读到了：'+(hw.teacherNote?('老师评语「'+hw.teacherNote.slice(0,12)+'」'):'整体评价')+(hw.abilities.length?('，归到 '+hw.abilities.length+' 个能力点'):''));
+}
+/* 完全没能整理成结构时：先留住教练读到的原文，可一键重新整理，绝不白拍 */
+function hwSaveRaw(raw, pics){
+  const hw = { id: uid(), date: today(), subject:'other', score:'', pages: pics.length,
+    imgs: pics.slice(0,2), teacherNote:'', raw: String(raw||'').slice(0,4000),
+    rubric:[], items:[], abilities:[], plan:[], parsed:false };
+  p().hwReviews = p().hwReviews||[]; p().hwReviews.unshift(hw);
+  save(); renderHwReviews();
+  toast('已把教练读到的内容存了下来，可点「🔁 重新整理」再试');
+}
+/* 把已存的原文重新整理成结构化复盘（不用重拍照片） */
+async function hwReparse(id){
+  const h=(p().hwReviews||[]).find(x=>x.id===id); if(!h) return;
+  if(!String(h.raw||'').trim()){ toast('这份没有可重新整理的原文，请重新拍一次'); return; }
+  toast('🧩 正在重新整理…');
+  const obj = await repairHwJSON(h.raw);
+  if(obj && hwHasContent(obj)){
+    const tmp = { subject: obj.subject, score: obj.score, teacherNote: obj.teacherNote, rubric: obj.rubric,
+      items: obj.items, abilities: obj.abilities, plan: obj.plan };
+    const i=(p().hwReviews||[]).findIndex(x=>x.id===id);
+    const backup = p().hwReviews[i];
+    p().hwReviews.splice(i,1);
+    hwSave(tmp, backup.imgs && backup.imgs.length?backup.imgs:[backup.imgs||''].filter(Boolean), backup.raw);
+    toast('✅ 整理好了，看看这次的清单');
+  }else{
+    toast('还是没整理出来，可以点「🤖 讲整份作业」让我直接口述解读');
+  }
 }
 function renderHwReviews(){
   const box=document.getElementById('hwReviewList'); if(!box) return;
@@ -3246,17 +3367,20 @@ function renderHwReviews(){
     const sn=(SUBJECT[h.subject]||['其他','b'])[0], sc=(SUBJECT[h.subject]||['其他','b'])[1];
     return `<div class="wrong-item" style="border-left:3px solid var(--accent)">
       <div class="wrong-head">
-        <span><span class="chip ${sc}">${sn}</span> <span class="chip t">📄 ${h.pages} 页</span> ${h.score?`<span class="chip a">得分 ${esc(h.score)}</span>`:''}</span>
+        <span><span class="chip ${sc}">${sn}</span> <span class="chip t">📄 ${h.pages} 页</span> ${h.score?`<span class="chip a">得分 ${esc(h.score)}</span>`:''} ${h.parsed===false?'<span class="chip" style="background:var(--accent-bg);color:var(--accent)">待整理</span>':''}</span>
         <span class="hint">${(h.date||'').slice(5)}</span>
       </div>
       ${h.teacherNote?`<div style="margin:5px 0;padding:7px 9px;background:var(--accent-bg);border-radius:8px;font-size:12.5px;line-height:1.5">📝 老师原话：<b>${esc(h.teacherNote)}</b></div>`:''}
-      ${h.rubric.length?`<div style="margin:4px 0;font-size:11.5px">${h.rubric.map(r=>`<span class="chip">${esc(r.name)}${r.level?(' '+esc(r.level)):''}</span>`).join(' ')}</div>`:''}
-      <div style="margin:6px 0">${(h.items||[]).slice(0,6).map(it=>`
+      ${(h.rubric||[]).length?`<div style="margin:4px 0;font-size:11.5px">${h.rubric.map(r=>`<span class="chip">${esc(r.name)}${r.level?(' '+esc(r.level)):''}</span>`).join(' ')}</div>`:''}
+      ${(h.abilities||[]).length?`<div style="margin:4px 0;font-size:11.5px;line-height:2">${h.abilities.map(a=>`<span class="chip a">🧩 ${esc(a.name)}${(a.n>1)?(' ×'+a.n):''}</span>`).join(' ')}</div>`:''}
+      ${(h.items||[]).length?`<div style="margin:6px 0">${h.items.slice(0,6).map(it=>`
         <div style="padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
           <b>${esc(it.no)}</b> ${esc(it.stem).slice(0,42)}
           ${it.myAnswer?`<div class="hint" style="font-size:11.5px">我写的：${esc(it.myAnswer).slice(0,50)}</div>`:''}
           <div style="margin-top:3px">${it.ability?`<span class="chip a">🧩 ${esc(it.ability)}</span>`:''}${it.note?` <span class="hint" style="font-size:11px">${esc(it.note).slice(0,28)}</span>`:''}</div>
-        </div>`).join('')}</div>
+        </div>`).join('')}${h.items.length>6?`<div class="hint" style="font-size:11.5px;margin-top:4px">…还有 ${h.items.length-6} 处；点「🚀 开始订正」会一处一处带你过</div>`:''}</div>`
+        :`<div class="hint" style="font-size:12px;margin:6px 0">这份作业没有逐题打叉/扣分的痕迹，主要问题在老师的评语与评价表里 👆</div>`}
+      ${h.raw?`<div style="margin:4px 0"><a style="font-size:11.5px;color:var(--accent);cursor:pointer" onclick="var e=document.getElementById('hwraw_${h.id}');e.style.display=(e.style.display==='none'?'block':'none')">${h.parsed===false?'查看教练读到的原文 ▾':'查看教练读到的原文 ▾'}</a><div id="hwraw_${h.id}" style="display:none;margin-top:5px;padding:8px;background:#fafafa;border:1px solid var(--line);border-radius:8px;font-size:11.5px;white-space:pre-wrap;max-height:200px;overflow:auto">${esc(h.raw)}</div></div>`:''}
       ${(h.plan||[]).length?`<div style="margin:6px 0;padding:7px 9px;background:#fafafa;border:1px solid var(--line);border-radius:10px">
         <div style="font-size:12px;font-weight:600;margin-bottom:4px">🎯 3 天补足微任务</div>
         ${h.plan.map((x,i)=>`<div style="display:flex;gap:7px;align-items:flex-start;font-size:12.5px;margin:4px 0">
@@ -3264,7 +3388,7 @@ function renderHwReviews(){
           <div style="line-height:1.5"><b>${esc(x.ability)}</b>：${esc(x.task)}<span class="hint"> · ${x.day===0?'今天':x.day===1?'明天':'后天'}</span></div>
         </div>`).join('')}</div>`:''}
       <div class="wrong-acts">
-        <button class="btn btn-sm btn-p" onclick="startFlow('hwreview','${h.id}')">🚀 开始订正</button>
+        ${h.parsed===false?`<button class="btn btn-sm btn-p" onclick="hwReparse('${h.id}')">🔁 重新整理</button>`:`<button class="btn btn-sm btn-p" onclick="startFlow('hwreview','${h.id}')">🚀 开始订正</button>`}
         <button class="btn btn-sm btn-ghost" onclick="hwAskAll('${h.id}')">🤖 讲整份作业</button>
         <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="delHwReview('${h.id}')">删</button>
       </div>
