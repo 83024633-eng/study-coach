@@ -363,11 +363,12 @@ nav button.on{color:var(--accent); font-weight:600;}
       </div>
       <input id="exKps" placeholder="失分知识点，逗号分隔（选填，如：分数应用题,单位换算）" style="width:100%;margin-top:6px">
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-p" onclick="addExam()">记一笔并回流</button>
+        <button class="btn btn-sm btn-p" id="btnExamSave" onclick="addExam()">记一笔并回流</button>
         <button class="btn btn-sm btn-ghost" onclick="imageSourceSheet('examFile')">📷 拍试卷/成绩单</button>
       </div>
+      <div id="exEditTip" style="display:none;margin-top:6px;font-size:12px;color:var(--accent);background:var(--accent-bg);padding:6px 8px;border-radius:8px">✏️ 正在补录上面那条记录，填好后点「💾 保存修改」。<a style="color:var(--accent);cursor:pointer;text-decoration:underline" onclick="examCancelEdit()">取消补录</a></div>
       <input type="file" id="examFile" accept="image/*" style="display:none" onchange="onExamPaper(event)">
-      <div class="hint" style="margin-top:6px">拍<b>试卷</b>能自动读出失分知识点，直接转进薄弱点地图、排出补足任务。记录只进自己的档案，AI 对孩子永不提排名。</div>
+      <div class="hint" style="margin-top:6px">拍<b>试卷</b>能自动读出<b>每道失分题考什么</b>和对应知识点：失分知识点会标红进薄弱地图、排出补足任务，<b>同时进错题本</b>——之后点知识点或「🎯 练这题」就能出同类型变式题，并走艾宾浩斯复习。<br>⚠️ 如果是老师批改的<b>日常作业 / 小测</b>，请到<b>错题页</b>用「📸 拍老师批改的作业」——那里会按<b>能力点</b>归因，还能自动排 3 天补足。</div>
     </div>
     <div class="card">
       <h3>🗓️ 下周学习计划（教练编排）</h3>
@@ -475,7 +476,7 @@ const DEFAULT_VISION = 'gemini-3.6-flash'; /* 拍照识别默认；gemini-3.5-fl
 
 const GRADES = ['初一','四年级'];
 const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
-const CAUSE = {concept:['概念不清','a'],careless:['粗心','a'],method:['方法不会','b'],forget:['忘了','b'],other:['其他','t']};
+const CAUSE = {concept:['概念不清','a'],careless:['粗心','a'],method:['方法不会','b'],forget:['忘了','b'],exam:['考试失分','a'],other:['其他','t']};
 const INTERVALS = [1,2,4,7,15,30];
 
 const GRADE_STYLE = {'初一':{accent:'#185FA5',accentBg:'#E6F1FB',accent800:'#0C447C',emoji:'📘',label:'大宝 · 双十中学初一'},
@@ -545,7 +546,7 @@ function load(){
           pf.probes = pf.probes || [];
           pf.exams = pf.exams || [];
           /* 旧版考试记录缺 id/科目/失分点/计划字段，统一补齐（否则删除按钮会误删） */
-          pf.exams.forEach(e=>{ if(!e.id) e.id=uid(); if(!e.kps) e.kps=[]; if(!e.plan) e.plan=[]; if(!e.subject) e.subject='other'; });
+          pf.exams.forEach(e=>{ if(!e.id) e.id=uid(); if(!e.kps) e.kps=[]; if(!e.plan) e.plan=[]; if(!e.imgs) e.imgs=[]; if(!e.subject) e.subject='other'; });
         });
         return merged;
       }
@@ -1318,27 +1319,92 @@ function md(s){
     .replace(/`([^`]+?)`/g,'<code style="background:var(--accent-bg);padding:0 4px;border-radius:4px;font-size:12px">$1</code>');
 }
 async function aiStream(base,key,model,messages,maxTokens,temp,onDelta){
-  const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(function(){ctrl.abort();},60000) : null;
   let full='';
-  try{
-    const res = await fetch(base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:model,messages:messages,stream:true,max_tokens:maxTokens,temperature:temp}),signal:ctrl?ctrl.signal:undefined});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const reader = res.body.getReader(); const dec=new TextDecoder(); let buf='';
-    while(true){
-      const r=await reader.read(); if(r.done) break;
-      buf+=dec.decode(r.value,{stream:true});
-      let idx;
-      while((idx=buf.indexOf('\n'))>=0){
-        let line=buf.slice(0,idx).trim(); buf=buf.slice(idx+1);
-        if(!line.startsWith('data:')) continue;
-        let data=line.slice(5).trim();
-        if(data==='[DONE]') continue;
-        try{ const j=JSON.parse(data); const d=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content; if(d){ full+=d; if(onDelta) onDelta(full); } }catch(_){}
+  const onePass = async function(){
+    const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    /* 长讲解（作文点评/流程引导）生成慢，60 秒太紧会被硬切断 → 放宽到 120 秒 */
+    const timer = ctrl ? setTimeout(function(){ctrl.abort();},120000) : null;
+    full='';
+    const eat=(line)=>{ /* 单条 SSE data 行 → 累加增量文本 */
+      line=String(line||'').trim();
+      if(!line.startsWith('data:')) return;
+      const data=line.slice(5).trim();
+      if(data==='[DONE]') return;
+      try{
+        const j=JSON.parse(data);
+        const d=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;
+        if(d){ full+=d; if(onDelta) onDelta(full); }
+      }catch(_){}
+    };
+    try{
+      const res = await fetch(base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model:model,messages:messages,stream:true,max_tokens:maxTokens,temperature:temp}),signal:ctrl?ctrl.signal:undefined});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const reader = res.body.getReader(); const dec=new TextDecoder(); let buf='';
+      try{
+        while(true){
+          const r=await reader.read(); if(r.done) break;
+          buf+=dec.decode(r.value,{stream:true});
+          let idx;
+          while((idx=buf.indexOf('\n'))>=0){
+            const line=buf.slice(0,idx); buf=buf.slice(idx+1);
+            eat(line);
+          }
+        }
+      }catch(ee){
+        /* 超时/网络中断：只要已经吐出了内容就保留（后面会自动续写接上），绝不整条丢掉 */
+        if(!full) throw ee;
       }
-    }
-  }finally{ if(timer) clearTimeout(timer); }
+      /* 流结束时缓冲区里可能还剩最后一段没有换行的数据 —— 别丢 */
+      if(buf.trim()) eat(buf);
+    }finally{ if(timer) clearTimeout(timer); }
+  };
+  try{
+    /* 第一次就失败＝还没连上，退避自动重试；中途断线但已有内容则保留内容交给续写逻辑 */
+    await withNetRetry(onePass, 3, function(n){
+      if(onDelta) try{ onDelta('（网络有点不稳定，正在自动重连…第 '+n+' 次）'); }catch(_){}
+    });
+  }catch(e){
+    if(!full) throw e;
+  }
   return full;
+}
+/* 回复"没写完"的典型形态：代码块没闭合、表格行写到一半、停在标点上 */
+function looksTruncated(t){
+  const s=String(t||'').trim();
+  if(!s) return false;
+  if(((s.match(/```/g)||[]).length)%2) return true;
+  const last=(s.split('\n').pop()||'').trim();
+  if(!last) return false;
+  if(/^\|/.test(last) && !/\|\s*$/.test(last)) return true;      /* 表格行残缺 */
+  if((last.match(/\*\*/g)||[]).length%2) return true;            /* 加粗没闭合 */
+  if(/[，,、：:；;|／/]$/.test(last)) return true;                 /* 停在标点上 */
+  return false;
+}
+/* 被字数上限截断 → 自动让教练从断点接着写完（最多续 2 轮），孩子不会再看到"讲到一半没了" */
+async function continueIfTruncated(reply, msgsAI, base, key, mt, tp, liveBubble, box){
+  let out=String(reply||'');
+  for(let round=0; round<2; round++){
+    if(!out.trim() || !looksTruncated(out)) break;
+    const ask = msgsAI.concat([
+      {role:'assistant', content: out.slice(-1500)},
+      {role:'user', content:'（你上面这条回复被输出长度上限截断了，没有写完）请**紧接着**断掉的地方继续写完，不要重复已经说过的内容，不要重新开头寒暄，直接从断点接上。'}
+    ]);
+    let add='';
+    try{
+      if(liveBubble) liveBubble.innerHTML = renderAIHtml(out+'\n\n（接着写…）');
+      add = await aiStream(base, key, aiModel(aiTier(msgsAI,{})), ask, mt, tp, function(txt){
+        if(liveBubble) liveBubble.innerHTML = renderAIHtml(out+'\n\n'+(txt||''));
+        if(box) box.scrollTop=box.scrollHeight;
+      });
+    }catch(_){ add=''; }
+    add=String(add||'').trim();
+    if(!add) break;
+    add = add.replace(/^(好的[，,]?|好[，,]|继续[：:]?|接着写[：:]?|接上[：:]?)\s*/,'').trim();
+    if(!add) break;
+    out = out.replace(/\s+$/,'') + '\n' + add;
+    if(out.length>12000) break;
+  }
+  return out;
 }
 
 function renderChat(){
@@ -1359,6 +1425,7 @@ function renderChat(){
   }
   box.innerHTML = msgs.map(m=>{
     if(m.type==='image') return `<div class="msg user" style="padding:4px;background:transparent;max-width:76%"><img src="${m.content}" style="max-width:100%;border-radius:10px;display:block"></div>`;
+    if(m.type==='retry') return `<div class="msg ai">${renderAIHtml(m.content)}<div style="margin-top:8px"><button class="btn btn-sm btn-p" onclick="chatRetry()">🔄 再试一次</button></div></div>`;
     if(m.role==='assistant') return `<div class="msg ai">${renderAIHtml(m.content)}</div>`;
     return `<div class="msg ${m.role}">${esc(m.content)}</div>`;
   }).join('');
@@ -1430,7 +1497,33 @@ function subjectLine(text){
   if(tb && (tb.ver||tb.unit)) body += `\n当前教材进度：${(tb.ver||'')+(tb.ver&&tb.unit?' · ':'')+(tb.unit||'')}——本次讲解、举例、变式题优先对齐这一课的内容与术语。`;
   return '\n'+body+'\n（本次辅导按此学科框架执行：框架是教法打法，不要原样念给孩子听。）';
 }
+/* 发送外壳：①并发锁（防连点/语音重复触发导致两条请求互相打架）
+   ②记录失败轮次，供聊天里的「🔄 再试一次」一键重发（孩子不用重新打字）
+   真正的逻辑在 sendChatInner —— 所有 @click="sendChat(...)" 调用点保持不变 */
+let activeSends = 0;
+let lastFailedTurn = null;
 async function sendChat(hiddenQ, displayText){
+  const isHidden = (typeof hiddenQ==='string' && !!hiddenQ.trim());
+  if(!isHidden && activeSends>0){ toast('教练正在回上一条，等它讲完再发哈～'); return; }
+  activeSends++;
+  try{ await sendChatInner(hiddenQ, displayText); }
+  finally{ activeSends = Math.max(0, activeSends-1); }
+}
+/* 清掉聊天末尾的「再试一次」卡片（孩子已经重新发了/已成功，避免堆叠） */
+function clearRetryCard(){
+  const list = p().chat[buddyMode]||[];
+  let n=0;
+  while(list.length && list[list.length-1].type==='retry'){ list.pop(); n++; }
+  if(n){ p().chat[buddyMode]=list; save(); }
+}
+/* 「🔄 再试一次」：一键重发刚才失败的那一条（含程序化发起的隐藏提示词） */
+function chatRetry(){
+  const t = lastFailedTurn; lastFailedTurn = null;
+  clearRetryCard(); renderChat();
+  if(!t){ toast('直接说一遍就好啦～'); return; }
+  sendChat(t.hidden || t.display, t.display);
+}
+async function sendChatInner(hiddenQ, displayText){
   const input = document.getElementById('chatInput');
   /* hiddenQ 只认字符串：事件对象等意外入参一律回退到输入框内容（防"点发送没反应"） */
   let text = (typeof hiddenQ==='string' && hiddenQ.trim()) ? hiddenQ : input.value.trim();
@@ -1462,6 +1555,7 @@ async function sendChat(hiddenQ, displayText){
     await judgeCurrentItem(text);
     return;
   }
+  clearRetryCard();
   pushChat('user', displayText || text); renderChat();
   /* 写作任务检测：捕获字数等硬性要求（这是验收标准，必须锚定全程），并主动编排写作引导流程 */
   if(!hiddenQ && /(作文|写话|周记|读后感|推荐一|介绍一)/.test(text) && text.length<120){
@@ -1582,6 +1676,8 @@ async function sendChat(hiddenQ, displayText){
       const tier = aiTier([{role:'system',content:sys}, ...history, {role:'user',content:userTurn}], {});
       model = aiModel(tier);
       _mt = tier==='pro'?2000:(tier==='light'?600:1200);
+      /* 作文点评 / 流程引导多是长讲解，1200 的额度会让它写到一半（常常正好在表格处）戛然而止 */
+      if(isEssayCtx || p().flow) _mt = Math.max(_mt, tier==='pro'?3200:2600);
       _tp = tier==='pro'?0.4:(tier==='light'?0.3:0.7);
     }
     if(hiddenQ) _mt = Math.max(_mt, 2600); /* 出变式题带SVG图，给足token防截断 */
@@ -1620,6 +1716,8 @@ async function sendChat(hiddenQ, displayText){
       }
     }
     if(!reply) reply='（这次网络开小差了，再点一下发送试试 🙂）';
+    /* 被字数上限/超时截断 → 自动从断点续写接上，孩子看不到"讲到一半没了" */
+    try{ reply = await continueIfTruncated(reply, msgsAI, base, key, _mt, _tp, liveBubble, box); }catch(_){}
     // 提取【作文转写】（作文照片）与【题目速记】（题目照片）→ 存入 currentItem；并从展示内容中剥离标记
     const jmEssay = reply.match(/【作文转写】([\s\S]*?)【\/作文转写】/);
     if(jmEssay){
@@ -1675,7 +1773,12 @@ async function sendChat(hiddenQ, displayText){
     if(practiceWrongId && buddyMode==='socratic'){ showPracticeDone(practiceWrongId); }
   }catch(e){
     const t = document.getElementById('typing'); if(t) t.remove();
-    pushChat('assistant','（出错了：'+e.message+'）'); renderChat();
+    /* 记下这一轮，聊天里给「🔄 再试一次」：孩子不用重新打字（点按钮发起的专练也能原样重发） */
+    lastFailedTurn = {hidden:(typeof hiddenQ==='string'?hiddenQ:''), display:displayText||text};
+    const msg = isNetErr(e)
+      ? '（'+netErrText(e)+'，教练没收到你这句话。点下面「🔄 再试一次」我接着答，不用重新打字～）'
+      : '（出错了：'+((e&&e.message)||e)+'）';
+    pushChat('assistant', msg, 'retry'); renderChat();
   }
 }
 /* 答疑中拍图后，孩子说"帮我判/对不对"→视觉判题 */
@@ -1737,7 +1840,7 @@ async function askAI(wrongId){
   } else {
     setBuddyMode('socratic');
     disp = '这道题我没完全懂，教练给我出一道变式题练练 🙋';
-    q = `【教练内部出题指令，不要向孩子复述本段】孩子刚在这道题上错了：「${w.desc}」${w.mistake?('，之前错在「'+w.mistake+'」'):''}。请出一道**考查同一知识点**的变式题（严禁换成别的知识点或题型）。难度：第一道与原题相当；孩子答对批改通过后下一道升一级，答错降一级给台阶。呈现：几何、行程、分数、排队/植树等情境题用 \`\`\`svg 画一张简单的情境示意图（标注数字和关键词，只画题不画解法）；纯计算、口算、概念填空用文字说清即可。出完题自然地提醒孩子：做完把解题过程拍照发给你批改。`;
+    q = `【教练内部出题指令，不要向孩子复述本段】孩子刚在这道题上错了：「${w.desc}」${w.kp?('（考查知识点：'+w.kp+'）'):''}${w.mistake?('，之前错在「'+w.mistake+'」'):''}。请出一道**考查同一知识点**的变式题（严禁换成别的知识点或题型）。难度：第一道与原题相当；孩子答对批改通过后下一道升一级，答错降一级给台阶。呈现：几何、行程、分数、排队/植树等情境题用 \`\`\`svg 画一张简单的情境示意图（标注数字和关键词，只画题不画解法）；纯计算、口算、概念填空用文字说清即可。出完题自然地提醒孩子：做完把解题过程拍照发给你批改。`;
   }
   sendChat(q, disp);
 }
@@ -1810,7 +1913,7 @@ function renderWrong(){
     const dueSoon = w.status==='redo' && w.nextDate && w.nextDate<=today();
     return `<div class="wrong-item ${w.status==='done'?'mastered':''}">
       <div class="wrong-head">
-        <span><span class="chip ${sc}">${sn}</span> ${w.kp?`<span class="chip t">🎯 ${esc(w.kp)}</span>`:''} ${w.ability?`<span class="chip a">🧩 ${esc(w.ability)}</span>`:''} <span class="chip ${cc}">${cn}</span></span>
+        <span><span class="chip ${sc}">${sn}</span> ${w.kp?`<span class="chip t">🎯 ${esc(w.kp)}</span>`:''} ${w.ability?`<span class="chip a">🧩 ${esc(w.ability)}</span>`:''} <span class="chip ${cc}">${cn}</span>${w.srcExam?'<span class="chip a">📊 考试</span>':(w.srcHw?'<span class="chip t">📄 作业</span>':'')}</span>
         <span class="hint">${w.date.slice(5)}</span>
       </div>
       <div class="wrong-q">${esc(w.desc)}</div>
@@ -2974,17 +3077,66 @@ function examTrendHtml(){
   return `<div style="font-size:12px;font-weight:500;margin-bottom:4px">近 ${ex.length} 次得分率</div>
     <div style="display:flex;gap:6px;align-items:flex-end;padding:4px 0 6px;border-bottom:1px solid var(--line)">${bars}</div>`;
 }
-function examKpAction(kp){ return '针对「'+kp+'」：先把课本上的定义/例题讲给我听（用你自己的话），再做 2 道同类题，做完拍照给我批改'; }
+/* 补足动作按学科给不同的：语文不能再套"讲课本定义"（原来几条任务长得一模一样，也做不了） */
+function examKpAction(kp, subject){
+  const s=subject||'other', k=kp||'这个考点';
+  if(s==='chinese') return '「'+k+'」：把这次卷子上的这道题抄下题干，先照着答案说清"题目在问什么、答案来自原文哪一句"，再找一篇同类短文练 1 题，做完拍照给我批改';
+  if(s==='english') return '「'+k+'」：把这道题涉及的原句抄一遍、读熟 3 遍，再用同一个句型自己造 2 句，拍照给我批改';
+  if(s==='math'||s==='physics'||s==='chem'||s==='bio') return '「'+k+'」：先不看答案把这道题重做一遍；做不出来就翻课本，把相关定义/例题用自己的话讲给我听，再练 2 道同类题，拍照给我批改';
+  return '「'+k+'」：先不看答案重做这道题，再讲给我听"当时卡在哪一步"，然后练 1 道同类题，拍照给我批改';
+}
 function examApplyKps(exam, kps){
   const sub=exam.subject||'other';
-  exam.kps=(kps||[]).map(x=>({kp:String((x&&x.kp)||'').trim(), lose:String((x&&x.lose)||''), note:String((x&&x.note)||'')})).filter(x=>x.kp).slice(0,10);
+  exam.kps=(kps||[]).map(x=>({
+    kp:String((x&&x.kp)||'').trim(),
+    stem:String((x&&x.stem)||'').trim(),
+    lose:String((x&&x.lose)||''),
+    note:String((x&&x.note)||'')
+  })).filter(x=>x.kp).slice(0,10);
   if(!exam.kps.length) return 0;
   /* 考过的失分点 = 最硬的弱信号，直接写进账本并标记考试命中 */
   exam.kps.forEach(x=>ledgerMark(x.kp, sub, 'weak', 'exam'));
-  if(!exam.plan || !exam.plan.length){
-    exam.plan=exam.kps.slice(0,3).map((x,i)=>({kp:x.kp, task:examKpAction(x.kp), day:i, done:false}));
-  }
+  /* 考试失分题也进错题本：这样才能拿到「出变式题 / 流程复盘 / 艾宾浩斯排期」完整练习闭环 */
+  const exDate = exam.date || today();
+  exam.kps.forEach(x=>{
+    const desc = String(x.stem||'').trim() || ('「'+x.kp+'」相关失分题');
+    const ws = p().wrongs = p().wrongs || [];
+    /* 同一条记录重复调用（补录/重新整理）不重复入库；同一天同学科同知识点同题干也算重复 */
+    if(ws.some(w=> w.kp===x.kp && w.desc===desc && (w.srcExam===exam.id || (w.date===exDate && w.subject===sub)))) return;
+    ws.unshift({
+      id: uid(), date: exDate, subject: sub,
+      desc,
+      mistake: x.lose ? ('考试失分：'+x.lose) : (exam.score ? ('考试得分 '+exam.score+(exam.full?('/'+exam.full):'')) : ''),
+      cause: 'exam', kp: x.kp, ability: '', teacherNote: '',
+      srcExam: exam.id, img: (exam.imgs && exam.imgs[0]) || '',
+      status:'redo', reviews:0, nextDate: addDays(exDate,1)
+    });
+  });
+  /* 每个失分点都要有一条可执行的补足任务（补录新增的点也不会漏） */
+  if(!exam.plan) exam.plan=[];
+  const have={}; exam.plan.forEach(x=>{ have[x.kp]=1; });
+  exam.kps.slice(0,3).forEach((x,i)=>{
+    if(have[x.kp]) return;
+    exam.plan.push({kp:x.kp, task:examKpAction(x.kp, sub), day:Math.min(2,i), done:false});
+    have[x.kp]=1;
+  });
   return exam.kps.length;
+}
+/* 考试卡上「🎯 练这题」：把这道失分题接进错题练习闭环（还没入库的现场补一条） */
+function examDrill(examId, ki){
+  const e=(p().exams||[]).find(x=>x.id===examId); if(!e) return;
+  const x=(e.kps||[])[ki]; if(!x) return;
+  const examDate=e.date||today();
+  const desc=String(x.stem||'').trim() || ('「'+x.kp+'」相关失分题');
+  let w=(p().wrongs||[]).find(t=> t.kp===x.kp && t.desc===desc && (t.srcExam===e.id || (t.date===examDate && t.subject===(e.subject||'other'))));
+  if(!w){
+    w={ id:uid(), date:examDate, subject:e.subject||'other', desc,
+        mistake: x.lose?('考试失分：'+x.lose):'', cause:'exam', kp:x.kp, ability:'', teacherNote:'',
+        srcExam:e.id, img:(e.imgs&&e.imgs[0])||'', status:'redo', reviews:0, nextDate:addDays(examDate,1) };
+    p().wrongs=p().wrongs||[]; p().wrongs.unshift(w);
+    save(); renderWrong(); renderDue();
+  }
+  askAI(w.id);
 }
 function renderExams(){
   const trend=document.getElementById('examTrend'); if(trend) trend.innerHTML=examTrendHtml();
@@ -2994,18 +3146,48 @@ function renderExams(){
   box.innerHTML=ex.slice(0,5).map(e=>{
     const sn=(SUBJECT[e.subject]||['其他','b'])[0], r=examRatio(e);
     const todo=(e.plan||[]).filter(x=>!x.done).length;
+    const kps=e.kps||[];
+    const blank = !kps.length && !String(e.score||'').trim();
+    const details = kps.map((x,i)=>({x,i})).filter(o=>o.x.stem||o.x.lose);
     return `<div style="padding:6px 0;border-bottom:1px dashed var(--line)">
       <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center">
         <span><span class="chip">${sn}</span> ${esc(e.name||'考试')} <span class="hint">${(e.date||'').slice(5)}</span></span>
-        <span style="display:flex;gap:8px;align-items:center"><b>${esc(e.score||'—')}${e.full?('/'+esc(e.full)):''}</b>${r!==null?`<span class="chip ${r>=90?'t':'a'}">${r}%</span>`:''}${e.rank?`<span class="hint">第${esc(e.rank)}名</span>`:''}<button class="btn btn-sm btn-ghost" style="padding:0 6px;color:var(--red)" onclick="delExam('${e.id}')">×</button></span>
+        <span style="display:flex;gap:6px;align-items:center"><b>${esc(e.score||'—')}${e.full?('/'+esc(e.full)):''}</b>${r!==null?`<span class="chip ${r>=90?'t':'a'}">${r}%</span>`:''}${e.rank?`<span class="hint">第${esc(e.rank)}名</span>`:''}<button class="btn btn-sm btn-ghost" style="padding:0 6px" title="补录/修改" onclick="examFix('${e.id}')">✏️</button><button class="btn btn-sm btn-ghost" style="padding:0 6px;color:var(--red)" onclick="delExam('${e.id}')">×</button></span>
       </div>
-      ${(e.kps||[]).length?`<div style="margin-top:4px;line-height:2">${e.kps.slice(0,6).map(x=>`<span class="chip" style="background:#FCEBEB;color:#A32D2D">${esc(x.kp)}</span>`).join(' ')}</div>`:''}
+      ${blank?`<div style="margin-top:4px;font-size:12px;line-height:1.5;color:var(--accent);background:var(--accent-bg);padding:6px 8px;border-radius:8px">⚠️ 这张照片没读出考试名 / 分数 / 失分点（多半只拍到局部或太糊）。点上面的 <b>✏️</b> 手动补一补，或者删掉重拍。</div>`:''}
+      ${kps.length?`<div style="margin-top:4px;line-height:2">${kps.slice(0,6).map((x,i)=>`<span class="chip" style="background:#FCEBEB;color:#A32D2D;cursor:pointer" title="点一下练这道" onclick="examDrill('${e.id}',${i})">${esc(x.kp)}</span>`).join(' ')}</div>`:''}
+      ${details.length?`<div style="margin-top:4px">${details.slice(0,4).map(({x,i})=>`<div style="font-size:12px;line-height:1.55;margin:3px 0;padding-left:8px;border-left:2px solid #F0C5C5">
+        <span class="chip" style="background:#FCEBEB;color:#A32D2D">${esc(x.kp)}</span>
+        ${x.stem?`<span> ${esc(x.stem)}</span>`:''}${x.lose?`<span class="hint"> · ${esc(x.lose)}</span>`:''}
+        <button class="btn btn-sm btn-ghost" style="padding:0 7px;margin-left:4px;border-color:var(--accent);color:var(--accent)" onclick="examDrill('${e.id}',${i})">🎯 练这题</button>
+      </div>`).join('')}${kps.length>4?`<div class="hint" style="font-size:11.5px">…共 ${kps.length} 处失分</div>`:''}</div>`:''}
       ${(e.plan||[]).length?`<div style="margin-top:4px">${e.plan.map((x,i)=>`<div style="display:flex;gap:7px;align-items:flex-start;font-size:12px;margin:4px 0">
           <div class="box ${x.done?'done':''}" style="flex:0 0 auto" onclick="toggleExamPlan('${e.id}',${i})">${x.done?'✓':''}</div>
           <div style="line-height:1.5">${esc(x.task)}<span class="hint"> · ${x.day===0?'今天':x.day===1?'明天':'后天'}</span></div>
         </div>`).join('')}${todo?`<div class="hint" style="font-size:11.5px">还有 ${todo} 条失分补足没做完，已排进今日路线</div>`:''}</div>`:''}
       </div>`;
   }).join('');
+}
+let exEditId=null;
+function examCancelEdit(){
+  exEditId=null;
+  const b=document.getElementById('btnExamSave'); if(b) b.textContent='记一笔并回流';
+  const tip=document.getElementById('exEditTip'); if(tip) tip.style.display='none';
+}
+/* 补录/修改已有记录（照片没读全时不用删掉重拍） */
+function examFix(id){
+  const e=(p().exams||[]).find(x=>x.id===id); if(!e) return;
+  exEditId=id;
+  const set=(i,v)=>{ const el=document.getElementById(i); if(el) el.value=v; };
+  set('exDate', e.date||today());
+  set('exSubject', e.subject||'other');
+  set('exName', (e.name && e.name!=='考试')?e.name:'');
+  set('exScore', e.score||''); set('exFull', e.full||'');
+  set('exKps', (e.kps||[]).map(x=>x.kp).join(','));
+  const b=document.getElementById('btnExamSave'); if(b) b.textContent='💾 保存修改';
+  const tip=document.getElementById('exEditTip'); if(tip) tip.style.display='block';
+  try{ document.getElementById('exKps').scrollIntoView({block:'center'}); }catch(_){}
+  toast('补充或修改后，点「💾 保存修改」');
 }
 function addExam(){
   const date=(document.getElementById('exDate')||{}).value||today();
@@ -3014,16 +3196,34 @@ function addExam(){
   const score=(document.getElementById('exScore').value||'').trim();
   const full=(document.getElementById('exFull').value||'').trim();
   const kpsRaw=(document.getElementById('exKps').value||'').trim();
-  if(!name && !score){ toast('填一下考试名或分数'); return; }
-  const exam={id:uid(), date, subject, name:name||'考试', score, full, rank:'', kps:[], plan:[]};
+  if(!name && !score && !kpsRaw){ toast('至少填一项：考试名 / 分数 / 失分知识点'); return; }
   const kps=kpsRaw? kpsRaw.split(/[，,、;；\/\s]+/).filter(Boolean).map(k=>({kp:k})) : [];
+  /* 补录模式：更新已有记录，保留原来读出来的题目与扣分信息 */
+  if(exEditId){
+    const e=(p().exams||[]).find(x=>x.id===exEditId);
+    examCancelEdit();
+    if(e){
+      const old=e.kps||[];
+      const merged=kps.map(k=>{ const hit=old.find(o=>o.kp===k.kp); return hit?{kp:hit.kp, stem:hit.stem||'', lose:hit.lose||''}:k; });
+      const keepPlan=(e.plan||[]).filter(x=>merged.some(m=>m.kp===x.kp));
+      e.date=date||e.date; e.subject=subject; e.name=name||e.name||'考试'; e.score=score; e.full=full;
+      e.kps=[]; e.plan=keepPlan;
+      const n=examApplyKps(e, merged);
+      p().exams.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      ['exName','exScore','exFull','exKps'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+      save(); renderExams(); renderWeakness(); renderTodayRoute(); renderProbe(); renderWrong(); renderDue();
+      toast(n?('✅ 已更新：'+n+' 个失分点写进薄弱地图 📊'):'✅ 这条记录已更新');
+      return;
+    }
+  }
+  const exam={id:uid(), date, subject, name:name||'考试', score, full, rank:'', kps:[], plan:[], imgs:[]};
   const n=examApplyKps(exam, kps);
   p().exams=p().exams||[]; p().exams.unshift(exam);
   p().exams.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   ['exName','exScore','exFull','exKps'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const k=today(); p().heat[k]=(p().heat[k]||0)+1;
-  save(); renderExams(); renderWeakness(); renderTodayRoute(); renderProbe();
-  toast(n?('已记录：'+n+' 个失分知识点转进薄弱地图 📊'):'已记录 📊');
+  save(); renderExams(); renderWeakness(); renderTodayRoute(); renderProbe(); renderWrong(); renderDue();
+  toast(n?('已记录：'+n+' 个失分知识点转进薄弱地图 📊，并排进错题本可练'):'已记录 📊');
 }
 function toggleExamPlan(examId, idx){
   const e=(p().exams||[]).find(x=>x.id===examId); if(!e||!e.plan||!e.plan[idx]) return;
@@ -3037,12 +3237,25 @@ function delExam(id){
   const i=list.findIndex(x=>x.id===id);
   if(i>=0){ list.splice(i,1); }
   else if(/^\d+$/.test(String(id||''))){ list.splice(Number(id),1); } /* 旧数据兼容：按下标传 */
-  save(); renderExams(); renderWeakness(); renderTodayRoute();
+  /* 连带给这次考试自动生成的错题也清掉（练过的不动，保留复习记录） */
+  const before=(p().wrongs||[]).length;
+  p().wrongs=(p().wrongs||[]).filter(w=> !(w.srcExam===id && w.status==='redo' && !(w.reviews||0)));
+  const cleaned=before-(p().wrongs||[]).length;
+  save(); renderExams(); renderWeakness(); renderTodayRoute(); renderWrong(); renderDue();
+  toast(cleaned?('已删除这条考试记录，同时清掉 '+cleaned+' 道没练过的失分题'):'已删除这条考试记录');
 }
-const EXAM_PAPER_PROMPT = '这是孩子考试试卷或成绩单的照片（可能 1-2 页）。请读出考试信息与**每一处失分对应的知识点**。\n'
- +'要求：① 只列老师打叉/扣分的题，判对的不要；② kp 是 4-10 字可考查知识点短词（如"分数应用题""单位换算"），不是整道题的描述；'
- +'③ 看不出就留空，绝不编造；④ 只输出 JSON，不要解释：\n'
- +'{"date":"YYYY-MM-DD 看不出就空","name":"考试名(如期中/第三单元测)","subject":"语文/数学/英语/其他","score":"得分数字","full":"满分数字","kps":[{"kp":"知识点","lose":"扣了几分或错在哪（一句话）"}]}';
+const EXAM_PAPER_PROMPT = '这是孩子考试试卷、单元小测卷或成绩单的照片（可能 1-2 页）。请读出考试信息与**每一处失分**。\n'
+ +'要求：\n'
+ +'① 只列老师打叉/扣分/写批注的题，判对的不要列；\n'
+ +'② kp 必须是**具体可考查的知识点**（6-14 字、带考点归属），例如「修辞手法·比喻的作用」「阅读理解·概括段落大意」「分数应用题·单位1转化」「时态·一般过去时」，'
+ +'不要写「认真审题」「基础知识不牢」「阅读能力差」这类空泛说法；\n'
+ +'③ stem 用一句话说清**这道题到底考什么**（如"阅读短文，概括第2自然段的主要内容"），让人一看就知道是哪道题；\n'
+ +'④ lose 写扣了几分、错在哪（如"扣2分，只写了半句话"）；\n'
+ +'⑤ 看不出就留空字符串，绝不编造题目内容；\n'
+ +'⑥ 只输出 JSON：第一个字符必须是 {，最后一个字符必须是 }，不要代码块、不要任何解释文字。\n'
+ +'结构严格如下：\n'
+ +'{"date":"YYYY-MM-DD 看不出就空","name":"考试/小测名称(如期中/第三单元测/语文课堂素养练习)","subject":"语文/数学/英语/物理/化学/生物/历史/地理/道法/其他",'
+ +'"score":"得分数字","full":"满分数字","kps":[{"kp":"具体知识点","stem":"这道题考什么(一句话)","lose":"扣几分/错在哪(一句话)"}]}';
 async function onExamPaper(e){
   const files=Array.from(e.target.files||[]).filter(f=>f && /^image\//.test(f.type||'')).slice(0,2);
   e.target.value='';
@@ -3058,14 +3271,20 @@ async function onExamPaper(e){
     const subMap={'数学':'math','语文':'chinese','英语':'english','物理':'physics','化学':'chem','生物':'bio','历史':'hist','地理':'geo','道法':'politics','其他':'other'};
     const subject=subMap[String(obj.subject||'').trim()]||'other';
     const exam={id:uid(), date:String(obj.date||'').trim()||today(), subject,
-      name:String(obj.name||'').trim()||'考试', score:String(obj.score||'').trim(),
-      full:String(obj.full||'').trim(), rank:'', kps:[], plan:[]};
+      name:String(obj.name||'').trim()||(subject!=='other'?(subjName(subject)+'·小测/试卷'):'考试'),
+      score:String(obj.score||'').trim(),
+      full:String(obj.full||'').trim(), rank:'', kps:[], plan:[], imgs:pics.slice(0,2)};
     const n=examApplyKps(exam, Array.isArray(obj.kps)?obj.kps:[]);
+    /* 一点信息都没读到 → 不留"其他 考试 —"这种空壳记录（用户反馈过这种看不懂的条目） */
+    if(!n && !exam.score && !String(obj.name||'').trim()){
+      toast('这张没读出考试名/分数/失分点。如果是老师批改的作业，请到错题页点「📸 拍老师批改的作业」；也可以直接手填。');
+      return;
+    }
     p().exams=p().exams||[]; p().exams.unshift(exam);
     p().exams.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const k=today(); p().heat[k]=(p().heat[k]||0)+1;
-    save(); renderExams(); renderWeakness(); renderTodayRoute(); renderProbe();
-    toast(n?('已录入：'+n+' 个失分知识点转进薄弱地图 📊'):'已录入考试，但没读出失分知识点');
+    save(); renderExams(); renderWeakness(); renderTodayRoute(); renderProbe(); renderWrong(); renderDue();
+    toast(n?('已录入：'+n+' 处失分（'+(exam.kps[0]?exam.kps[0].kp:'')+(n>1?' 等':'')+'）已排进错题本和薄弱地图 📊'):'已录入考试，但没读出失分点——可点记录右侧 ✏️ 补录');
   }catch(err){ toast('识别失败：'+(err.message||'')+'（可手填）'); }
 }
 function onExamFile(e){ return onExamPaper(e); } /* 兼容旧入口 */
@@ -3250,25 +3469,61 @@ function aiModel(tier){
   }
   return state.model||DEFAULT_MODEL;
 }
-async function aiFetch(base, key, payload){
-  const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(()=>ctrl.abort(), 60000) : null; /* 60秒超时，防止"正在想…"永远转下去 */
-  try{
-    const res = await fetch(base+'/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body: JSON.stringify(payload),
-      signal: ctrl ? ctrl.signal : undefined
-    });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok || data.error){ throw new Error(data.error?.message || ('HTTP '+res.status)); }
-    return data;
-  }catch(e){
-    if(e && (e.name==='AbortError' || String(e.message||'').includes('aborted'))) throw new Error('请求超时了（60秒），网络或模型繁忙，请重试一次');
-    throw e;
-  }finally{
-    if(timer) clearTimeout(timer);
+/* ===== 网络抖动加固（iOS Safari 请求失败时抛的是 TypeError("Load failed")） =====
+   原来一次 fetch 失败就把整条消息丢掉，孩子只能看到英文报错（如点"帮我专练"后
+   弹出"(出错了：Load failed)"）。这里统一做：识别网络层错误 → 退避自动重试 → 仍失败给一键重试。 */
+let pageHiddenAt = 0; /* 记录最近一次切到后台的时间：切走时系统会掐断连接，回来后 fetch 才失败 */
+document.addEventListener('visibilitychange', function(){ if(document.hidden) pageHiddenAt = Date.now(); });
+function isNetErr(e){
+  if(!e || e.name==='AbortError') return false; /* 超时不在这里重试（另有超时与自动续写策略） */
+  const s = String(e.message||'') + ' ' + String(e.name||'');
+  if(/HTTP 5\d\d/.test(s)) return true; /* 中转/上游偶发 502/503/504：退避重试往往就好了 */
+  return /Load failed|Failed to fetch|NetworkError|network error|net::ERR|ERR_NETWORK|ERR_CONNECTION|ECONNRESET|ETIMEDOUT|ECONNREFUSED|fetch failed|socket|connection (closed|reset|lost)|Internet connection appears to be offline|The request timed out|terminated/i.test(s);
+}
+function netErrText(e){
+  const s = String((e&&e.message)||'');
+  if(/Internet connection appears to be offline|offline/i.test(s)) return '手机好像没联网';
+  if(/HTTP 5\d\d/.test(s)) return '服务器那边刚才忙不过来';
+  if(pageHiddenAt && Date.now()-pageHiddenAt < 90000) return '刚才切到别的 App 了，连接被系统断开了';
+  return '网络刚才抖了一下（没连上）';
+}
+/* 自动重试：只对网络层错误退避重试（间隔 0.7s / 2.8s）；
+   接口返回的 HTTP 错误、内容/格式错误一律不重试，直接抛出（避免把 Key 错误等拖成三次等待） */
+async function withNetRetry(fn, tries, onWait){
+  tries = tries || 3;
+  let last = null;
+  for(let i=0;i<tries;i++){
+    try{ return await fn(); }
+    catch(e){
+      last = e;
+      if(i===tries-1 || !isNetErr(e)) throw e;
+      if(onWait){ try{ onWait(i+1); }catch(_){} }
+      await new Promise(r=>setTimeout(r, 700*(i+1)*(i+1)));
+    }
   }
+  throw last;
+}
+async function aiFetch(base, key, payload){
+  return withNetRetry(async function(){
+    const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(()=>ctrl.abort(), 100000) : null; /* 100秒超时：长讲解（作文点评/整份作业解析）需要更久，防止"正在想…"永远转下去 */
+    try{
+      const res = await fetch(base+'/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body: JSON.stringify(payload),
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || data.error){ throw new Error(data.error?.message || ('HTTP '+res.status)); }
+      return data;
+    }catch(e){
+      if(e && (e.name==='AbortError' || String(e.message||'').includes('aborted'))) throw new Error('请求超时了（100秒），网络或模型繁忙，请重试一次');
+      throw e;
+    }finally{
+      if(timer) clearTimeout(timer);
+    }
+  }, 3);
 }
 function aiCountTokens(data){
   try{
@@ -3708,8 +3963,21 @@ function hwSave(obj, pics, raw){
   const k=today(); p().heat[k]=(p().heat[k]||0)+1;
   save();
   renderHwReviews(); renderWrong(); renderDue(); renderGrowth(); renderTodayRoute();
+  /* 拍完自动把回执滚到眼前，避免"拍完了，怎么什么都没看到" */
+  try{ const el=document.querySelector('#hwReviewList .wrong-item'); if(el) el.scrollIntoView({block:'center'}); }catch(_){}
   if(hw.items.length) toast('✅ 读完整份作业了：'+hw.items.length+' 处待订正，已排进错题本和今日路线');
-  else toast('✅ 读到了：'+(hw.teacherNote?('老师评语「'+hw.teacherNote.slice(0,12)+'」'):'整体评价')+(hw.abilities.length?('，归到 '+hw.abilities.length+' 个能力点'):''));
+  else toast('✅ 读到了：'+(hw.teacherNote?('老师评语「'+hw.teacherNote.slice(0,12)+'」'):'整体评价')+(hw.abilities.length?('，归到 '+hw.abilities.length+' 个能力点'):'')+'（结果就在下面 👇）');
+}
+/* 点缩略图看原图，确认教练读的是哪一份 */
+function hwViewImg(id, i){
+  const h=(p().hwReviews||[]).find(x=>x.id===id); if(!h) return;
+  const src=(h.imgs||[])[i]; if(!src) return;
+  const old=document.getElementById('imgViewOv'); if(old) old.remove();
+  const d=document.createElement('div'); d.id='imgViewOv';
+  d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:9998;display:flex;align-items:center;justify-content:center;padding:12px';
+  d.innerHTML='<img src="'+src+'" style="max-width:100%;max-height:92%;border-radius:10px">';
+  d.onclick=function(){ d.remove(); };
+  document.body.appendChild(d);
 }
 /* 完全没能整理成结构时：先留住教练读到的原文，可一键重新整理，绝不白拍 */
 function hwSaveRaw(raw, pics){
@@ -3718,7 +3986,8 @@ function hwSaveRaw(raw, pics){
     rubric:[], items:[], abilities:[], plan:[], parsed:false };
   p().hwReviews = p().hwReviews||[]; p().hwReviews.unshift(hw);
   save(); renderHwReviews();
-  toast('已把教练读到的内容存了下来，可点「🔁 重新整理」再试');
+  try{ const el=document.querySelector('#hwReviewList .wrong-item'); if(el) el.scrollIntoView({block:'center'}); }catch(_){}
+  toast('已把教练读到的内容存了下来（下面 👇），可点「🔁 重新整理」再试，不用重拍');
 }
 /* 把已存的原文重新整理成结构化复盘（不用重拍照片） */
 async function hwReparse(id){
@@ -3749,6 +4018,7 @@ function renderHwReviews(){
         <span><span class="chip ${sc}">${sn}</span> <span class="chip t">📄 ${h.pages} 页</span> ${h.score?`<span class="chip a">得分 ${esc(h.score)}</span>`:''} ${h.parsed===false?'<span class="chip" style="background:var(--accent-bg);color:var(--accent)">待整理</span>':''}</span>
         <span class="hint">${(h.date||'').slice(5)}</span>
       </div>
+      ${(h.imgs||[]).filter(Boolean).length?`<div style="display:flex;gap:5px;margin:2px 0 6px;align-items:center">${h.imgs.filter(Boolean).slice(0,4).map((src,ix)=>`<img src="${src}" style="height:50px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in" onclick="hwViewImg('${h.id}',${ix})">`).join('')}<span class="hint" style="font-size:11px">点图看原图</span></div>`:''}
       ${h.teacherNote?`<div style="margin:5px 0;padding:7px 9px;background:var(--accent-bg);border-radius:8px;font-size:12.5px;line-height:1.5">📝 老师原话：<b>${esc(h.teacherNote)}</b></div>`:''}
       ${(h.rubric||[]).length?`<div style="margin:4px 0;font-size:11.5px">${h.rubric.map(r=>`<span class="chip">${esc(r.name)}${r.level?(' '+esc(r.level)):''}</span>`).join(' ')}</div>`:''}
       ${(h.abilities||[]).length?`<div style="margin:4px 0;font-size:11.5px;line-height:2">${h.abilities.map(a=>`<span class="chip a">🧩 ${esc(a.name)}${(a.n>1)?(' ×'+a.n):''}</span>`).join(' ')}</div>`:''}
@@ -3758,7 +4028,9 @@ function renderHwReviews(){
           ${it.myAnswer?`<div class="hint" style="font-size:11.5px">我写的：${esc(it.myAnswer).slice(0,50)}</div>`:''}
           <div style="margin-top:3px">${it.ability?`<span class="chip a">🧩 ${esc(it.ability)}</span>`:''}${it.note?` <span class="hint" style="font-size:11px">${esc(it.note).slice(0,28)}</span>`:''}</div>
         </div>`).join('')}${h.items.length>6?`<div class="hint" style="font-size:11.5px;margin-top:4px">…还有 ${h.items.length-6} 处；点「🚀 开始订正」会一处一处带你过</div>`:''}</div>`
-        :`<div class="hint" style="font-size:12px;margin:6px 0">这份作业没有逐题打叉/扣分的痕迹，主要问题在老师的评语与评价表里 👆</div>`}
+        :(h.parsed===false
+          ?`<div class="hint" style="font-size:12px;margin:6px 0">教练这次没能把读到的东西整理成订正清单（照片可能偏糊或只拍到局部）。先点下面的「查看教练读到的原文」看看它到底读到了什么，再点「🔁 重新整理」——<b>不用重拍</b>。</div>`
+          :`<div class="hint" style="font-size:12px;margin:6px 0">这份作业<b>没有逐题打叉/扣分的痕迹</b>（老师可能只打了对勾、写了个"阅"）。照片和老师的评语已经记下了；如果老师另外写了批语，可以再拍一次批语那一部分。</div>`)}
       ${h.raw?`<div style="margin:4px 0"><a style="font-size:11.5px;color:var(--accent);cursor:pointer" onclick="var e=document.getElementById('hwraw_${h.id}');e.style.display=(e.style.display==='none'?'block':'none')">${h.parsed===false?'查看教练读到的原文 ▾':'查看教练读到的原文 ▾'}</a><div id="hwraw_${h.id}" style="display:none;margin-top:5px;padding:8px;background:#fafafa;border:1px solid var(--line);border-radius:8px;font-size:11.5px;white-space:pre-wrap;max-height:200px;overflow:auto">${esc(h.raw)}</div></div>`:''}
       ${(h.plan||[]).length?`<div style="margin:6px 0;padding:7px 9px;background:#fafafa;border:1px solid var(--line);border-radius:10px">
         <div style="font-size:12px;font-weight:600;margin-bottom:4px">🎯 3 天补足微任务</div>
@@ -4283,7 +4555,8 @@ function speak(text){
   if(!state.tts) return;
   try{
     speechSynthesis.cancel();
-    const clean = stripForTTS(text).slice(0,500);
+    /* 原来只读前 500 字——讲解稍长就"讲到一半没声了"。现在整段都读，上限放宽到 4000 字防极端 */
+    const clean = stripForTTS(text).slice(0,4000);
     if(!clean) return;
     /* 先按停顿标记拆句（朗读之间引擎自带小停顿），句内再按中/英文分段：
        英文词句用标准美音朗读，中文用最自然的中文音色 */
@@ -4298,7 +4571,24 @@ function speak(text){
         else { cur={lang, t:s}; queue.push(cur); }
       });
     });
+    /* 单段过长时部分引擎会静默截断或整段吞掉 → 再按 110 字切碎，保证一个字都不漏 */
+    const finalQ=[];
     queue.forEach(pp=>{
+      const t=String(pp.t||'');
+      if(!t.trim()) return;
+      if(t.length<=110){ finalQ.push({lang:pp.lang,t:t.trim()}); return; }
+      if(pp.lang==='en-US'){
+        let cur='';
+        t.split(/\s+/).filter(Boolean).forEach(w=>{
+          if(cur && (cur+' '+w).length>110){ finalQ.push({lang:pp.lang,t:cur}); cur=w; }
+          else cur = cur ? (cur+' '+w) : w;
+        });
+        if(cur) finalQ.push({lang:pp.lang,t:cur});
+      }else{
+        for(let i=0;i<t.length;i+=110) finalQ.push({lang:pp.lang,t:t.slice(i,i+110)});
+      }
+    });
+    finalQ.forEach(pp=>{
       if(!pp.t.trim()) return;
       const u=new SpeechSynthesisUtterance(pp.t.trim());
       u.lang=pp.lang;
@@ -4484,7 +4774,7 @@ async function cloudPull(silent){
       pf.kpPool = pf.kpPool || {};
       pf.probes = pf.probes || [];
       pf.exams = pf.exams || [];
-      pf.exams.forEach(e=>{ if(!e.id) e.id=uid(); if(!e.kps) e.kps=[]; if(!e.plan) e.plan=[]; if(!e.subject) e.subject='other'; });
+      pf.exams.forEach(e=>{ if(!e.id) e.id=uid(); if(!e.kps) e.kps=[]; if(!e.plan) e.plan=[]; if(!e.imgs) e.imgs=[]; if(!e.subject) e.subject='other'; });
     });
     save(); try{ renderAll(); }catch(_){}
     if(!silent) toast('已从云端取回 '+merged+' 项数据 ✅');
