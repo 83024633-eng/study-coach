@@ -93,6 +93,25 @@ nav button.on{color:var(--accent); font-weight:600;}
 .msg.ai{align-self:flex-start; background:#f1f3f7; color:var(--txt); border-bottom-left-radius:4px;}
 .msg.sys{align-self:center; background:none; color:var(--hint); font-size:12px; max-width:96%; text-align:center; padding:2px;}
 .typing{align-self:flex-start; background:#f1f3f7; color:var(--muted); border-radius:14px; padding:10px 13px; font-size:13px;}
+/* 分步讲解播放器：老师一步一步讲，孩子跟得上 */
+.steps{display:flex; flex-direction:column; gap:8px; max-width:100%;}
+.stp-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.stp-dot{font-size:11px; letter-spacing:1px; color:var(--accent-800); background:var(--accent-bg); padding:3px 9px; border-radius:999px; white-space:nowrap;}
+.stp-hint{font-size:11.5px; color:var(--hint);}
+.stp-all{margin-left:auto; font-size:11.5px; color:var(--accent); cursor:pointer; text-decoration:underline; white-space:nowrap;}
+.stp-acts{display:flex; gap:6px; flex-wrap:wrap; padding-top:9px; border-top:1px dashed var(--line);}
+.stp-acts .btn{flex:1 1 auto; white-space:nowrap;}
+.stp+.stp{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
+.stp-tag{display:inline-block; font-size:12px; font-weight:700; color:var(--accent-800); background:var(--accent-bg); padding:2px 10px; border-radius:999px; margin:4px 0 2px;}
+/* 回复末尾的可点按钮：孩子打字慢，点一下就能把话说出去 */
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.chip{border:1px solid #cfe0f5; background:#f4f8ff; color:#1f5fa8; border-radius:999px; padding:7px 13px; font-size:12.5px; line-height:1.25; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent;}
+.chip:active{background:#e2efff; border-color:#9dc2ea;}
+/* 导图空框：点着填 */
+.mmf{cursor:pointer;}
+.mmf text{pointer-events:none;}
+.mm-tip{margin-top:7px; font-size:12px; color:var(--muted);}
+.mm-go{color:#1f5fa8; font-weight:600; cursor:pointer; text-decoration:underline;}
 .modebar{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
 .modebar button{flex:1 1 calc(33.33% - 4px); min-width:90px; padding:8px 4px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--muted); font-size:12px; cursor:pointer;}
 .modebar button.on{border-color:var(--accent); background:var(--accent-bg); color:var(--accent-800); font-weight:600;}
@@ -1017,8 +1036,27 @@ function mergeEssayText(oldT,newT){
 }
 /* 需要"看图引导"的搭子模式 */
 const VISUAL_MODES = ['socratic','feynman','reading','thinking','english'];
+/* 分步讲解覆盖全部学习模式（含背诵/兴趣）；"是否把图发给视觉模型"仍按 VISUAL_MODES 判定，两者解耦 */
+const STEP_MODES = ['socratic','feynman','reading','thinking','english','recite','interest'];
 /* 讲解多元化指令：凡涉及图形/对比/流程/孩子说看不懂，必须画图 */
-const DRAW_HINT = `【讲解要"看得见"】按题型自然判断呈现方式：几何、行程、分数、线段图、排队/植树、流程、对比等适合图示的内容，用 \`\`\`svg 代码块画一张简单、带清晰标注的图（图形/箭头/数字/关键词都标出来），让孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看/还是不懂"时必须立刻画图。`;
+const DRAW_HINT = `【分步讲解·讲解呈现的最高纪律】
+每次讲解必须拆成 2~6 步，每步另起一行、以「【第1步】」「【第2步】」开头（用阿拉伯数字），一步只讲一件事、一句话说清（每条 40 字以内），按"看清题 → 找关系 → 列算式 → 得结论"的节奏拆。孩子看到的应该是"老师一步一步讲"，不是一篇长文。
+按题型决定每一步长什么样（这是要求，不是建议）：
+· 几何 / 行程 / 分数 / 线段图 / 排队植树 / 流程 → 用 \`\`\`svg 画【一张】图（整条回复只画这一张，不要每步重画），带清晰标注（图形、箭头、数字、关键词）；图中"后面步骤才出现"的元素（答案、相遇点、辅助线、结论框…）就在那一层元素上写 data-s="N"（N＝第几步出现，例如 <g data-s="3">…</g>），第 1 步就要的框架元素不要标注。
+· 纯计算 / 口算 / 概念填空 → 不画图，每一步就是一行算式，像老师在黑板上写板书。
+· 梳理课文结构 / 复习提纲 / 思维导图 → 用 \`\`\`mindmap 输出大纲（中心词一行、"- 分支"、缩进两格的"- 要点"、"?"表示留空让他自己填），第 N 个分支就是第 N 步；绝不能用文字描述"中间写什么、旁边伸几根枝条"。
+· 英语 → 每一步只给一句英文，一步一步跟读，不要一次给一大段。
+· 对比类 → 可以用表格，但整个表格算一步。
+需要孩子回答时，把问题单独放在最后一步，一步只问一个问题。孩子说"看不懂 / 画图看看 / 还是不懂"时必须立刻画图。
+
+【可点按钮·让孩子少打字】孩子打字慢，需要他回应时，在整条回复的**最后一行**给 2~3 个"他点一下就能发出去"的话，用 | 分隔，写成这样：
+【可选】我来说说经过 | 给点提示 | 画个图看看
+· 按钮要用孩子自己说话的口吻（"我来说说经过""这一步我没懂""给点提示""画个图看看""让我先试试"），不要命令句（"请描述经过"这种不行）；
+· 2~3 个最好是这三种状态各一个："我想试一下" / "我卡住了要提示" / "换个方式讲"；
+· 这一行必须单独成行、放在最末；正文里绝不能出现"【可选】"三个字；
+· 不需要孩子说话时（纯讲解收尾、孩子正在自己做题）不要给这一行。
+
+【导图空框孩子能直接填】思维导图里孩子还没想出来的格子只写一个"?"，App 会把它画成虚线框——**孩子点一下就能直接输入，填完自动变实线**。所以：空框只写"?"，绝不要替孩子填上答案，也不要写"请把这里补上"这类指令（他看得见框、点得动）。`;
 function socraticSystem(){
   if(state.active==='初一'){
     return `你是孩子的「AI 学习教练」，辅导一名初一学生。核心目标：让孩子自己把题想通，而不是替他写答案。
@@ -1030,7 +1068,7 @@ function socraticSystem(){
 5. 孩子答出一点就具体肯定（"这个比喻很好""你抓住了声音这个角度"），再递进下一个小问题。
 6. 发现理解偏差，用反例或"如果是X会怎样"帮他自查，不直接纠错。
 7. 语气平等简短，像靠谱学长学姐；用中文，可适度用表情。
-8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。
+8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。 **要"把整篇课文/一个章节拆成骨架"时（整理课文结构、梳理知识点、复习提纲、做思维导图），必须用 \`\`\`mindmap 代码块直接输出大纲：第一行写中心词，一级分支写"- 分支名"，二级要点缩进两格写"- 要点"；孩子还没想出来的格子写一个"?"留给他自己填。绝不能用文字去描述"中间写什么、旁边伸几根枝条"。**
 9. 三阶引导结构（每轮尽量遵循）：①先点出"当前卡住的那一步"是什么 ②给 1 个具体小追问 ③末了出一道极简变式（一句话能说清），等孩子口述关键逻辑词再继续，绝不提前公布答案。
 10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导，绝不流露不耐烦。
 11. 写作任务（作文/写话/读后感）引导纪律——像资深语文老师：①先审题：和孩子确认"写什么+必须覆盖哪几个要点+字数要求"，审清了才动笔；②再搭提纲：开头/中间/结尾各写什么、每段大约多少字（字数要求÷段数，中间段最厚）；③逐段写逐段反馈：先肯定该段具体亮点，再用放大镜追问帮他加细节（当时看到什么/听到什么/心里想什么/打个比方/举一件具体小事），一次只加厚一段，绝不替他写整段；④完成判定硬标准：字数没达标前绝不宣布"完成/可以誊写"；达标后还要对照要点清单逐条检查。`;
@@ -1044,7 +1082,7 @@ function socraticSystem(){
 5. 阅读/写话类：先帮他弄清"要写什么"，再给一个示例短句样板，鼓励他写出自己的。
 6. 答出一点就夸具体进步，再递进。
 7. 用中文，可适度用表情活跃气氛。
-8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。
+8. 讲解多元化——别只堆文字：按题型自然判断呈现方式，几何、行程、分数、线段图、排队/植树等需要直观理解情境的题型，用 \`\`\`svg 代码块画一张简单带标注的图帮孩子直观看懂；纯计算、口算、概念填空等文字说清即可，不必画图。步骤多的用有序列表分步；对比类用表格。孩子说"看不懂/画图看看"必须立刻画图。 **要"把整篇课文/一个章节拆成骨架"时（整理课文结构、梳理知识点、复习提纲、做思维导图），必须用 \`\`\`mindmap 代码块直接输出大纲：第一行写中心词，一级分支写"- 分支名"，二级要点缩进两格写"- 要点"；孩子还没想出来的格子写一个"?"留给他自己填。绝不能用文字去描述"中间写什么、旁边伸几根枝条"。**
 9. 三阶引导结构（每轮尽量遵循）：①先点出"当前卡住的那一步"是什么 ②给 1 个具体小追问 ③末了出一道极简变式（一句话能说清），等孩子口述关键逻辑词再继续，绝不提前公布答案。
 10. 孩子连续说"不懂/还是不会"时，立刻降难度、画图、举更生活化的例子，先肯定再引导。
 11. 写作任务（作文/写话/读后感）引导纪律——像温和又有要求的语文老师：①先审题：和他确认"要写什么+几个要点+要写多少字"，用他能复述的话讲清；②搭提纲：开头/中间/结尾各写什么、每段大约几句；③一段一段写，每段先夸具体亮点，再问"这里你还看到什么/听到什么/心里在想什么？能不能打个比方？"帮他自己加句子；④字数没够前绝不说"写完啦/可以抄了"，要说"还差一点，我们把XX这里再加一两句"；⑤他不知道写什么时给选项（看到的/听到的/想到的/打个比方/举一件小事），让他挑一个说。`;
@@ -1297,14 +1335,14 @@ function finishBook(){
   if(inp0){ inp0.value='我把《'+book.title+'》读完了！来考考我吧'; sendChat(); }
 }
 /* 页面内多行输入弹层：手机上能看到整段、可长按粘贴（原生 prompt 只有单行，抄好句很难用） */
-function askLongText(title, placeholder, cb){
+function askLongText(title, placeholder, cb, defVal){
   var old=document.getElementById('askModal'); if(old) old.remove();
   var wrap=document.createElement('div');
   wrap.id='askModal';
   wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.45);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:16px';
   wrap.innerHTML='<div style="background:#fff;border-radius:16px;padding:14px;width:100%;max-width:520px;box-shadow:0 -6px 30px rgba(0,0,0,.18)">'
     +'<div style="font-size:14px;font-weight:600;margin-bottom:8px">'+esc(title)+'</div>'
-    +'<textarea id="askTextarea" rows="5" placeholder="'+esc(placeholder||'')+'" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:14px;line-height:1.6"></textarea>'
+    +'<textarea id="askTextarea" rows="5" placeholder="'+esc(placeholder||'')+'" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:14px;line-height:1.6">'+esc(defVal||'')+'</textarea>'
     +'<div style="display:flex;gap:8px;margin-top:10px">'
     +'<button class="btn btn-ghost" style="flex:1" id="askCancel">取消</button>'
     +'<button class="btn btn-p" style="flex:2" id="askOk">保存</button></div></div>';
@@ -1383,6 +1421,7 @@ function setBuddyMode(m){
   reciteCheckId=null; // 切换模式即退出验收，防止残留拦截普通提问
   verifyAskedId=null; verifyPack=null; // 切换模式即放弃本轮过关验证（清单还在，随时能补）
   if(p().flow){ p().flow=null; save(); } // 切换模式即退出流程，防止残留吞掉普通提问
+  stpStop(); // 切换模式即停掉分步播放，否则计时器会去操作已不存在的消息
   renderFlow();
   renderShortcuts();
   renderChat();
@@ -1400,23 +1439,509 @@ function englishTrain(kind){
 }
 var pendingWrongImg='';
 function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* ===== 思维导图渲染：```mindmap 大纲 → SVG 导图 =====
+   2026-09-29：孩子要做"用思维导图整理课文"这类作业时，AI 原来只能用文字描述
+   "中间一个中心词、旁边伸几根枝条"——用文字描述图形是最低效的。现在直接画出来。
+   格式（模型好写、孩子好懂）：
+     中心词
+     - 一级分支
+       - 二级要点      ← 缩进两格
+   还没想出来的格子写「?」，渲染成虚线空框，留给孩子自己填。 */
+function svgEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function mmTextW(s,size){
+  let w=0;
+  for(const ch of String(s==null?'':s)) w += /[\u2e80-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch) ? size : size*0.56;
+  return w;
+}
+const MM_MAXW = 132;
+function mmFit(s,size){
+  const t=String(s==null?'':s);
+  if(mmTextW(t,size) <= MM_MAXW-16) return t;
+  let out='';
+  for(const ch of t){ if(mmTextW(out+ch+'…',size) > MM_MAXW-16) break; out+=ch; }
+  return out+'…';
+}
+/* 渲染上下文：当前正在渲染的是"哪一条消息"（{m:消息对象, i:下标}）。
+   导图里的空框（?）既要显示孩子填过的内容、又要把新填的存回这条消息，全靠它。
+   由 aiMsgHtml 设置并在渲染结束后还原；流式渲染时为空（那时孩子也不该点）。 */
+var rdCtx = null;
+/* 导图节点宽度：空框固定 46（手指点得到），其余按文字宽。
+   布局与渲染共用这一个口径，避免"框画窄了字溢出" */
+const MM_LH = 13, MM_MAXROWS = 2;          /* 行高 / 最多两行（孩子填一句话也看得全） */
+function mmWrap(text, size){
+  const t = String(text==null?'':text);
+  const maxw = MM_MAXW - 16;
+  if(mmTextW(t,size) <= maxw) return [t];
+  let lines=[], cur='';
+  for(const ch of t){
+    if(cur && mmTextW(cur+ch,size) > maxw){ lines.push(cur); cur=ch; }
+    else cur += ch;
+  }
+  if(cur) lines.push(cur);
+  if(lines.length > MM_MAXROWS){                       /* 超过两行 → 第二行末尾省略 */
+    const rest = lines.slice(MM_MAXROWS-1).join('');
+    let last='';
+    for(const ch of rest){ if(mmTextW(last+ch+'…',size) > maxw) break; last += ch; }
+    lines = lines.slice(0, MM_MAXROWS-1).concat([last+'…']);
+  }
+  return lines;
+}
+function mmRows(text, size, blank){ return blank ? 1 : mmWrap(text, size).length; }
+function mmNodeH(rows, extra){ return rows*MM_LH + 13 + (extra||0); }
+function mmNodeW(text, size, blank){
+  if(blank) return 46;
+  let w=0;
+  mmWrap(text, size).forEach(function(l){ w = Math.max(w, mmTextW(l,size)); });
+  return Math.min(MM_MAXW, Math.max(34, w+16));
+}
+function mmNode(text, x, y, size, style, opt){
+  opt = opt || {};
+  const t=String(text==null?'':text);
+  const blank = !!opt.blank;       /* 孩子还没填的空框（虚线 + ?） */
+  const filled = !!opt.filled;     /* 孩子已经填上的（实线 + 淡绿底） */
+  const lines = blank ? ['?'] : mmWrap(t, size);
+  const w = mmNodeW(t, size, blank);
+  const h = mmNodeH(lines.length, opt.extraH);
+  const fill = blank ? '#fbfcfe' : (filled ? '#f3fbf4' : style.fill);
+  const stroke = blank ? '#c9ced9' : (filled ? '#8fc48f' : style.stroke);
+  let out='<rect x="'+x.toFixed(1)+'" y="'+(y-h/2).toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h+'" rx="7" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.2"'+(blank?' stroke-dasharray="4 3"':'')+'/>';
+  lines.forEach(function(ln, li){
+    const ty = y + (li - (lines.length-1)/2)*MM_LH + size*0.36;
+    out+='<text x="'+(x+w/2).toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="middle" font-size="'+size+'" font-family="inherit" fill="'+(blank?'#9aa4b5':'#2b3440')+'"'+(style.bold?' font-weight="700"':'')+'>'+svgEsc(ln)+'</text>';
+  });
+  const editable = (blank||filled) && !!rdCtx && rdCtx.i>=0;
+  const attrs = editable ? ' class="mmf" data-mi="'+rdCtx.i+'" data-fi="'+opt.seq+'" onclick="mmTap(this)"' : '';
+  return {svg:'<g'+attrs+'>'+out+'</g>', w:w, h:h};
+}
+function mmLink(x1,y1,x2,y2,color){
+  const mx=(x1+x2)/2;
+  return '<path d="M'+x1.toFixed(1)+' '+y1.toFixed(1)+' C'+mx.toFixed(1)+' '+y1.toFixed(1)+', '+mx.toFixed(1)+' '+y2.toFixed(1)+', '+x2.toFixed(1)+' '+y2.toFixed(1)+'" fill="none" stroke="'+color+'" stroke-width="1.4"/>';
+}
+function renderMindmapHtml(body, fill){
+  const lines = String(body||'').replace(/\r/g,'').split('\n')
+    .map(l=>l.replace(/\s+$/,'')).filter(l=>l.trim());
+  if(!lines.length) return '';
+  const clean = l => String(l).replace(/^[\s\t]*[-*•>#]+\s*/,'').replace(/\*\*/g,'').replace(/^\s*[-*•]\s*/,'').trim();
+  /* 空框（?）按出现顺序编号；孩子填过的用填的内容渲染成实线（m.mmFill = {序号: 文本}） */
+  let blankSeq = 0, filledN = 0;
+  const resolved = lines.map(function(l){
+    const raw = String(l).replace(/\t/g,'    ');
+    const indent = (raw.match(/^\s*/)||[''])[0].length;
+    const txt = clean(l);
+    if(!/^[?？]+$/.test(txt)) return {txt:txt, indent:indent, blank:false, filled:false, seq:-1};
+    const seq = blankSeq++;
+    const v = (fill && fill[seq]) ? String(fill[seq]).trim() : '';
+    if(v) filledN++;
+    return {txt: v || '?', indent:indent, blank:!v, filled:!!v, seq:seq};
+  });
+  const totalBlank = blankSeq;
+  const rootR = resolved[0];
+  const branches=[];
+  resolved.slice(1).forEach(function(r){
+    if(r.indent>0 && branches.length) branches[branches.length-1].kids.push(r);
+    else branches.push({txt:r.txt, indent:r.indent, blank:r.blank, filled:r.filled, seq:r.seq, kids:[]});
+  });
+  if(!branches.length) return '';
+  const SZ=11, SZR=12.5, PAD=10, COLGAP=20, GAP=7;
+  const hasKids = branches.some(b=>b.kids.length>0);
+  /* 先量好每个节点几行多高：孩子填了一句话的格子会自动变成两行 */
+  branches.forEach(function(b){
+    b.rows = mmRows(b.txt, SZ, b.blank); b.h = mmNodeH(b.rows);
+    b.kids.forEach(function(k){ k.rows = mmRows(k.txt, SZ, k.blank); k.h = mmNodeH(k.rows); });
+  });
+  const rootRows = mmRows(rootR.txt, SZR, rootR.blank);
+  const w0 = mmNodeW(rootR.txt, SZR, rootR.blank);
+  let w1=40, w2=40;
+  branches.forEach(function(b){
+    w1=Math.max(w1, mmNodeW(b.txt, SZ, b.blank));
+    b.kids.forEach(function(k){ w2=Math.max(w2, mmNodeW(k.txt, SZ, k.blank)); });
+  });
+  const x0=PAD, x1=x0+w0+COLGAP, x2=x1+w1+COLGAP;
+  const W = hasKids ? (x2+w2+PAD) : (x1+w1+PAD);
+  /* 垂直：每个一级分支占的高度＝它下面要点的总高（没有要点就用自己的高度），
+     所以行数多的节点会自动多占一点，不会跟邻居挤在一起 */
+  let y=PAD;
+  branches.forEach(function(b){
+    const bh = b.kids.length ? b.kids.reduce(function(s2,k){ return s2 + k.h + GAP; }, 0) : (b.h + GAP);
+    b.bh = bh;
+    b.y = y + bh/2;
+    b.kidY=[];
+    let ky = y;
+    b.kids.forEach(function(k){ b.kidY.push(ky + k.h/2); ky += k.h + GAP; });
+    y += bh;
+  });
+  const totalH = y - PAD;
+  const H = PAD*2 + totalH;
+  const rootY = PAD + totalH/2;
+  /* 逐枝展开：中心词 data-s="1"，第 N 个一级分支（含它的连线与要点）包成 <g data-s="N">。
+     分步播放时导图一枝一枝长出来；静态展示时全部可见，不受影响 */
+  const rootNode = mmNode(rootR.txt, x0, rootY, SZR, {fill:'#fff6e0', stroke:'#e6b422', bold:true}, {blank:rootR.blank, filled:rootR.filled, seq:rootR.seq, extraH:2});
+  let tree = '<g data-s="1">'+rootNode.svg+'</g>';
+  branches.forEach(function(b,bi){
+    let g = mmLink(x0+w0, rootY, x1, b.y, '#cbd6e8');
+    g += mmNode(b.txt, x1, b.y, SZ, {fill:'#eef4ff', stroke:'#9db8e6', bold:true}, {blank:b.blank, filled:b.filled, seq:b.seq}).svg;
+    if(hasKids) b.kids.forEach(function(k,j){
+      if(b.kidY[j]!==b.y) g += mmLink(x1+w1, b.y, x2, b.kidY[j], '#dde4ef');
+      g += mmNode(k.txt, x2, b.kidY[j], SZ, {fill:'#ffffff', stroke:'#cfd6e2'}, {blank:k.blank, filled:k.filled, seq:k.seq}).svg;
+    });
+    tree += '<g data-s="'+(bi+1)+'">'+g+'</g>';
+  });
+  const w = Math.round(W), h = Math.round(H);
+  let foot = '';
+  if(totalBlank && rdCtx && rdCtx.i>=0){
+    if(filledN < totalBlank) foot = '<div class="mm-tip">✏️ 点虚线框可以直接填，填完会变成实线</div>';
+    else foot = '<div class="mm-tip">🎉 全部填好了！<a class="mm-go" onclick="mmSend('+rdCtx.i+')">发给我看看 →</a></div>';
+  }
+  return '<div class="ai-svg" style="margin:8px 0;text-align:center"><div style="display:inline-block;max-width:100%;background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:6px;overflow-x:auto">'
+    + '<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:inherit">'
+    + tree + '</svg></div>'
+    + foot + '</div>';
+}
+/* 点导图里的虚线框 → 弹出输入，填完存回这条消息（mmFill），重渲染即变实线 */
+function mmTap(el){
+  var mi = parseInt(el.getAttribute('data-mi'),10);
+  var fi = parseInt(el.getAttribute('data-fi'),10);
+  if(!(mi>=0) || !(fi>=0)) return;
+  var m = (p().chat[buddyMode]||[])[mi]; if(!m) return;
+  var old = (m.mmFill && m.mmFill[fi]) ? String(m.mmFill[fi]) : '';
+  askLongText('填这里', '把你的答案写进来（写错也没关系，还能再改）', function(v){
+    m.mmFill = m.mmFill || {};
+    m.mmFill[fi] = v;
+    save(); renderChat();
+    var node = document.getElementById('msg-'+mi);
+    if(node && node.scrollIntoView){ try{ node.scrollIntoView({block:'center'}); }catch(_){} }
+  }, old);
+}
+/* 把导图重新拼成一段纯文本大纲（空框换成孩子填的内容）——发给 AI 点评用 */
+function mmOutlineOf(body, fill){
+  const clean = l => String(l).replace(/^[\s\t]*[-*•>#]+\s*/,'').replace(/\*\*/g,'').replace(/^\s*[-*•]\s*/,'').trim();
+  let seq=0;
+  return String(body||'').replace(/\r/g,'').split('\n')
+    .map(l=>l.replace(/\s+$/,'')).filter(l=>l.trim())
+    .map(function(l){
+      const raw=String(l).replace(/\t/g,'    ');
+      const indent=(raw.match(/^\s*/)||[''])[0].length;
+      let txt=clean(l);
+      if(/^[?？]+$/.test(txt)){
+        const v=(fill&&fill[seq])?String(fill[seq]).trim():'';
+        seq++; txt = v || '（还空着）';
+      }
+      return (indent>0?'    ':'') + txt;
+    }).join('\n');
+}
+function mmSend(mi){
+  if(!(mi>=0)) return;
+  var m = (p().chat[buddyMode]||[])[mi]; if(!m) return;
+  if(activeSends>0){ toast('教练还在讲上一条，等它讲完再发哈～'); return; }
+  var body = msgBody(m.content);
+  var blocks = body.match(/```mindmap[\s\S]*?```/g) || [];
+  var outline='';
+  blocks.forEach(function(b){
+    outline += mmOutlineOf(b.replace(/^```mindmap[ \t]*\n?/,'').replace(/```$/,''), m.mmFill) + '\n';
+  });
+  if(!outline.trim()) outline = body;
+  var input = document.getElementById('chatInput'); if(!input) return;
+  input.value = '我把思维导图填好了，你看看对不对？\n\n' + outline.trim();
+  sendChat();
+}
+/* 代码块统一出口：mindmap 走导图渲染，其余（svg 等）按原样式原样嵌入 */
+function aiBlockHtml(lang, body){
+  const b=String(body||'').trim();
+  if(lang==='mindmap'){ const mm=renderMindmapHtml(b, (rdCtx && rdCtx.m) ? rdCtx.m.mmFill : null); if(mm) return mm; }
+  if(!b) return '';
+  return '<div class="ai-svg" style="margin:8px 0;text-align:center"><div style="display:inline-block;max-width:100%;background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:8px;overflow-x:auto">'+b+'</div></div>';
+}
 function renderAIHtml(text){
   if(!text) return '';
-  const segs = String(text).split(/(```svg[\s\S]*?```)/g);
-  /* 兜底：末段若有未闭合的 ```svg（流式截断），也按图形渲染，避免孩子看到源码 */
-  const last = segs[segs.length-1];
-  const um = String(last).match(/^\s*```svg\s*([\s\S]*)$/);
-  if(um){ segs[segs.length-1] = '<div class="ai-svg" style="margin:8px 0;text-align:center"><div style="display:inline-block;max-width:100%;background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:8px;overflow-x:auto">'+um[1].trim()+'</div></div>'; }
-  return segs.map(function(seg){
-    const m = seg.match(/^```svg\s*([\s\S]*?)```$/);
-    if(m){ return '<div class="ai-svg" style="margin:8px 0;text-align:center"><div style="display:inline-block;max-width:100%;background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:8px;overflow-x:auto">'+m[1].trim()+'</div></div>'; }
-    const s = seg.trim(); if(!s) return '';
-    return renderTextBlock(s);
+  const segs = String(text).split(/(```[\s\S]*?```)/g);
+  const total = segs.length;
+  return segs.map(function(seg, idx){
+    const str = String(seg);
+    /* 末段可能含"还没写完"的代码块（流式中）：能识别就先按图渲染，
+       否则孩子会看到一大段源码文本（旧版这里会被转义成纯文字，2026-09-29 修） */
+    if(idx===total-1){
+      const i2 = str.lastIndexOf('```');
+      if(i2>=0){
+        const tail = str.slice(i2);
+        const um = tail.match(/^```([a-zA-Z]*)[ \t]*\n?([\s\S]*)$/);
+        if(um && (um[1]==='svg'||um[1]==='mindmap') && !/^\s*$/.test(um[2])){
+          return renderTextBlock(str.slice(0,i2)) + aiBlockHtml(um[1], um[2]);
+        }
+      }
+    }
+    const m = str.match(/^```([a-zA-Z]*)[ \t]*\n?([\s\S]*?)```$/);
+    if(m){
+      const lang=(m[1]||'').toLowerCase();
+      if(lang==='svg'||lang==='mindmap') return aiBlockHtml(lang, m[2]);
+      return renderTextBlock(m[2]); /* 其他语言的代码块：只显示内容，不露围栏 */
+    }
+    const t = str.trim(); if(!t) return '';
+    return renderTextBlock(t);
   }).join('');
+}
+/* ===== 分步讲解（分镜播放器）=====
+   协议：AI 把一次讲解拆成 2~6 步，每步以「【第N步】」开头，一步只讲一件事；
+   需要配图时在同一段里用 ```svg 输出【一张】图，图中"后面步骤才出现"的元素（答案、相遇点、辅助线…）
+   写 data-s="N"（N=第几步出现），第 1 步就要的框架元素不标注。
+   没标记 → 不是分镜，走原来的整段渲染（模型不听话也绝不白屏，这是底线）。*/
+var stpPlaying = null, stpTok = 0, speakTok = 0;
+function stepNumOf(s){
+  var CN = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+  var t = String(s||'').replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-65248); });
+  if(/^\d+$/.test(t)) return parseInt(t,10);
+  if(t==='十') return 10;
+  if(/^十[一二三四五六七八九]$/.test(t)) return 10 + (CN[t.charAt(1)]||0);
+  return CN[t]||0;
+}
+function parseSteps(text){
+  var s = String(text==null?'':text);
+  if(!s || s.indexOf('【')<0) return [];
+  var re = /【\s*第\s*([0-9０-９一二三四五六七八九十]+)\s*步\s*】/g;
+  var marks=[], m;
+  while((m = re.exec(s))!==null) marks.push({at:m.index, end:m.index+m[0].length});
+  if(marks.length<2) return [];               /* 只有一步 → 不值得上播放器 */
+  var head = s.slice(0, marks[0].at).trim();
+  var steps=[];
+  for(var i=0;i<marks.length;i++){
+    var to = (i+1<marks.length) ? marks[i+1].at : s.length;
+    var bodyTxt = s.slice(marks[i].end, to).trim();
+    if(i===0 && head) bodyTxt = head + '\n\n' + bodyTxt;
+    if(bodyTxt) steps.push(bodyTxt);
+  }
+  return steps.length>=2 ? steps : [];
+}
+/* ===== 可点快捷按钮（四年级打字慢，点一下就能往下走）=====
+   协议：需要孩子回应时，AI 在整条回复的【最后一行】给 2~3 个"他一点就能发出去"的话，用 | 分隔：
+   【可选】我来说说经过 | 给点提示 | 画个图看看
+   这一行只给前端渲染按钮，绝不显示给孩子看（流式中只写了一半也要藏住）。*/
+var QUICK_LINE_RE = /^[ \t]*【\s*(?:可选|快捷|下一步|可点)\s*】[ \t]*[:：]?[ \t]*(.+?)[ \t]*$/;
+var QUICK_HALF_RE = /^[ \t]*【\s*(?:可选|快捷|下一步|可点)[^】\n]*$/;
+function pickChips(raw){
+  var t = String(raw||'').trim();
+  var parts = t.split(/[|｜]/);
+  if(parts.length<2) parts = t.split(/[、，,;；\/]/);   /* 兜底：AI 用顿号/斜杠分隔也认 */
+  var out=[];
+  parts.forEach(function(p){
+    p = String(p||'').replace(/^[\s·•\-–—*]+/,'').replace(/[。.,，、；;：:!！?？\s]+$/,'')
+         .replace(/^[「『""''《（(]+/,'').replace(/[」』""''》）)]+$/,'').trim();
+    if(p && p.length<=18 && out.indexOf(p)<0) out.push(p);
+  });
+  return (out.length>=2) ? out.slice(0,4) : [];
+}
+function parseQuick(raw){
+  var s = String(raw==null?'':raw);
+  var chips=[];
+  if(s.indexOf('【')>=0){
+    s.split('\n').forEach(function(l){
+      var m = l.match(QUICK_LINE_RE);
+      if(m && !chips.length){ var c = pickChips(m[1]); if(c.length) chips = c; }
+    });
+  }
+  return {text: msgBody(s), chips: chips};
+}
+/* 正文 = 剥掉按钮标记行之后的回复（存的是原文，渲染/朗读/分步都只认正文） */
+function msgBody(raw){
+  var s = String(raw==null?'':raw);
+  if(s.indexOf('【')<0) return s;
+  var out=[], seen=false;
+  s.split('\n').forEach(function(l){
+    if(QUICK_LINE_RE.test(l) || QUICK_HALF_RE.test(l)){ seen=true; return; }
+    out.push(l);
+  });
+  if(!seen) return s;
+  return out.join('\n').replace(/\n{3,}/g,'\n\n').replace(/[ \t]+$/gm,'').replace(/^\s+|\s+$/g,'');
+}
+function chipsHtml(idx, chips, m){
+  if(!chips || !chips.length) return '';
+  if(m && m.chipUsed) return '';                 /* 已点过 → 收起，避免重复点 */
+  var h = '<div class="chips" id="chips-'+idx+'">';
+  chips.forEach(function(c, k){
+    h += '<button class="chip" onclick="chipTap('+idx+','+k+')">'+esc(c)+'</button>';
+  });
+  return h + '</div>';
+}
+/* 点按钮 = 替孩子把这句话打出来，仍走正常发送路径（所有拦截逻辑照旧生效） */
+function chipTap(idx, k){
+  var m = (p().chat[buddyMode]||[])[idx]; if(!m) return;
+  var txt = parseQuick(m.content).chips[k]; if(!txt) return;
+  if(activeSends>0){ toast('教练还在讲上一条，等它讲完再点哈～'); return; }
+  m.chipUsed = 1; save(); renderChat();
+  var input = document.getElementById('chatInput'); if(!input) return;
+  input.value = txt;
+  sendChat();
+}
+/* 朗读用纯文本：图形源码、markdown 符号一律不读 */
+function plainForSpeak(t){
+  var s = String(t==null?'':t);
+  s = s.replace(/【\s*(?:可选|快捷|下一步|可点)\s*】[^\n]*/g,' ');
+  s = s.replace(/```[\s\S]*?```/g, ' ');
+  s = s.replace(/```[\s\S]*$/g, ' ');
+  s = s.replace(/!\[[^\]]*\]\([^)]*\)/g,' ');
+  s = s.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1');
+  s = s.replace(/^\s{0,3}#{1,6}\s*/gm,'');
+  s = s.replace(/^\s*[-–—•*]\s+/gm,'');
+  s = s.replace(/[`*_~]/g,'').replace(/\|/g,' ');
+  s = s.replace(/\n{2,}/g,'\u0002').replace(/\n/g,'，');
+  return s.replace(/\s+/g,' ').trim();
+}
+function stpMsgObj(idx){
+  var msgs = p().chat[buddyMode]||[];
+  return msgs[idx]||null;
+}
+/* 单条 AI 消息的渲染：分镜 → 播放器；否则原样整段。
+   渲染期间把"当前消息"挂到 rdCtx 上——导图空框要能把填的内容存回这条消息 */
+function aiMsgHtml(m, idx){
+  var pq = parseQuick(m.content);
+  var oldCtx = rdCtx;
+  rdCtx = {m:m, i:(typeof idx==='number') ? idx : -1};
+  var html='';
+  try{
+    var steps = parseSteps(pq.text);
+    if(steps.length<2){
+      html = renderAIHtml(pq.text);
+    } else {
+      var total = steps.length;
+      var cur = (typeof m.scur==='number') ? Math.max(1, Math.min(total, m.scur)) : total;
+      var body = steps.map(function(t){
+        return '<div class="stp">'+renderAIHtml(t)+'</div>';
+      }).join('');
+      var dots=''; for(var i=1;i<=total;i++) dots += (i===cur?'●':'○') + (i<total?' ':'');
+      html = '<div class="steps" id="stp-'+idx+'" data-mi="'+idx+'">'
+        + '<div class="stp-head">'
+        +   '<span class="stp-dot" id="stpDot-'+idx+'">'+dots+'</span>'
+        +   '<span class="stp-hint" id="stpHint-'+idx+'">第 '+cur+' 步 / 共 '+total+' 步</span>'
+        +   '<a class="stp-all" onclick="stpAll('+idx+')" style="'+(cur<total?'':'display:none')+'">一次看全部</a>'
+        + '</div>'
+        + '<div class="stp-body">'+body+'</div>'
+        + '<div class="stp-acts">'
+        +   '<button class="btn btn-sm" onclick="stpPrev('+idx+')">◀ 上一步</button>'
+        +   '<button class="btn btn-sm btn-p" id="stpPlay-'+idx+'" onclick="stpToggle('+idx+')">🔊 讲给我听</button>'
+        +   '<button class="btn btn-sm" onclick="stpNext('+idx+')">下一步 ▶</button>'
+        + '</div>'
+        + '</div>';
+    }
+  } finally { rdCtx = oldCtx; }
+  return html + chipsHtml(idx, pq.chips, m);
+}
+function stpApply(idx, cur){
+  var w = document.getElementById('stp-'+idx); if(!w) return;
+  var els = w.querySelectorAll('.stp');
+  var total = els.length; if(!total) return;
+  cur = Math.max(1, Math.min(total, cur));
+  w.setAttribute('data-cur', String(cur));
+  for(var i=0;i<els.length;i++) els[i].style.display = (i+1<=cur) ? '' : 'none';
+  /* 图内元素：标了 data-s 的按步出现；没标的（框架）始终显示。
+     例外：带"要孩子填的空框"的导图整张都显示——那是他的作业纸，
+     藏起一半他连格子都看不见，根本没法填 */
+  var boxes = w.querySelectorAll('.ai-svg');
+  for(var b=0;b<boxes.length;b++){
+    var hasBlank = !!boxes[b].querySelector('.mmf');
+    var inner = boxes[b].querySelectorAll('[data-s]');
+    for(var j=0;j<inner.length;j++){
+      var sn = parseInt(inner[j].getAttribute('data-s'),10); if(!sn||sn<1) sn=1;
+      inner[j].style.transition = 'opacity .45s ease';
+      inner[j].style.opacity = (hasBlank || sn<=cur) ? '1' : '0';
+    }
+  }
+  var dot = document.getElementById('stpDot-'+idx);
+  if(dot){ var d=''; for(var k=1;k<=total;k++) d += (k===cur?'●':'○') + (k<total?' ':''); dot.textContent = d; }
+  var hint = document.getElementById('stpHint-'+idx);
+  if(hint) hint.textContent = '第 '+cur+' 步 / 共 '+total+' 步';
+  var allA = w.querySelector('.stp-all');
+  if(allA) allA.style.display = (cur<total) ? '' : 'none';
+  var btn = document.getElementById('stpPlay-'+idx);
+  if(btn) btn.textContent = (stpPlaying && stpPlaying.idx===idx) ? '⏸ 暂停' : '🔊 讲给我听';
+}
+function stpSetCur(idx, n){
+  var m = stpMsgObj(idx); if(!m) return;
+  var total = parseSteps(msgBody(m.content)).length; if(total<2) return;
+  m.scur = Math.max(1, Math.min(total, n));
+  save(); stpApply(idx, m.scur);
+}
+function stpPrev(idx){ stpStop(); var m=stpMsgObj(idx); stpSetCur(idx, ((m&&m.scur)||1)-1); }
+function stpNext(idx){ stpStop(); var m=stpMsgObj(idx); stpSetCur(idx, ((m&&m.scur)||1)+1); }
+function stpAll(idx){ stpStop(); var m=stpMsgObj(idx); stpSetCur(idx, parseSteps(msgBody(m?m.content:'')).length); }
+function stpStop(){
+  if(!stpPlaying) return;
+  var idx = stpPlaying.idx;
+  stpTok++; speakTok++;
+  if(stpPlaying.timer){ clearTimeout(stpPlaying.timer); stpPlaying.timer=null; }
+  stpPlaying = null;
+  try{ speechSynthesis.cancel(); }catch(_){}
+  var m = stpMsgObj(idx);
+  stpApply(idx, (m && typeof m.scur==='number') ? m.scur : 1);
+}
+function stpToggle(idx){
+  if(stpPlaying && stpPlaying.idx===idx){ stpStop(); return; }
+  stpStop();
+  var m = stpMsgObj(idx); if(!m) return;
+  var total = parseSteps(msgBody(m.content)).length; if(total<2) return;
+  var cur = (typeof m.scur==='number') ? m.scur : total;
+  if(cur>=total) cur = 1;                     /* 已经全展开 → 从头讲一遍 */
+  m.scur = cur; save();
+  stpPlaying = {idx:idx, timer:null}; stpTok++;   /* 先立播放标志，按钮才会显示成「暂停」 */
+  stpApply(idx, cur);
+  stpSay(idx, stpTok);
+}
+function stpAuto(idx){
+  stpStop();
+  var m = stpMsgObj(idx); if(!m) return;
+  if(parseSteps(msgBody(m.content)).length<2) return;
+  m.scur = 1; save();
+  stpPlaying = {idx:idx, timer:null}; stpTok++;
+  stpApply(idx, 1);
+  stpSay(idx, stpTok);
+}
+function stpSay(idx, tk){
+  if(!stpPlaying || stpPlaying.idx!==idx || tk!==stpTok) return;
+  var m = stpMsgObj(idx); if(!m) return;
+  var steps = parseSteps(msgBody(m.content));
+  var cur = Math.max(1, Math.min(steps.length, m.scur||1));
+  var txt = plainForSpeak(steps[cur-1]);
+  if(stpPlaying.timer) clearTimeout(stpPlaying.timer);
+  /* 兜底计时：语音不可用/被拦截时也不会卡住，按字数估时 */
+  stpPlaying.timer = setTimeout(function(){
+    if(tk!==stpTok || !stpPlaying) return;
+    stpAdvance(idx, tk);
+  }, Math.round(txt.length*215)+1100);
+  speakWith(txt, function(){
+    if(tk!==stpTok || !stpPlaying) return;
+    if(stpPlaying.timer){ clearTimeout(stpPlaying.timer); stpPlaying.timer=null; }
+    stpAdvance(idx, tk);
+  });
+}
+function stpAdvance(idx, tk){
+  if(tk!==stpTok || !stpPlaying) return;
+  var m = stpMsgObj(idx); if(!m) return;
+  var total = parseSteps(msgBody(m.content)).length;
+  var cur = m.scur||1;
+  if(cur < total){ m.scur = cur+1; save(); stpApply(idx, m.scur); stpSay(idx, tk); }
+  else { stpStop(); }
+}
+/* 历史消息默认全展开；新生成的消息从第 1 步开始并自动开讲 */
+function stpInitAll(){
+  var all = p().chat[buddyMode]||[];
+  all.forEach(function(m,i){
+    if(m.role!=='assistant') return;
+    var total = parseSteps(msgBody(m.content)).length;
+    if(total<2) return;
+    var cur = (typeof m.scur==='number') ? Math.max(1,Math.min(total,m.scur)) : total;
+    stpApply(i, cur);
+  });
+  for(var i=all.length-1;i>=0;i--){
+    if(all[i].role!=='assistant') continue;
+    if(i===all.length-1 && all[i].fresh){
+      all[i].fresh = 0; save();
+      if(state.tts) (function(n){ setTimeout(function(){ stpAuto(n); }, 320); })(i);
+    }
+    break;
+  }
 }
 /* 轻量 markdown：段落 / 表格 / 加粗 / 行内代码（让答疑呈现更多元） */
 function renderTextBlock(text){
-  const lines = String(text).split('\n');
+  /* 「【第N步】」标记 → 小标签：分步播放时标记已被切走，这里覆盖"流式预览"与"只输出一步"两种兜底 */
+  const lines = String(text).replace(/【\s*第\s*([0-9０-９一二三四五六七八九十]+)\s*步\s*】/g,
+    function(_,n){ return '\n<<STEP'+stepNumOf(n)+'>>\n'; }).split('\n');
   let html=''; let i=0;
   while(i<lines.length){
     const line = lines[i];
@@ -1428,6 +1953,33 @@ function renderTextBlock(text){
     }
     if(line.trim()===''){ i++; continue; }
     if(/^\s*```/.test(line)){ i++; continue; } /* 隐藏孤立的代码围栏行 */
+    const sm = line.match(/^\s*<<STEP(\d+)>>\s*$/);
+    if(sm){ html += '<div class="stp-tag">第 '+sm[1]+' 步</div>'; i++; continue; }
+    /* 分隔线：别让孩子看到裸露的 --- */
+    if(/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)){ html += '<hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">'; i++; continue; }
+    /* 引用块 > xxx → 金色小贴士卡（原来会裸露一个 ">" 给孩子看） */
+    if(/^\s*>\s?/.test(line)){
+      const buf=[];
+      while(i<lines.length && /^\s*>\s?/.test(lines[i])){ buf.push(lines[i].replace(/^\s*>\s?/,'')); i++; }
+      html += '<div style="border-left:3px solid #e6b422;background:#fffaec;border-radius:0 8px 8px 0;padding:7px 10px;margin:7px 0;font-size:13.5px;line-height:1.6">'+buf.map(b=>md(b)).join('<br>')+'</div>';
+      continue;
+    }
+    /* 有序列表 1. / 2、 → 编号步骤卡（步骤一眼看清） */
+    if(/^\s*\d{1,2}\s*[.、)）]\s+\S/.test(line)){
+      const items=[];
+      while(i<lines.length && /^\s*\d{1,2}\s*[.、)）]\s+\S/.test(lines[i])){
+        items.push(lines[i].replace(/^\s*\d{1,2}\s*[.、)）]\s+/,'')); i++;
+      }
+      html += '<div style="margin:7px 0">'+items.map((it,ix)=>'<div style="display:flex;gap:8px;align-items:flex-start;margin:4px 0"><span style="flex:0 0 20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:var(--accent-bg);color:#8a6d1f;font-size:11.5px;font-weight:700">'+(ix+1)+'</span><span style="flex:1;line-height:1.6">'+md(it)+'</span></div>').join('')+'</div>';
+      continue;
+    }
+    /* 无序列表 - / • → 圆点条目 */
+    if(/^\s*[-*•]\s+\S/.test(line)){
+      const items=[];
+      while(i<lines.length && /^\s*[-*•]\s+\S/.test(lines[i])){ items.push(lines[i].replace(/^\s*[-*•]\s+/,'')); i++; }
+      html += '<div style="margin:6px 0">'+items.map(it=>'<div style="display:flex;gap:8px;align-items:flex-start;margin:3px 0"><span style="flex:0 0 auto;color:#b08a2e">•</span><span style="flex:1;line-height:1.6">'+md(it)+'</span></div>').join('')+'</div>';
+      continue;
+    }
     /* markdown 小标题（### 整体把脉 / ## xxx）→ 加粗标题行，别让孩子看到裸露的 ### */
     const hm = line.match(/^\s*#{1,4}\s*(.+?)\s*$/);
     if(hm && hm[1]){ html += '<p style="font-weight:700;font-size:15px;margin:10px 0 2px">'+md(hm[1])+'</p>'; i++; continue; }
@@ -1441,6 +1993,108 @@ function md(s){
   return escapeHtml(s)
     .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
     .replace(/`([^`]+?)`/g,'<code style="background:var(--accent-bg);padding:0 4px;border-radius:4px;font-size:12px">$1</code>');
+}
+/* ===== 输出净化：拦住模型的"思考过程/英文独白"漏到孩子眼前 =====
+   2026-09-29 家长反馈：答疑里冒出大段英文（"Per the coaching protocol: ①先诊断再教…"、
+   "I think showing an SVG mind map skeleton would be great"）。根因是部分推理型模型
+   （或中转把 reasoning 混进 content）把**内心独白**当成正文吐了出来，客户端又"拿到什么渲染什么"。
+   三道防线：①提示词立"输出纪律"（源头）②接收端净化（思考行剥掉再给孩子看）③整条都是思考就自动重来一次。 */
+const THINK_EN_RE = /\b(I'll|I will|I should|I need to|I think|I could|Let me|Let's|Hmm|Wait|Actually|The child|He's|She's|That's the|Per the|coaching protocol|system prompt|the task now|mini variant|OK so|ask him|fill them|skeleton|weak point)\b/i;
+const THINK_ZH_RE = /(按照协议|根据提示词|系统提示|内部指令|先诊断再教|我该问|我应该问|接下来我要|先确认理解|符合他的薄弱|按照流程我|这一步应该)/;
+/* 一行是不是"模型的思考"：正常的中文讲解不会一行里堆一串英文词，也不会以英文单词开头 */
+function isThinkingLine(t){
+  const s = String(t||'').trim();
+  if(!s) return false;
+  const zh = (s.match(/[\u4e00-\u9fa5]/g)||[]).length;
+  const en = (s.match(/[A-Za-z][A-Za-z'’-]*/g)||[]);
+  if(!en.length) return false;
+  /* 中文是主体的行（中文字数远多于英文词）不整行删，只由 cleanInlineThinking 剥掉夹杂的英文片段，
+     避免"Good — a mini variant: 假如…？"这种"独白起手 + 有价值的中文问题"被整句吞掉 */
+  if(zh>=15 && en.length*4 < zh) return false;
+  if(en.length>=8 && zh < en.length*3) return true;          /* 英文词一大把（中文只是夹注）→ 思考行 */
+  if(en.length>=5 && zh <= en.length*2) return true;        /* 一整行英文词成堆（中文反而少） */
+  if(en.length>=2 && THINK_EN_RE.test(s)) return true;      /* 英文独白特征词 */
+  if(en.length>=1 && THINK_ZH_RE.test(s)) return true;      /* 中文复述协议/系统设定/内部指令 */
+  const first = (s.match(/^[A-Za-z][A-Za-z'’-]*/)||[])[0];  /* 整行以英文单词开头（全大写缩写豁免） */
+  if(first && first.length>1 && first!==first.toUpperCase() && en.length>=2 && zh<15) return true;
+  return false;
+}
+/* 行内残留的英文独白片段：连续 4 个以上英文词（且不是全大写缩写）就抹掉；再清掉行首的独白起手词 */
+function cleanInlineThinking(line){
+  let s = String(line||'');
+  s = s.replace(/[A-Za-z][A-Za-z'’,.\-]*(?:[ \t]+[A-Za-z][A-Za-z'’,.\-]*){2,}/g, function(m){
+    const w = (m.match(/[A-Za-z][A-Za-z'-]*/g)||[]);
+    if(w.length>=3 && !w.every(x=>x===x.toUpperCase())) return '';
+    return m;
+  });
+  s = s.replace(/^[\s\-–—•]*(Good|Hmm+|Okay|OK|So|Wait|Well|Actually|Now|Then|Also)\b[\s\-–—:：,，.。]*/i,'');
+  return s.replace(/[ \t]{2,}/g,' ').replace(/\s+$/,'');
+}
+function stripThinkingPlain(txt){
+  const out=[];
+  String(txt==null?'':txt).split('\n').forEach(function(raw){
+    const t=raw.trim();
+    if(!t){ out.push(''); return; }
+    if(isThinkingLine(t)) return;              /* 整行判为思考 → 丢掉 */
+    const cleaned = cleanInlineThinking(raw);
+    if(!cleaned || !/[^\s\-–—•:：,，.。!！?？"'“”]/.test(cleaned)) return; /* 剥完只剩标点 → 也丢掉 */
+    out.push(cleaned);
+  });
+  /* 注意：不 trim 首尾换行——本函数的返回值要跟后面的代码块拼回去，
+     少了这个换行会让 ```mindmap 粘在上一句末尾（2026-09-29 踩坑） */
+  return out.join('\n').replace(/\n{3,}/g,'\n\n');
+}
+/* 只净化"代码块以外"的部分：```svg 里的标签/属性都是英文，动了图就废了；
+   流式中未闭合的代码块整块保留，避免边画边被抹掉。
+   注意 split 会把围栏本身吃掉，重组时必须把首尾两处 ``` 都补回来。 */
+function stripThinking(text, mode){
+  const s = String(text==null?'':text);
+  if(!s) return s;
+  if(mode==='english') return s;               /* 英语搭子本来就说英文，绝不能拦 */
+  const segs = s.split('```');
+  if(segs.length===1) return stripThinkingPlain(s);
+  let out='';
+  for(let i=0;i<segs.length;i++){
+    if(i%2===0){ out += stripThinkingPlain(segs[i]); }
+    else { out += '```' + segs[i] + (i<segs.length-1 ? '```' : ''); }
+  }
+  return out;
+}
+/* 整段看：像不像纯思考（给 aiContent 的 reasoning 兜底做判断） */
+function looksLikeThinkingText(t){
+  const s=String(t||'').trim();
+  if(!s) return false;
+  const zh=(s.match(/[\u4e00-\u9fa5]/g)||[]).length;
+  const en=(s.match(/[A-Za-z][A-Za-z'’-]*/g)||[]).length;
+  if(!en) return false;
+  if(en>=12 && zh < en*2) return true;
+  return THINK_EN_RE.test(s) && en>=3;
+}
+/* 净化后几乎没剩下什么 → 说明整条都是思考，得重来一次 */
+function looksAllThinking(orig, clean){
+  const o=String(orig||'').replace(/\s/g,'').length;
+  const c=String(clean||'').replace(/\s/g,'').length;
+  if(o<60) return false;
+  return c < o*0.35 || c < 20;
+}
+/* 源头纪律：挂在所有模式的系统提示词最前（含拍照答疑路径） */
+const OUTPUT_DISCIPLINE = `【输出纪律·最高优先级，违反即无效】
+你写下的每一个字都是直接给孩子看的中文对话，不是给系统看的分析稿。
+1. 严禁输出思考过程、推理草稿、方案比较、自我检查、对规则/协议/系统设定的复述。典型错误："Per the coaching protocol""Let me…""I should…""The child said…""I think…""Hmm""Actually""按照协议""先诊断再教""我该问…"——出现任何一种都算严重事故。
+2. 严禁出现英文句子或英文短语（数学/英语学科的术语除外），严禁把内部流程名称、步骤编号、流程定义写给孩子看。
+3. 要先想清楚就在心里想完，只写最终对孩子说的那几句中文。宁可短、宁可慢，也不要让草稿漏出来。
+4. 只做"提问 + 一小步脚手架"，不写内心独白、不写给自己看的备忘。`;
+/* 所有 AI 请求统一挂上输出纪律：有 system 就追加，没有就补一条（拍照答疑等路径也全覆盖） */
+function withDiscipline(messages){
+  const msgs = (messages||[]).map(m=>Object.assign({},m));
+  if(!msgs.length) return msgs;
+  const first = msgs[0];
+  if(first && first.role==='system' && typeof first.content==='string'){
+    if(first.content.indexOf('【输出纪律') < 0) first.content = OUTPUT_DISCIPLINE + '\n' + first.content;
+  } else {
+    msgs.unshift({role:'system', content: OUTPUT_DISCIPLINE});
+  }
+  return msgs;
 }
 async function aiStream(base,key,model,messages,maxTokens,temp,onDelta){
   let full='';
@@ -1515,9 +2169,9 @@ async function continueIfTruncated(reply, msgsAI, base, key, mt, tp, liveBubble,
     ]);
     let add='';
     try{
-      if(liveBubble) liveBubble.innerHTML = renderAIHtml(out+'\n\n（接着写…）');
+      if(liveBubble) liveBubble.innerHTML = renderAIHtml(stripThinking(out+'\n\n（接着写…）',buddyMode));
       add = await aiStream(base, key, aiModel(aiTier(msgsAI,{})), ask, mt, tp, function(txt){
-        if(liveBubble) liveBubble.innerHTML = renderAIHtml(out+'\n\n'+(txt||''));
+        if(liveBubble) liveBubble.innerHTML = renderAIHtml(stripThinking(out+'\n\n'+(txt||''),buddyMode));
         if(box) box.scrollTop=box.scrollHeight;
       });
     }catch(_){ add=''; }
@@ -1547,16 +2201,17 @@ function renderChat(){
     box.innerHTML = `<div class="msg sys">${hint}</div>`;
     return;
   }
-  box.innerHTML = msgs.map(m=>{
+  box.innerHTML = msgs.map((m,i)=>{
     if(m.type==='image'){
       if(m.imgOmitted || !/^data:image\//.test(String(m.content||''))) return '<div class="msg sys" style="font-size:12px">🖼 图片已省略（为省手机存储，文字记录完整保留）</div>';
       return `<div class="msg user" style="padding:4px;background:transparent;max-width:76%"><img src="${m.content}" style="max-width:100%;border-radius:10px;display:block"></div>`;
     }
     if(m.type==='verify') return verifyCardHtml(m);
-    if(m.type==='retry') return `<div class="msg ai">${renderAIHtml(m.content)}<div style="margin-top:8px"><button class="btn btn-sm btn-p" onclick="chatRetry()">🔄 再试一次</button></div></div>`;
-    if(m.role==='assistant') return `<div class="msg ai">${renderAIHtml(m.content)}</div>`;
-    return `<div class="msg ${m.role}">${esc(m.content)}</div>`;
+    if(m.type==='retry') return `<div class="msg ai" id="msg-${i}">${renderAIHtml(msgBody(m.content))}<div style="margin-top:8px"><button class="btn btn-sm btn-p" onclick="chatRetry()">🔄 再试一次</button></div></div>`;
+    if(m.role==='assistant') return `<div class="msg ai" id="msg-${i}">${aiMsgHtml(m,i)}</div>`;
+    return `<div class="msg ${m.role}" id="msg-${i}">${esc(m.content)}</div>`;
   }).join('');
+  try{ stpInitAll(); }catch(_){}
   box.scrollTop = box.scrollHeight;
 }
 function pushChat(role, content, type, extra){
@@ -1569,6 +2224,11 @@ function pushChat(role, content, type, extra){
   const msgs = p().chat[buddyMode]||[];
   const m = {role, content, type, t:Date.now()};
   if(extra && typeof extra==='object') Object.assign(m, extra);  /* 过关验证卡需要带 vid 等附加字段 */
+  /* 分步讲解：新回复默认从第 1 步开始，并标记"待自动开讲"（renderChat 消费一次后清除） */
+  if(role==='assistant' && !m.type && typeof content==='string' && parseSteps(msgBody(content)).length>=2){
+    if(typeof m.scur!=='number') m.scur = 1;
+    m.fresh = 1;
+  }
   msgs.push(m);
   p().chat[buddyMode]=msgs; save();
 }
@@ -1755,7 +2415,7 @@ async function sendChatInner(hiddenQ, displayText){
         sys += `\n【当前流程】正在执行"${fd.title}"第${Math.min(p().flow.step+1,fd.steps.length)}/${fd.steps.length}步「${cs?cs.label:'收尾'}」。孩子的输入是对当前步骤的回应：请围绕当前步骤继续引导，不要跑题，不要主动跳到别的步骤，也不要重复流程外的内容。`;
       }
     }
-    if(VISUAL_MODES.includes(buddyMode)) sys += '\n' + DRAW_HINT;
+    if(STEP_MODES.includes(buddyMode)) sys += '\n' + DRAW_HINT;
     // 节奏自适应：连续卡住则降难度、更鼓励
     if(confusionStreak>=2){
       sys += '\n【节奏自适应】孩子已连续卡住 '+confusionStreak+' 次，请立刻显著降低难度：用更生活化的例子、更小的步骤、更多画图，并先肯定他的任何微小进展，绝不催促或流露不耐烦。';
@@ -1822,7 +2482,7 @@ async function sendChatInner(hiddenQ, displayText){
       _tp = tier==='pro'?0.4:(tier==='light'?0.3:0.7);
     }
     if(hiddenQ) _mt = Math.max(_mt, 2600); /* 出变式题带SVG图，给足token防截断 */
-    const msgsAI = [{role:'system',content:sys}, ...history, {role:'user', content:userTurn}];
+    const msgsAI = withDiscipline([{role:'system',content:sys}, ...history, {role:'user', content:userTurn}]);
     let key = state.key; if(!key){ await cloudAdoptKey(true); key=state.key; }
     if(!key){ const t0=document.getElementById('typing'); if(t0)t0.remove(); pushChat('assistant','请先在「我的」页填写 API Key 才能对话'); renderChat(); return; }
     const liveBubble = document.createElement('div'); liveBubble.className='msg ai'; liveBubble.textContent='正在想…';
@@ -1830,7 +2490,7 @@ async function sendChatInner(hiddenQ, displayText){
     const _tt=document.getElementById('typing'); if(_tt)_tt.remove();
     let reply='';
     try{
-      reply = await aiStream(base,key,model,msgsAI,_mt,_tp,function(txt){ liveBubble.innerHTML=renderAIHtml(txt); box.scrollTop=box.scrollHeight; });
+      reply = await aiStream(base,key,model,msgsAI,_mt,_tp,function(txt){ liveBubble.innerHTML=renderAIHtml(stripThinking(txt,buddyMode)); box.scrollTop=box.scrollHeight; });
     }catch(e){
       if(useVision){
         const textMsgs = msgsAI.slice(); textMsgs[textMsgs.length-1] = {role:'user', content: text + itemCtx + '\n[注：图片暂时无法识别，请根据文字描述继续引导]'};
@@ -1848,7 +2508,7 @@ async function sendChatInner(hiddenQ, displayText){
       for(const m of VISION_CANDIDATES){
         if(m===model) continue;
         let r2='';
-        try{ r2 = await aiStream(base,key,m,msgsAI,_mt,_tp,function(txt){ liveBubble.innerHTML=renderAIHtml(txt); box.scrollTop=box.scrollHeight; }); }catch(_){ continue; }
+        try{ r2 = await aiStream(base,key,m,msgsAI,_mt,_tp,function(txt){ liveBubble.innerHTML=renderAIHtml(stripThinking(txt,buddyMode)); box.scrollTop=box.scrollHeight; }); }catch(_){ continue; }
         if(!isDeadVisionReply(r2)){ reply=r2; state.visionModel=m; save(); break; }
       }
       if(isDeadVisionReply(reply)){ /* 全部视觉候选都停用：降级为纯文字模式，把图去掉继续引导 */
@@ -1859,6 +2519,32 @@ async function sendChatInner(hiddenQ, displayText){
     if(!reply) reply='（这次网络开小差了，再点一下发送试试 🙂）';
     /* 被字数上限/超时截断 → 自动从断点续写接上，孩子看不到"讲到一半没了" */
     try{ reply = await continueIfTruncated(reply, msgsAI, base, key, _mt, _tp, liveBubble, box); }catch(_){}
+    /* 净化：把模型漏出来的"思考过程 / 英文独白"剥掉再给孩子看（2026-09-29 家长反馈） */
+    const _rawReply = String(reply||'');
+    reply = stripThinking(reply, buddyMode);
+    if(looksAllThinking(_rawReply, reply)){
+      /* 整条都是草稿（推理模型或中转把 reasoning 混进正文）→ 明确要求"只说要说的"，自动重来一次。
+         注意：重试后要比对**重试结果自己**是否也是草稿，不能拿旧原文再判一次（否则正常回复也会被误判作废） */
+      let ok2 = '';
+      try{
+        const retryAsk = msgsAI.concat([{role:'user', content:'（上一条作废，重来）请直接用中文对孩子说下一步：先用一句话点出他现在卡在哪一步，再问一个很短的问题。只输出这几句中文，不要思考过程、不要推理、不要英文。'}]);
+        const r2 = await callAI(retryAsk, {maxTokens: Math.max(_mt,1200), temp:_tp});
+        if(r2){
+          const c2 = stripThinking(r2, buddyMode);
+          if(c2 && !looksAllThinking(String(r2), c2) && !looksLikeThinkingText(c2)) ok2 = c2;
+        }
+      }catch(_){}
+      if(ok2){ reply = ok2; }
+      else{
+        /* 重来还是草稿：绝不把英文独白给孩子看，换成人话提示 + 一键重试 */
+        lastFailedTurn = {hidden:(typeof hiddenQ==='string'?hiddenQ:''), display:displayText||text};
+        const t1 = document.getElementById('typing'); if(t1) t1.remove();
+        try{ liveBubble.remove(); }catch(_){}
+        pushChat('assistant','（老师这次话说岔了没讲清 😅 点下面「🔄 再试一次」，我重新讲一遍。）','retry');
+        renderChat();
+        return;
+      }
+    }
     // 提取【作文转写】（作文照片）与【题目速记】（题目照片）→ 存入 currentItem；并从展示内容中剥离标记
     const jmEssay = reply.match(/【作文转写】([\s\S]*?)【\/作文转写】/);
     if(jmEssay){
@@ -4125,11 +4811,16 @@ function aiContent(data){
   const m = data && data.choices && data.choices[0] && data.choices[0].message || {};
   const c = (typeof m.content==='string') ? m.content.trim() : '';
   if(c) return c;
-  const r = (typeof m.reasoning_content==='string') ? m.reasoning_content.trim() : ''; /* 推理模型把答案放进思考字段时兜底 */
-  return r;
+  const r = (typeof m.reasoning_content==='string') ? m.reasoning_content.trim() : '';
+  /* 推理模型的 reasoning_content 是"思考草稿"，不是答案。
+     2026-09-29：原来无条件拿它兜底，会把整段内心独白（常常是英文）当成答复给孩子看。
+     现在只在它"看起来像正常答复"时才用；否则宁可返回空，交给上层重试或明确报错。 */
+  if(r && !looksLikeThinkingText(r)) return r;
+  return '';
 }
 async function callAI(messages, opts){
   opts=opts||{};
+  messages = withDiscipline(messages); /* 统一挂"输出纪律"，防模型吐思考草稿 */
   let key = state.key;
   if(!key){ await cloudAdoptKey(true); key = state.key; } /* 本地没Key时自动从云端获取 */
   if(!key) throw new Error('请先在"我的"页填写 API Key');
@@ -4156,6 +4847,8 @@ async function callAI(messages, opts){
     reply = aiContent(data);
   }
   if(!reply) throw new Error('AI 走神了没说上来（空回复），再发一次就好');
+  /* 统一净化：任何走 callAI 的入口（出题/判卷/整理）都不能把思考草稿漏给孩子 */
+  reply = stripThinking(reply, (typeof buddyMode==='string'?buddyMode:''));
   aiCountTokens(data);
   return reply;
 }
@@ -5372,52 +6065,78 @@ function pickVoice(lang){
   };
   return pool.sort((a,b)=>score(b)-score(a))[0]||null;
 }
+/* 朗读分段：把一段文本拆成"同语言、不超 110 字"的队列，中英文分别用对应音色 */
+function ttsQueue(text){
+  /* 原来只读前 500 字——讲解稍长就"讲到一半没声了"。现在整段都读，上限放宽到 4000 字防极端 */
+  const clean = stripForTTS(text).slice(0,4000);
+  if(!clean) return [];
+  /* 先按停顿标记拆句（朗读之间引擎自带小停顿），句内再按中/英文分段：
+     英文词句用标准美音朗读，中文用最自然的中文音色 */
+  const sents = clean.split('\u0002').map(s=>s.trim()).filter(Boolean);
+  const queue=[];
+  sents.forEach(sent=>{
+    const segs = sent.match(/[A-Za-z][A-Za-z'’\- ]*|[^A-Za-z]+/g)||[sent];
+    let cur=null;
+    segs.forEach(s=>{
+      const lang = /^[A-Za-z]/.test(s)?'en-US':'zh-CN';
+      if(cur && cur.lang===lang) cur.t+=s;
+      else { cur={lang, t:s}; queue.push(cur); }
+    });
+  });
+  /* 单段过长时部分引擎会静默截断或整段吞掉 → 再按 110 字切碎，保证一个字都不漏 */
+  const finalQ=[];
+  queue.forEach(pp=>{
+    const t=String(pp.t||'');
+    if(!t.trim()) return;
+    if(t.length<=110){ finalQ.push({lang:pp.lang,t:t.trim()}); return; }
+    if(pp.lang==='en-US'){
+      let cur='';
+      t.split(/\s+/).filter(Boolean).forEach(w=>{
+        if(cur && (cur+' '+w).length>110){ finalQ.push({lang:pp.lang,t:cur}); cur=w; }
+        else cur = cur ? (cur+' '+w) : w;
+      });
+      if(cur) finalQ.push({lang:pp.lang,t:cur});
+    }else{
+      for(let i=0;i<t.length;i+=110) finalQ.push({lang:pp.lang,t:t.slice(i,i+110)});
+    }
+  });
+  return finalQ;
+}
+function mkUtter(pp){
+  const u=new SpeechSynthesisUtterance(pp.t);
+  u.lang=pp.lang;
+  try{ const v=pickVoice(pp.lang); if(v) u.voice=v; }catch(_){}
+  u.rate = pp.lang==='en-US'?0.92:1.0;
+  u.pitch = 1.0;
+  return u;
+}
 function speak(text){
   if(!state.tts) return;
+  /* 分步讲解由播放器逐步朗读，这里不再整段重复读（否则会读到两遍） */
+  if(parseSteps(msgBody(text)).length>=2) return;
   try{
     speechSynthesis.cancel();
-    /* 原来只读前 500 字——讲解稍长就"讲到一半没声了"。现在整段都读，上限放宽到 4000 字防极端 */
-    const clean = stripForTTS(text).slice(0,4000);
-    if(!clean) return;
-    /* 先按停顿标记拆句（朗读之间引擎自带小停顿），句内再按中/英文分段：
-       英文词句用标准美音朗读，中文用最自然的中文音色 */
-    const sents = clean.split('\u0002').map(s=>s.trim()).filter(Boolean);
-    const queue=[];
-    sents.forEach(sent=>{
-      const segs = sent.match(/[A-Za-z][A-Za-z'’\- ]*|[^A-Za-z]+/g)||[sent];
-      let cur=null;
-      segs.forEach(s=>{
-        const lang = /^[A-Za-z]/.test(s)?'en-US':'zh-CN';
-        if(cur && cur.lang===lang) cur.t+=s;
-        else { cur={lang, t:s}; queue.push(cur); }
-      });
-    });
-    /* 单段过长时部分引擎会静默截断或整段吞掉 → 再按 110 字切碎，保证一个字都不漏 */
-    const finalQ=[];
-    queue.forEach(pp=>{
-      const t=String(pp.t||'');
-      if(!t.trim()) return;
-      if(t.length<=110){ finalQ.push({lang:pp.lang,t:t.trim()}); return; }
-      if(pp.lang==='en-US'){
-        let cur='';
-        t.split(/\s+/).filter(Boolean).forEach(w=>{
-          if(cur && (cur+' '+w).length>110){ finalQ.push({lang:pp.lang,t:cur}); cur=w; }
-          else cur = cur ? (cur+' '+w) : w;
-        });
-        if(cur) finalQ.push({lang:pp.lang,t:cur});
-      }else{
-        for(let i=0;i<t.length;i+=110) finalQ.push({lang:pp.lang,t:t.slice(i,i+110)});
-      }
-    });
-    finalQ.forEach(pp=>{
-      if(!pp.t.trim()) return;
-      const u=new SpeechSynthesisUtterance(pp.t.trim());
-      u.lang=pp.lang;
-      const v=pickVoice(pp.lang); if(v) u.voice=v;
-      u.rate = pp.lang==='en-US'?0.92:1.0;
-      u.pitch = 1.0;
-      speechSynthesis.speak(u);
-    });
+    speakTok++;
+    ttsQueue(text).forEach(pp=>{ speechSynthesis.speak(mkUtter(pp)); });
+  }catch(_){}
+}
+/* 逐句朗读：读完最后一段回调 onEnd（"这句读完才画下一笔"的驱动源）
+   注：静音模式下直接 return，交给调用方的计时兜底，避免瞬间跳步 */
+function speakWith(text, onEnd){
+  if(!state.tts) return;
+  const myTok = ++speakTok;
+  try{
+    const q = ttsQueue(text);
+    if(!q.length){ if(onEnd) onEnd(); return; }
+    speechSynthesis.cancel();
+    let i=0;
+    (function nextOne(){
+      if(myTok!==speakTok) return;                  /* 被暂停/打断 → 立刻停链，不继续读 */
+      if(i>=q.length){ if(onEnd) onEnd(); return; }
+      const u = mkUtter(q[i++]);
+      u.onend = nextOne;
+      try{ speechSynthesis.speak(u); }catch(_){}
+    })();
   }catch(_){}
 }
 
