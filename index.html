@@ -112,6 +112,29 @@ nav button.on{color:var(--accent); font-weight:600;}
 .mmf text{pointer-events:none;}
 .mm-tip{margin-top:7px; font-size:12px; color:var(--muted);}
 .mm-go{color:#1f5fa8; font-weight:600; cursor:pointer; text-decoration:underline;}
+/* 数学符号：让孩子看到的就是课本上的样子（不是 $1\times 4$ 这种源码） */
+.mth{display:inline-block; padding:0 6px; margin:0 1px; border-radius:6px; background:#eef4ff; border:1px solid #dbe6f8;
+     color:#1d3f74; font-size:.97em; line-height:1.5; vertical-align:baseline; white-space:nowrap; max-width:100%;}
+.mth-blk{display:block; text-align:center; margin:8px 0; padding:9px 10px; white-space:normal; font-size:1.06em; font-weight:600;}
+.mfr{display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; margin:0 2px; line-height:1.1; font-size:.94em;}
+.mfr>i{display:block; font-style:normal; padding:0 3px; border-bottom:1.3px solid currentColor;}
+.mfr>b{display:block; font-weight:400; padding:0 3px;}
+.msq>.msqb{border-top:1.2px solid currentColor; padding:0 2px; margin-left:1px;}
+.mbar{text-decoration:overline;}
+/* 结构卡片：讲规则/流程时"一眼看清"（参考千问小讲堂） */
+.kv{margin:7px 0; border:1px solid #e3e9f2; border-radius:10px; overflow:hidden; background:#fbfcfe;}
+.kv-r{display:flex; gap:9px; align-items:flex-start; padding:7px 10px; font-size:13.5px; line-height:1.6;}
+.kv-r+.kv-r{border-top:1px solid #eef2f8;}
+.kv-k{flex:0 0 auto; font-weight:700; color:#2f5b96; background:#eaf1fc; border-radius:6px; padding:1px 8px; font-size:12.5px; white-space:nowrap; max-width:42%; overflow:hidden; text-overflow:ellipsis;}
+.kv-v{flex:1; min-width:0;}
+.flow{display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:8px 0; padding:9px 10px; border-radius:10px;
+      background:#f2f6fd; border:1px solid #dde7f6; font-size:13.5px; font-weight:600;}
+.fl-n{background:#fff; border:1px solid #d7e2f4; border-radius:7px; padding:2px 8px; color:#274a7d;}
+.fl-a{color:#8ba6cc; font-weight:700;}
+.h-sec{font-weight:700; font-size:14.5px; margin:11px 0 4px; padding-left:9px; border-left:3px solid #cbb26a; color:#3c4249;}
+/* 朗读逐句高亮：读到哪句，哪句亮 */
+.rd-s{border-radius:4px; transition:background .18s ease;}
+.rd-s.reading{background:#fff2c2; box-shadow:0 0 0 2px #fff2c2;}
 .modebar{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
 .modebar button{flex:1 1 calc(33.33% - 4px); min-width:90px; padding:8px 4px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--muted); font-size:12px; cursor:pointer;}
 .modebar button.on{border-color:var(--accent); background:var(--accent-bg); color:var(--accent-800); font-weight:600;}
@@ -464,6 +487,14 @@ nav button.on{color:var(--accent); font-weight:600;}
       <div class="hint" style="margin-top:6px" data-page-node-id="Za7TTABZqUMnTzzzpkb5nF">Key 不写入网页源码；在任一设备填一次，会经你的私有云同步（家庭码保护）自动下发到其他设备。</div>
       <button class="btn btn-p btn-block" id="btnSaveSet" style="margin-top:12px" data-page-node-id="eeyroVLL1ZpxHNydjlfL61">保存设置</button>
     </div>
+    <div class="card">
+      <h3>🔊 语音朗读质量</h3>
+      <div class="hint" style="margin-bottom:6px">朗读是手机/平板自己合成的。系统里装了「增强音色」声音会明显更像真人；没装就只有机械音。这里可以体检、试听。</div>
+      <div id="voiceDiag" style="font-size:13px;line-height:1.75">检测中…</div>
+      <button class="btn btn-block" style="margin-top:10px" onclick="voicePreview()">▶︎ 试听当前音色</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="voiceDiag()">🔄 重新检测本机音色</button>
+      <div id="voiceGuide" class="hint" style="margin-top:8px"></div>
+    </div>
     <div class="card" data-page-node-id="LkBL5p1TRtbpgWyKDuDsDV">
       <h3 data-page-node-id="rQX5pq0hGBbdZLoBkolXf4">☁️ 云端同步（给家长看）</h3>
       <label data-page-node-id="A2ixXkZ5RrJHJBdimI919g">家庭码（家长和孩子填同一个）</label>
@@ -690,6 +721,8 @@ function switchTab(t){
   document.querySelectorAll('main section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===t));
+  /* 音色会随系统设置变化（家长刚去下载了增强音色），每次进「我的」重测一次 */
+  if(t==='me'){ try{ applyAudioSession(); voiceDiag(); }catch(_){} }
 }
 
 /* ===== 今日 ===== */
@@ -1056,7 +1089,24 @@ const DRAW_HINT = `【分步讲解·讲解呈现的最高纪律】
 · 这一行必须单独成行、放在最末；正文里绝不能出现"【可选】"三个字；
 · 不需要孩子说话时（纯讲解收尾、孩子正在自己做题）不要给这一行。
 
-【导图空框孩子能直接填】思维导图里孩子还没想出来的格子只写一个"?"，App 会把它画成虚线框——**孩子点一下就能直接输入，填完自动变实线**。所以：空框只写"?"，绝不要替孩子填上答案，也不要写"请把这里补上"这类指令（他看得见框、点得动）。`;
+【导图空框孩子能直接填】思维导图里孩子还没想出来的格子只写一个"?"，App 会把它画成虚线框——**孩子点一下就能直接输入，填完自动变实线**。所以：空框只写"?"，绝不要替孩子填上答案，也不要写"请把这里补上"这类指令（他看得见框、点得动）。
+
+【数学怎么写·孩子才看得懂、也才听得懂】
+所有数学式子都要用 $ 包起来，例：$1\\times 4$、$\\frac{1}{4}$、$x^{2}$、$|a+4|-10$、$6\\div 2$。
+· 乘法写 \\times（不要写 *），除法写 \\div（不要写 /），分数写 \\frac{分子}{分母}（不要写 1/4）。
+· 没被 $ 包住的式子，孩子会看到一团看不懂的字母和斜杠——这是最严重的呈现事故，务必避免。
+系统会把 $ 里的内容渲染成课本上的样子，并按中文读出来（$\\frac{1}{4}$ 读"四分之一"、$1\\times 4$ 读"一乘四"），所以照上面的写法写就够了。
+
+【像当面讲课那样说话，不是念课本】
+系统会一句一句读给孩子听、读到哪句哪句亮，所以：
+· 一步 1~3 句、一句 40 字以内，短句优先；
+· 多用口语连接："你看""我们先""有没有发现""这一步很关键""别急，我们把它拆开看""对了，就是这样"；
+· 别用书面语（"综上所述""由此可得"这类不要）。该说"我们把两个分母乘起来"，就不要说"执行分母的乘法运算"。
+
+【讲规则、讲流程时给它一个形状】
+· 用带标签的条目（至少两条），例："- 输入：一个数 a" / "- 处理：把 a 代入后算 |a+4|-10" / "- 输出：得到一个新数"，系统会渲染成一张结构卡片；
+· 一条流程链单独起一行、写成 "> a → |a+4|-10 → a₁"，系统会渲染成流程条；
+· 这两种都比铺一大段文字更让孩子看清结构。`;
 function socraticSystem(){
   if(state.active==='初一'){
     return `你是孩子的「AI 学习教练」，辅导一名初一学生。核心目标：让孩子自己把题想通，而不是替他写答案。
@@ -1527,7 +1577,7 @@ function renderMindmapHtml(body, fill){
   const resolved = lines.map(function(l){
     const raw = String(l).replace(/\t/g,'    ');
     const indent = (raw.match(/^\s*/)||[''])[0].length;
-    const txt = clean(l);
+    const txt = tex2plain(clean(l));
     if(!/^[?？]+$/.test(txt)) return {txt:txt, indent:indent, blank:false, filled:false, seq:-1};
     const seq = blankSeq++;
     const v = (fill && fill[seq]) ? String(fill[seq]).trim() : '';
@@ -1792,6 +1842,7 @@ function stpMsgObj(idx){
    渲染期间把"当前消息"挂到 rdCtx 上——导图空框要能把填的内容存回这条消息 */
 function aiMsgHtml(m, idx){
   var pq = parseQuick(m.content);
+  rdSentSeq = 0;                     /* 句子序号从本条消息头部重新数 */
   var oldCtx = rdCtx;
   rdCtx = {m:m, i:(typeof idx==='number') ? idx : -1};
   var html='';
@@ -1868,6 +1919,7 @@ function stpStop(){
   if(stpPlaying.timer){ clearTimeout(stpPlaying.timer); stpPlaying.timer=null; }
   stpPlaying = null;
   try{ speechSynthesis.cancel(); }catch(_){}
+  stpMark(idx, null);                          /* 停口就熄灯 */
   var m = stpMsgObj(idx);
   stpApply(idx, (m && typeof m.scur==='number') ? m.scur : 1);
 }
@@ -1892,23 +1944,58 @@ function stpAuto(idx){
   stpApply(idx, 1);
   stpSay(idx, stpTok);
 }
+/* 当前这一步里被逐句包裹的句子节点（顺序＝朗读顺序） */
+function stpSents(idx, cur){
+  var w = document.getElementById('stp-'+idx); if(!w) return [];
+  var els = w.querySelectorAll('.stp');
+  var el = els[cur-1]; if(!el) return [];
+  var nodes = el.querySelectorAll('.rd-s'), out=[];
+  for(var i=0;i<nodes.length;i++) out.push(nodes[i]);
+  return out;
+}
+/* 高亮"正在读的那一句"：一次只亮一句，讲完就灭 */
+function stpMark(idx, el){
+  var w = document.getElementById('stp-'+idx); if(!w) return;
+  var old = w.querySelectorAll('.rd-s.reading');
+  for(var i=0;i<old.length;i++) old[i].classList.remove('reading');
+  if(el && el.classList) el.classList.add('reading');
+}
 function stpSay(idx, tk){
   if(!stpPlaying || stpPlaying.idx!==idx || tk!==stpTok) return;
   var m = stpMsgObj(idx); if(!m) return;
   var steps = parseSteps(msgBody(m.content));
   var cur = Math.max(1, Math.min(steps.length, m.scur||1));
-  var txt = plainForSpeak(steps[cur-1]);
+  var stepTxt = steps[cur-1];
+  /* 与渲染端同一口径切句（按行切、行内按句切），这样"读到第几句"能和"第几个句子节点"对上。
+     对不上时只是不高亮，不影响朗读与翻步。 */
+  var sents = [];
+  String(stepTxt).split('\n').forEach(function(line){
+    sentListOf(line).forEach(function(x){ sents.push(x); });
+  });
+  if(!sents.length) sents = [stepTxt];
+  var nodes = stpSents(idx, cur);
   if(stpPlaying.timer) clearTimeout(stpPlaying.timer);
+  stpMark(idx, null);
   /* 兜底计时：语音不可用/被拦截时也不会卡住，按字数估时 */
+  var plainLen = plainForSpeak(stepTxt).length;
   stpPlaying.timer = setTimeout(function(){
     if(tk!==stpTok || !stpPlaying) return;
+    stpMark(idx, null);
     stpAdvance(idx, tk);
-  }, Math.round(txt.length*215)+1100);
-  speakWith(txt, function(){
+  }, Math.round(plainLen*215)+1100);
+  var done = function(){
     if(tk!==stpTok || !stpPlaying) return;
     if(stpPlaying.timer){ clearTimeout(stpPlaying.timer); stpPlaying.timer=null; }
+    stpMark(idx, null);
     stpAdvance(idx, tk);
-  });
+  };
+  if(!state.tts) return;                       /* 静音：交给计时兜底 */
+  /* 注意：这里必须逐项映射而不是 filter，否则朗读序号会和句子节点错位 */
+  var reads = sents.map(function(x){ var p2 = plainForSpeak(x); return p2 || String(x); });
+  speakSeq(reads, function(k){
+    if(tk!==stpTok || !stpPlaying) return;
+    if(nodes[k]) stpMark(idx, nodes[k]);
+  }, done);
 }
 function stpAdvance(idx, tk){
   if(tk!==stpTok || !stpPlaying) return;
@@ -1961,6 +2048,15 @@ function renderTextBlock(text){
     if(/^\s*>\s?/.test(line)){
       const buf=[];
       while(i<lines.length && /^\s*>\s?/.test(lines[i])){ buf.push(lines[i].replace(/^\s*>\s?/,'')); i++; }
+      const one = buf.join(' ');
+      const arrows = (one.match(/→|⟶/g)||[]).length;
+      if(buf.length===1 && arrows>=2){
+        /* 一条流程链（a → b → c）→ 流程条：孩子一眼看出"先算什么、再算什么" */
+        html += '<div class="flow">'+one.split(/\s*(?:→|⟶)\s*/).map(function(g,ix){
+          return (ix?'<span class="fl-a">→</span>':'')+'<span class="fl-n">'+md(g)+'</span>';
+        }).join('')+'</div>';
+        continue;
+      }
       html += '<div style="border-left:3px solid #e6b422;background:#fffaec;border-radius:0 8px 8px 0;padding:7px 10px;margin:7px 0;font-size:13.5px;line-height:1.6">'+buf.map(b=>md(b)).join('<br>')+'</div>';
       continue;
     }
@@ -1970,29 +2066,142 @@ function renderTextBlock(text){
       while(i<lines.length && /^\s*\d{1,2}\s*[.、)）]\s+\S/.test(lines[i])){
         items.push(lines[i].replace(/^\s*\d{1,2}\s*[.、)）]\s+/,'')); i++;
       }
-      html += '<div style="margin:7px 0">'+items.map((it,ix)=>'<div style="display:flex;gap:8px;align-items:flex-start;margin:4px 0"><span style="flex:0 0 20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:var(--accent-bg);color:#8a6d1f;font-size:11.5px;font-weight:700">'+(ix+1)+'</span><span style="flex:1;line-height:1.6">'+md(it)+'</span></div>').join('')+'</div>';
+      html += '<div style="margin:7px 0">'+items.map((it,ix)=>'<div style="display:flex;gap:8px;align-items:flex-start;margin:4px 0"><span style="flex:0 0 20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:var(--accent-bg);color:#8a6d1f;font-size:11.5px;font-weight:700">'+(ix+1)+'</span><span style="flex:1;line-height:1.6">'+sentWrap(it)+'</span></div>').join('')+'</div>';
       continue;
     }
     /* 无序列表 - / • → 圆点条目 */
     if(/^\s*[-*•]\s+\S/.test(line)){
       const items=[];
       while(i<lines.length && /^\s*[-*•]\s+\S/.test(lines[i])){ items.push(lines[i].replace(/^\s*[-*•]\s+/,'')); i++; }
-      html += '<div style="margin:6px 0">'+items.map(it=>'<div style="display:flex;gap:8px;align-items:flex-start;margin:3px 0"><span style="flex:0 0 auto;color:#b08a2e">•</span><span style="flex:1;line-height:1.6">'+md(it)+'</span></div>').join('')+'</div>';
+      /* 形如「- 输入：一个数 a」的短标签条目 → 结构卡片（一眼看清，参考千问小讲堂的做法） */
+      if(items.length>=2 && items.every(function(it){ return /^[^：:]{1,12}[：:]\s*\S/.test(it); })){
+        html += '<div class="kv">'+items.map(function(it){
+          const km = it.match(/^([^：:]{1,12})[：:]\s*(.+)$/);
+          return '<div class="kv-r"><span class="kv-k">'+md(km[1])+'</span><span class="kv-v">'+sentWrap(km[2])+'</span></div>';
+        }).join('')+'</div>';
+        continue;
+      }
+      html += '<div style="margin:6px 0">'+items.map(it=>'<div style="display:flex;gap:8px;align-items:flex-start;margin:3px 0"><span style="flex:0 0 auto;color:#b08a2e">•</span><span style="flex:1;line-height:1.6">'+sentWrap(it)+'</span></div>').join('')+'</div>';
       continue;
     }
     /* markdown 小标题（### 整体把脉 / ## xxx）→ 加粗标题行，别让孩子看到裸露的 ### */
     const hm = line.match(/^\s*#{1,4}\s*(.+?)\s*$/);
-    if(hm && hm[1]){ html += '<p style="font-weight:700;font-size:15px;margin:10px 0 2px">'+md(hm[1])+'</p>'; i++; continue; }
-    html += '<p style="white-space:pre-wrap;word-break:break-word;line-height:1.65;margin:4px 0">'+md(line)+'</p>';
+    if(hm && hm[1]){ html += '<p class="h-sec">'+md(hm[1])+'</p>'; i++; continue; }
+    html += '<p style="white-space:pre-wrap;word-break:break-word;line-height:1.65;margin:4px 0">'+sentWrap(line)+'</p>';
     i++;
   }
   return html;
 }
 function splitRow(line){ return line.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(s=>s.trim()); }
+/* ===== 数学符号：把孩子看不懂的"源码"变成课本上的样子 =====
+   2026-10-08 家长反馈：答疑里 $1\times 4$ 原样显示，孩子看不懂。
+   根因：全站没有 LaTeX 处理，md() 只认 **加粗** 和 `代码`。
+   做法：escape 之后、markdown 之前插一轮数学转换——产出的都是受控标签，不会引入注入。 */
+const TEX_SYM = {
+  '\\times':'×','\\div':'÷','\\cdot':'·','\\ast':'∗','\\pm':'±','\\mp':'∓',
+  '\\le':'≤','\\leq':'≤','\\ge':'≥','\\geq':'≥','\\ne':'≠','\\neq':'≠',
+  '\\approx':'≈','\\equiv':'≡','\\sim':'∽','\\propto':'∝','\\cong':'≌',
+  '\\to':'→','\\rightarrow':'→','\\longrightarrow':'→','\\Rightarrow':'⇒','\\leftarrow':'←','\\Leftarrow':'⇐','\\mapsto':'↦',
+  '\\cdots':'⋯','\\ldots':'…','\\dots':'…','\\vdots':'⋮','\\ddots':'⋱',
+  '\\sum':'∑','\\prod':'∏','\\int':'∫','\\infty':'∞','\\partial':'∂',
+  '\\angle':'∠','\\triangle':'△','\\perp':'⊥','\\parallel':'∥','\\circ':'°','\\degree':'°',
+  '\\because':'∵','\\therefore':'∴','\\in':'∈','\\notin':'∉','\\cup':'∪','\\cap':'∩','\\varnothing':'∅','\\emptyset':'∅',
+  '\\forall':'∀','\\exists':'∃','\\lfloor':'⌊','\\rfloor':'⌋','\\lceil':'⌈','\\rceil':'⌉',
+  '\\langle':'⟨','\\rangle':'⟩','\\mid':'|','\\vert':'|','\\Vert':'‖',
+  '\\pi':'π','\\alpha':'α','\\beta':'β','\\gamma':'γ','\\delta':'δ','\\epsilon':'ε','\\varepsilon':'ε',
+  '\\theta':'θ','\\lambda':'λ','\\mu':'μ','\\rho':'ρ','\\sigma':'σ','\\tau':'τ','\\eta':'η','\\zeta':'ζ',
+  '\\varphi':'φ','\\phi':'φ','\\omega':'ω','\\Delta':'Δ','\\Omega':'Ω','\\Sigma':'Σ','\\Gamma':'Γ','\\Lambda':'Λ','\\Theta':'Θ',
+  '\\quad':' ','\\qquad':'  ','\\,':' ','\\;':' ','\\:':' ','\\!':'',
+  '\\%':'%','\\$':'$','\\#':'#','\\&':'&','\\_':'_','\\{':'{','\\}':'}',
+  '\\text':'','\\mathrm':'','\\mathbf':'','\\mathit':'','\\mathbb':'','\\operatorname':'','\\rm':'','\\bf':''
+};
+/* SVG 文本版：图形里放不了 <sup>/<span>，所以上下标用 Unicode、分数退回 a/b 写法。
+   导图节点里也要能写数学（"$1\times 4$ 差 3"），否则孩子会在图里看到一串源码。 */
+const SUP_MAP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','n':'ⁿ','i':'ⁱ'};
+const SUB_MAP = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋'};
+function mapChars(a, map){ var o=''; for(var i=0;i<a.length;i++){ o += (map[a.charAt(i)]!==undefined ? map[a.charAt(i)] : a.charAt(i)); } return o; }
+function tex2plain(s){
+  var t = String(s==null?'':s);
+  var g=0;
+  while(/\\frac/.test(t) && g++<8){
+    var b0=t;
+    t = t.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, function(_,a,b){ return tex2plain(a)+'/'+tex2plain(b); });
+    if(t===b0) break;
+  }
+  t = t.replace(/\\sqrt\s*\{([^{}]*)\}/g,'√$1');
+  t = t.replace(/\^\s*\{([^{}]*)\}/g, function(_,a){ return mapChars(a, SUP_MAP); });
+  t = t.replace(/\^\s*([0-9A-Za-z+\-])/g, function(_,a){ return mapChars(a, SUP_MAP); });
+  t = t.replace(/_\s*\{([^{}]*)\}/g, function(_,a){ return mapChars(a, SUB_MAP); });
+  t = t.replace(/_\s*([0-9A-Za-z+\-])/g, function(_,a){ return mapChars(a, SUB_MAP); });
+  t = t.replace(/\\(?:left|right|big|Big|bigg|Bigg|displaystyle)\s*/g,'');
+  t = t.replace(/\\[A-Za-z]+/g, function(m){ return (TEX_SYM[m]!==undefined) ? TEX_SYM[m] : ''; });
+  t = t.replace(/\\[,;:!]/g,' ').replace(/\$/g,'').replace(/\s{2,}/g,' ');
+  return t.trim();
+}
+/* LaTeX → 可读 HTML（输入必须是已经 escape 过的文本） */
+function tex2html(s){
+  var t = String(s==null?'':s);
+  t = t.replace(/\\(?:left|right|big|Big|bigg|Bigg|displaystyle|textstyle)\s*/g,'');
+  /* \frac{a}{b} → 竖排分数（孩子课本上就是这个样子） */
+  var g=0;
+  while(/\\frac\b/.test(t) && g++<10){
+    var b0=t;
+    t = t.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, function(_,a,b){
+      return '<span class="mfr"><i>'+tex2html(a)+'</i><b>'+tex2html(b)+'</b></span>';
+    });
+    if(t===b0) break;
+  }
+  t = t.replace(/\\sqrt\s*\[[^\]]*\]\s*\{([^{}]*)\}/g, function(_,a){ return '<span class="msq">√<span class="msqb">'+tex2html(a)+'</span></span>'; });
+  t = t.replace(/\\sqrt\s*\{([^{}]*)\}/g, function(_,a){ return '<span class="msq">√<span class="msqb">'+tex2html(a)+'</span></span>'; });
+  t = t.replace(/\\overline\s*\{([^{}]*)\}/g, '<span class="mbar">$1</span>');
+  t = t.replace(/\\text(?:rm|bf|it)?\s*\{([^{}]*)\}/g,'$1');
+  t = t.replace(/\\operatorname\s*\{([^{}]*)\}/g,'$1');
+  /* 上下标 */
+  t = t.replace(/\^\s*\{([^{}]*)\}/g,'<sup>$1</sup>');
+  t = t.replace(/\^\s*([A-Za-z0-9+\-])/g,'<sup>$1</sup>');
+  t = t.replace(/_\s*\{([^{}]*)\}/g,'<sub>$1</sub>');
+  t = t.replace(/_\s*([A-Za-z0-9+\-])/g,'<sub>$1</sub>');
+  /* 剩余命令查表；认不出的整个抹掉（\foo 露给孩子看比不给更糟） */
+  t = t.replace(/\\[A-Za-z]+/g, function(m){ return (TEX_SYM[m]!==undefined) ? TEX_SYM[m] : ''; });
+  t = t.replace(/\\[,;:!]/g,' ').replace(/\\\\/g,' ');
+  return t;
+}
+/* 数学渲染：$..$ / $$..$$ / \(..\) / \[..\]，外加"AI 忘加 $ 的裸命令"兜底 */
+function mathRender(t){
+  var s = String(t==null?'':t);
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g, function(_,a){ return '<span class="mth mth-blk">'+tex2html(a)+'</span>'; });
+  s = s.replace(/\\\[([\s\S]+?)\\\]/g, function(_,a){ return '<span class="mth mth-blk">'+tex2html(a)+'</span>'; });
+  s = s.replace(/\$([^$\n]{1,200}?)\$/g, function(_,a){ return '<span class="mth">'+tex2html(a)+'</span>'; });
+  s = s.replace(/\\\(([\s\S]+?)\\\)/g, function(_,a){ return '<span class="mth">'+tex2html(a)+'</span>'; });
+  /* 兜底：没被 $ 包起来的裸 LaTeX 命令（截图里的情形之外，AI 常见的另一种漏法） */
+  if(/\\[A-Za-z]{2,}/.test(s)) s = tex2html(s);
+  /* 落单的 $（流式先来半个）→ 直接去掉，别让孩子看到 */
+  s = s.replace(/\$/g,'');
+  return s;
+}
 function md(s){
-  return escapeHtml(s)
-    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-    .replace(/`([^`]+?)`/g,'<code style="background:var(--accent-bg);padding:0 4px;border-radius:4px;font-size:12px">$1</code>');
+  var t = escapeHtml(s);
+  t = mathRender(t);
+  t = t.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+  t = t.replace(/`([^`]+?)`/g,'<code style="background:var(--accent-bg);padding:0 4px;border-radius:4px;font-size:12px">$1</code>');
+  return t;
+}
+/* ===== 逐句包裹：朗读时"读到哪句、哪句亮" =====
+   这是"播报"变"讲解"的关键——孩子耳朵听到的和他眼睛看到的是同一句。
+   全局序号 rdSentSeq 在 aiMsgHtml 渲染开始时归零 */
+var rdSentSeq = 0;
+function sentListOf(t){
+  var m = String(t==null?'':t).match(/[^。！？!?；;…]+[。！？!?；;…]*/g);
+  if(!m) return [];
+  return m.filter(function(x){ return String(x).trim(); });
+}
+function sentWrap(txt){
+  var arr = sentListOf(txt);
+  if(!arr.length || arr.join('')!==String(txt)) return md(txt);
+  return arr.map(function(x){
+    var si = rdSentSeq++;
+    return '<span class="rd-s" data-si="'+si+'">'+md(x)+'</span>';
+  }).join('');
 }
 /* ===== 输出净化：拦住模型的"思考过程/英文独白"漏到孩子眼前 =====
    2026-09-29 家长反馈：答疑里冒出大段英文（"Per the coaching protocol: ①先诊断再教…"、
@@ -6019,14 +6228,71 @@ function toggleTTS(){
   state.tts = !state.tts; save();
   document.getElementById('btnTTS').textContent = state.tts ? '🔊' : '🔇';
   if(state.tts){
+    applyAudioSession();   /* 打开朗读＝一次用户手势，正好把音频通道声明上去 */
     toast('已开启朗读');
     const u=new SpeechSynthesisUtterance('朗读已开启'); u.lang='zh-CN'; u.rate=1.05;
     try{ speechSynthesis.speak(u); }catch(_){}
   } else { toast('已关闭朗读'); try{ speechSynthesis.cancel(); }catch(_){} }
 }
+/* ===== 把"课本符号"翻译成"人话读法" =====
+   2026-10-08 家长反馈："语音是死板的播报，不是讲解"。
+   根因之一：stripForTTS 把 \p{P} 标点一刀切成空格 —— 于是 "1/4" 读成 "1 4"、"1×4=4" 读成 "1 4 4"，
+   孩子听到的是一串没有意义的数字。朗读前必须先翻成中文。 */
+function speakMath(s){
+  var t = String(s==null?'':s);
+  /* 转义字符先还原：\% \{ \& 这类不是"字母命令"，下面的 \\[A-Za-z]+ 抓不到它们 */
+  t = t.replace(/\\%/g,'%').replace(/\\\$/g,'$').replace(/\\&/g,'&').replace(/\\#/g,'#')
+       .replace(/\\_/g,'_').replace(/\\\{/g,'{').replace(/\\\}/g,'}');
+  /* 数字紧贴着的分数（带分数 2\frac{1}{3}）→ 中间加个停顿，别连读成一个大数 */
+  t = t.replace(/(\d)\s*\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, function(_,c,a,b){
+    return c + '，' + String(b).trim()+'分之'+String(a).trim();
+  });
+  /* LaTeX 结构先拆（必须在删 $ 之前——可能残留 \frac 等） */
+  var g=0;
+  while(/\\frac/.test(t) && g++<8){
+    var b0=t;
+    t = t.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, function(_,a,b){
+      return String(b).trim()+'分之'+String(a).trim();
+    });
+    if(t===b0) break;
+  }
+  t = t.replace(/\\sqrt\s*\{([^{}]*)\}/g,'根号$1');
+  t = t.replace(/\^\s*\{?2\}?/g,'的平方').replace(/\^\s*\{?3\}?/g,'的立方');
+  t = t.replace(/\^\s*\{?([0-9]+|[A-Za-z])\}?/g,'的$1次方');
+  t = t.replace(/²/g,'的平方').replace(/³/g,'的立方');
+  t = t.replace(/\$/g,' ');
+  /* 剩余 LaTeX 命令查符号表；认不出的整个抹掉（别让引擎念出反斜杠） */
+  t = t.replace(/\\[A-Za-z]+/g, function(m){ return (TEX_SYM[m]!==undefined) ? TEX_SYM[m] : ''; });
+  t = t.replace(/\\([()\[\]{}])/g,' ');
+  /* 分数 a/b：中文读"b分之a"，注意顺序是反的 */
+  t = t.replace(/(\d+)\s*\/\s*(\d+)/g, function(_,a,b){ return b+'分之'+a; });
+  t = t.replace(/([a-zA-Z])\s*\/\s*([a-zA-Z])/g,'$1除以$2');
+  /* 绝对值 |x| */
+  t = t.replace(/\|([^|]{1,24})\|/g,'$1的绝对值');
+  /* 百分数 */
+  t = t.replace(/(\d+(?:\.\d+)?)\s*%/g,'百分之$1');
+  /* 四则与比较 */
+  t = t.replace(/[×✕✖∗]/g,'乘').replace(/[*·⋅]/g,'乘').replace(/[÷∕]/g,'除以');
+  t = t.replace(/≠/g,'不等于').replace(/[≈≒]/g,'约等于').replace(/≤/g,'小于等于').replace(/≥/g,'大于等于').replace(/[=＝]/g,'等于');
+  t = t.replace(/(\d)\s*-\s*(\d)/g,'$1减$2');
+  t = t.replace(/(\S)\s*-\s*(\d)/g,'$1减$2');   /* "-10" 跟在文字/括号后面时也要读"减"（绝对值那条就是） */
+  t = t.replace(/\+/g,'加').replace(/[−–]/g,'减');
+  /* 几何与关系 */
+  t = t.replace(/√/g,'根号').replace(/°/g,'度').replace(/∠/g,'角').replace(/△/g,'三角形');
+  t = t.replace(/⊥/g,'垂直于').replace(/∥/g,'平行于').replace(/∞/g,'无穷大').replace(/∑/g,'求和');
+  t = t.replace(/→|⟶/g,'得到').replace(/⇒/g,'推出').replace(/∵/g,'因为').replace(/∴/g,'所以');
+  /* 比例 3:2 → 三比二（只有数字之间才是比） */
+  t = t.replace(/(\d)\s*[:：]\s*(\d)/g,'$1比$2');
+  /* 括号与剩余冒号：不念出来，只当停顿 */
+  t = t.replace(/[()（）\[\]【】]/g,'').replace(/[:：]/g,'，');
+  t = t.replace(/\s{2,}/g,' ');
+  /* 中文两侧的空白对 TTS 是多余的停顿，去掉；英文词之间的空格要留（英语搭子） */
+  t = t.replace(/([\u4e00-\u9fa5]) +/g,'$1').replace(/ +([\u4e00-\u9fa5])/g,'$1');
+  return t.trim();
+}
 function stripForTTS(text){
   if(!text) return '';
-  return String(text)
+  return speakMath(text)                     /* 先把符号翻成中文读法，再做标点清理 */
     .replace(/<[^>]+>/g,' ')                                   // 去HTML标签
     .replace(/https?:\/\/\S+/g,' ')                          // 去链接
     .replace(/[`*_~>#]/g,' ')                                  // markdown符号
@@ -6045,7 +6311,72 @@ function stripForTTS(text){
 /* ===== TTS 语音：自动挑最像真人的音色，中英文分段各用标准音（V1.5 语音优化） ===== */
 let _voicesCache=[];
 function refreshVoices(){ try{ _voicesCache = speechSynthesis.getVoices()||[]; }catch(_){ _voicesCache=[]; } }
-if(typeof speechSynthesis!=='undefined'){ refreshVoices(); try{ speechSynthesis.onvoiceschanged = refreshVoices; }catch(_){}}
+if(typeof speechSynthesis!=='undefined'){ refreshVoices(); try{ speechSynthesis.onvoiceschanged = function(){ refreshVoices(); try{ voiceDiag(); }catch(_){} }; }catch(_){}}
+
+/* ===== 破解"浏览器天花板"第一层：让网页音频按"媒体播放"对待（2026-10-08） =====
+   诊断：iOS/iPadOS 默认把网页音频归为 ambient（环境音）——侧边静音键一拨到静音，
+   网页发出的声音会被系统整体掐掉，孩子点播放没反应、以为"坏了"。
+   Safari 16.4+ 支持 navigator.audioSession：声明成 playback 就是"音乐/播客"待遇，
+   不受静音键影响，切后台/锁屏也更不容易被掐断。不支持的浏览器是安全 no-op。
+   ⚠️ 写成函数而不是顶层 const —— 顶层声明若落在 load() 之后会触发 TDZ，静默丢档案。 */
+function applyAudioSession(){
+  try{ if(typeof navigator!=='undefined' && navigator.audioSession){ navigator.audioSession.type='playback'; return true; } }catch(_){}
+  return false;
+}
+/* 平台判断：只用来决定"教家长去哪里下载好音色"，判断不出就返回通用指引 */
+function voicePlatform(){
+  var ua=(typeof navigator!=='undefined'&&navigator.userAgent)||'';
+  if(/iPad|iPhone|iPod/.test(ua)||(/Macintosh/.test(ua)&&('ontouchend' in document))) return 'ios';
+  if(/Android/i.test(ua)) return 'android';
+  if(/Macintosh/i.test(ua)) return 'mac';
+  if(/Windows/i.test(ua)) return 'win';
+  return 'other';
+}
+/* 音色体检：告诉家长"孩子听到的到底是哪个音色"。
+   这是零成本提升音质的一条路——iOS 上没下载"增强"音色时，系统只给一个老式机械音。 */
+function voiceDiag(){
+  var el=document.getElementById('voiceDiag'); if(!el) return;
+  var gd=document.getElementById('voiceGuide');
+  if(typeof speechSynthesis==='undefined'){ el.textContent='这台设备不支持网页朗读。'; if(gd) gd.textContent=''; return; }
+  refreshVoices();
+  var plat=voicePlatform();
+  var sess=applyAudioSession();   /* 顺手声明上（幂等），返回值即"本浏览器是否支持" */
+  var all=_voicesCache||[];
+  var zh=all.filter(function(v){ return /^(zh|cmn|yue)/i.test(String(v.lang||'').replace('_','-')); });
+  if(!zh.length){
+    el.innerHTML='音色列表还没加载完（系统是异步读取的）。<br>请点下面的「🔄 重新检测本机音色」。';
+    if(gd) gd.textContent='';
+    return;
+  }
+  var cur=pickVoice('zh-CN');
+  var hi=cur?/premium|enhanced|neural|natural|siri/i.test(String(cur.name||'')):false;
+  el.innerHTML='本机可用中文音色 <b>'+zh.length+'</b> 个，当前用的是 <b>'+esc(cur?cur.name:'（系统默认）')+'</b>'
+    +(cur?(' '+(hi?'<span style="color:var(--green)">高质量</span>':'<span style="color:var(--amber)">标准音色 · 偏机械</span>')):'')
+    +'<br>音频通道：'+(sess
+      ? '<span style="color:var(--green)">已按「媒体播放」声明，静音键不会静音朗读</span>'
+      : (plat==='ios' ? '<span style="color:var(--amber)">系统较旧不支持该声明 —— 请把 iPad 侧边的静音键关掉</span>'
+                      : '<span style="color:var(--muted)">本浏览器不提供该开关，一般不影响朗读</span>'));
+  if(!gd) return;
+  var tips={
+    ios:'想更好听（iPhone / iPad）：<br>设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话）→ 选带「增强」字样的那个（如「婷婷（增强）」）→ 下载。下完回来点「重新检测本机音色」。',
+    android:'想更好听（安卓）：<br>设置 → 系统 → 语言和输入法 → 文字转语音 → 首选引擎选「Google 语音服务」→ 进它的设置里安装中文语音数据。',
+    mac:'想更好听（Mac）：<br>系统设置 → 辅助功能 → 朗读内容 → 系统声音 → 管理声音 → 下载中文（普通话）的增强音色。',
+    win:'想更好听（Windows）：<br>设置 → 时间和语言 → 语音 → 管理语音 → 添加「中文（简体，中国）」语音包。',
+    other:'想更好听：<br>在系统设置里搜「朗读内容 / 文字转语音」，下载带「增强 / 高质量」字样的中文语音包。'
+  };
+  gd.innerHTML=(hi?'':'<b>建议花 2 分钟做一次，这是不花钱也能明显变好听的办法：</b><br>')+(tips[plat]||tips.other);
+}
+/* 试听：走的是孩子真正听到的那条链路（stripForTTS → ttsQueue → mkUtter），听到什么就是什么 */
+function voicePreview(){
+  if(typeof speechSynthesis==='undefined'){ toast('这台设备不支持网页朗读'); return; }
+  try{
+    applyAudioSession();
+    speechSynthesis.cancel(); speakTok++;
+    ttsQueue('我们来试听一下：1/4 加 1/6 等于多少？你看，分母不一样，先化成同分母的分数再算。')
+      .forEach(function(pp){ try{ speechSynthesis.speak(mkUtter(pp)); }catch(_){} });
+    toast('正在试听 —— 这就是孩子听到的声音');
+  }catch(_){ toast('试听失败，这台设备可能不支持朗读'); }
+}
 function pickVoice(lang){
   const vs = _voicesCache.length ? _voicesCache : (refreshVoices(), _voicesCache);
   if(!vs.length) return null;
@@ -6067,6 +6398,7 @@ function pickVoice(lang){
 }
 /* 朗读分段：把一段文本拆成"同语言、不超 110 字"的队列，中英文分别用对应音色 */
 function ttsQueue(text){
+  applyAudioSession();   /* 每次真要出声前声明一次（幂等）：iOS 上这是"静音键也读得出声"的关键 */
   /* 原来只读前 500 字——讲解稍长就"讲到一半没声了"。现在整段都读，上限放宽到 4000 字防极端 */
   const clean = stripForTTS(text).slice(0,4000);
   if(!clean) return [];
@@ -6106,7 +6438,7 @@ function mkUtter(pp){
   const u=new SpeechSynthesisUtterance(pp.t);
   u.lang=pp.lang;
   try{ const v=pickVoice(pp.lang); if(v) u.voice=v; }catch(_){}
-  u.rate = pp.lang==='en-US'?0.92:1.0;
+  u.rate = pp.lang==='en-US'?0.88:0.94;   /* 讲解要慢一点：1.0 像播报，0.94 才像老师说话 */
   u.pitch = 1.0;
   return u;
 }
@@ -6138,6 +6470,39 @@ function speakWith(text, onEnd){
       try{ speechSynthesis.speak(u); }catch(_){}
     })();
   }catch(_){}
+}
+
+/* 逐句朗读：每句开始前回调 onSent(k)，全部读完回调 onEnd。
+   与 speakWith 的区别是"句间有停顿"——这是"讲解"和"播报"在听感上的分水岭：
+   一口气念完叫播报，讲完一句停半秒叫讲解。 */
+function speakSeq(sents, onSent, onEnd){
+  if(!state.tts){ if(onEnd) onEnd(); return; }
+  const myTok = ++speakTok;
+  try{
+    speechSynthesis.cancel();
+    let i=0;
+    (function nextSent(){
+      if(myTok!==speakTok) return;
+      if(i>=sents.length){ if(onEnd) onEnd(); return; }
+      const k = i++;
+      if(onSent){ try{ onSent(k); }catch(_){} }
+      const q = ttsQueue(sents[k]);
+      if(!q.length){ nextSent(); return; }
+      let j=0;
+      (function nextPart(){
+        if(myTok!==speakTok) return;
+        if(j>=q.length){
+          /* 句间停顿：长句停久一点，像老师讲完一句留个空档 */
+          const gap = String(sents[k]||'').length > 24 ? 330 : 200;
+          setTimeout(function(){ if(myTok===speakTok) nextSent(); }, gap);
+          return;
+        }
+        const u = mkUtter(q[j++]);
+        u.onend = nextPart;
+        try{ speechSynthesis.speak(u); }catch(_){ nextPart(); }
+      })();
+    })();
+  }catch(_){ if(onEnd){ try{ onEnd(); }catch(_){} } }
 }
 
 /* ===== 云端同步 ===== */
@@ -6424,6 +6789,8 @@ document.getElementById('btnGuardSet').addEventListener('click', ()=>askGuard('�
 document.getElementById('btnGuardOff').addEventListener('click', ()=>askGuard('关闭家长保护', ()=>{ state.guard=null; save(); toast('家长保护已关闭'); }));
 document.getElementById('btnVoice').addEventListener('click', toggleVoice);
 document.getElementById('btnTTS').addEventListener('click', toggleTTS);
+applyAudioSession();                                   /* iOS/iPadOS：不声明的话静音键一拨就整个哑掉 */
+try{ voiceDiag(); }catch(_){}                           /* 填上设置页的语音体检（音色异步加载完会再刷一次） */
 document.getElementById('btnSnap').addEventListener('click', snapWrong);
 /* 自测卷：换了科目或出卷来源，下面的说明文字要跟着变（"会挑几个知识点"是实时算的） */
 (function(){
