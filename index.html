@@ -489,9 +489,11 @@ nav button.on{color:var(--accent); font-weight:600;}
     </div>
     <div class="card">
       <h3>🔊 语音朗读质量</h3>
-      <div class="hint" style="margin-bottom:6px">朗读是手机/平板自己合成的，<b>音色以你手机里的设置为准</b>（设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话））。本机装了带「优化音质」字样的音色时，App 会优先用它；没有时就不指定音色，完全跟随你的设置。装了「优化音质」音色，声音会明显更像真人。</div>
-      <div id="voiceDiag" style="font-size:13px;line-height:1.75">检测中…</div>
-      <button class="btn btn-block" style="margin-top:10px" onclick="voicePreview()">▶︎ 试听孩子听到的声音</button>
+      <div class="hint" style="margin-bottom:6px">朗读有两条路：<b>本机合成</b>（手机自带的音色，音质已经到顶了）和 <b>云端合成</b>（更接近真人，不受手机设置影响）。想让孩子听得舒服些，点下面那个按钮试一下云端——<b>通不通当场就能看到，没接通也不影响孩子用。</b></div>
+      <div id="ttsCloudBox" class="hint" style="margin-top:6px"></div>
+      <button class="btn btn-p btn-block" style="margin-top:8px" id="btnCloud" onclick="cloudToggle()">☁️ 试听云端声音（更像真人）</button>
+      <div id="voiceDiag" style="font-size:13px;line-height:1.75;margin-top:12px">检测中…</div>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="voicePreview()">▶︎ 试听孩子听到的声音</button>
       <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="voiceDiag()">🔄 重新检测本机音色</button>
       <div id="voiceGuide" class="hint" style="margin-top:8px"></div>
     </div>
@@ -544,6 +546,18 @@ const DEFAULT_KEY = ''; /* 安全：Key 不写入网页源码，由云同步加�
 const DEFAULT_MODEL = 'deepseek-v4-flash';
 const DEFAULT_VISION = 'gemini-3.6-flash'; /* 拍照识别默认；gemini-3.5-flash 渠道已于 2026-09-14 停用（返回 no longer available 提示文本） */
 
+/* ===== 云端语音合成（2026-10-09）=====
+   为什么必须上云：苹果官方明确答复（Apple Developer Forums #723503，Apple Frameworks Engineer）——
+   **Web Speech API 只能使用系统预装音色，可下载的音色一律不提供给网页**。
+   家长下载并在「朗读内容 → 声音」里选中的「莉莉（优化音质）」正属于"可下载音色"，
+   网页连看都看不到（getVoices() 里只有预装的 婷婷/美嘉/善怡 三个）。
+   所以本地这条路的音质上限＝预装的「婷婷」，且"不指定音色"时 Safari 仍用它自己的默认——怎么调都到不了莉莉。
+   唯一出路：云端合成音频，前端只负责用 <audio> 播（顺带把"切后台/静音键"两层问题一起解决）。
+   三条铁律：①不新增密钥（复用 App 里已有的 Key，同一个网关）②任一步失败自动回退本地合成，绝不静音
+   ③同一句话读第二次走缓存，不重复计费。 */
+const CLOUD_TTS_MODELS = ['qwen3-tts-flash','cosyvoice-v3.5-flash']; /* 网关公开清单上已有的两个语音模型 */
+const CLOUD_TTS_VOICE = {'qwen3-tts-flash':'Cherry','cosyvoice-v3.5-flash':'longwan'};
+
 const GRADES = ['初一','四年级'];
 const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
 const CAUSE = {concept:['概念不清','a'],careless:['粗心','a'],method:['方法不会','b'],forget:['忘了','b'],exam:['考试失分','a'],other:['其他','t']};
@@ -579,7 +593,7 @@ function blankProfile(){
   return {name:'', wrongs:[], recites:[], reviews:{}, streak:0, lastDate:'', heat:{}, mastered:0, recMastered:0, tasks:{}, chat:{socratic:[],feynman:[],recite:[],reading:[],thinking:[],english:[],interest:[]}, books:[], interests:[], thinkingStats:{level:1,solved:0,history:[]}, lastReview:'', textbook:{}, hwReviews:[], ledger:{}, kpPool:{}, probes:[], exams:[], verify:[], verified:[]};
 }
 function defaultState(){
-  const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', visionModel:DEFAULT_VISION, proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null, voicePref:null};
+  const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', visionModel:DEFAULT_VISION, proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null, voicePref:null, ttsCloud:false, ttsModel:''};
   GRADES.forEach(g=>{ s.profiles[g]=blankProfile(); });
   s.profiles['初一'].name='大宝'; s.profiles['四年级'].name='小宝';
   return s;
@@ -1919,6 +1933,7 @@ function stpStop(){
   if(stpPlaying.timer){ clearTimeout(stpPlaying.timer); stpPlaying.timer=null; }
   stpPlaying = null;
   try{ speechSynthesis.cancel(); }catch(_){}
+  try{ cloudStop(); }catch(_){}
   stpMark(idx, null);                          /* 停口就熄灯 */
   var m = stpMsgObj(idx);
   stpApply(idx, (m && typeof m.scur==='number') ? m.scur : 1);
@@ -6232,7 +6247,7 @@ function toggleTTS(){
     toast('已开启朗读');
     const u=new SpeechSynthesisUtterance('朗读已开启'); u.lang='zh-CN'; u.rate=1.05;
     try{ speechSynthesis.speak(u); }catch(_){}
-  } else { toast('已关闭朗读'); try{ speechSynthesis.cancel(); }catch(_){} }
+  } else { toast('已关闭朗读'); try{ speechSynthesis.cancel(); }catch(_){} cloudStop(); }
 }
 /* ===== 把"课本符号"翻译成"人话读法" =====
    2026-10-08 家长反馈："语音是死板的播报，不是讲解"。
@@ -6352,16 +6367,25 @@ function voiceDiag(){
   var hi=isHqVoice(cur);
   var apple=(plat==='ios'||plat==='mac');
   var pf=state&&state.voicePref, fixed=!!(pf&&(pf.u||pf.n));
-  var hqN=zh.filter(isHqVoice).length;
-  /* 如实说明"孩子听到的这个音色到底是谁定的"，三种情况分别说清楚：
-     ① App 内固定；② 苹果上交给系统「朗读内容 → 声音」决定（App 不指定音色）；
-     ③ App 自动挑的（安卓 / Chrome 上 voice.default 可信）。
-     —— 上一版在这里拿 voice.default 冒充"跟随手机设置"，是**错的**：苹果上报的 default 是内置音色，
-        跟家长在「朗读内容 → 声音」里选的不是一回事，会一直顶掉她的选择。 */
+  var cloudOn=cloudTTSOn();
+  /* 如实说明"孩子听到的这个音色到底是谁定的"。
+     ⚠️ 这里连着两版说错过话，教训记在这：
+     ① 拿 voice.default 冒充"跟随手机设置" —— 苹果上报的 default 是**预装音色**，跟家长在
+        「朗读内容 → 声音」里选的不是一回事；
+     ② 说"不指定音色就会跟随你的设置" —— 实测仍会落到 Safari 自己的默认（婷婷）。
+     根因是苹果的硬限制（Apple Developer Forums #723503）：**Web Speech API 只提供预装音色，
+     可下载音色一律不提供给网页**。所以"手机里选了莉莉、网页没变"是必然而非配置错误。
+     → 文案必须直说这条限制，并把出口指向云端声音。 */
   var l1,l2;
-  if(fixed){ l1='当前用的是 <b>'+esc(cur?cur.name:'')+'</b>'; l2='这个音色是：（App 内已固定）'; }
-  else if(apple && !cur){ l1='朗读音色：<b>跟随手机设置</b>'; l2='这个音色是：（跟随你手机「朗读内容 → 声音」里的选择）'; }
-  else if(apple){ l1='当前用的是 <b>'+esc(cur.name)+'</b> <span style="color:var(--green)">高质量音色</span>'; l2='这个音色是：（本机的高质量音色，App 自动挑的）'; }
+  if(cloudOn){
+    l1='当前用的是 <b>云端声音</b> <span style="color:var(--green)">（更接近真人，不受手机设置影响）</span>';
+    l2='下面列的是本机自带的音色，开启云端后不再使用；点最上面的按钮可随时关掉。';
+  }
+  else if(fixed){ l1='当前用的是 <b>'+esc(cur?cur.name:'')+'</b>'; l2='这个音色是：（App 内已固定）'; }
+  else if(apple){
+    l1='当前用的是 <b>'+esc(cur?cur.name:'（系统预装音色）')+'</b>'+(hi?' <span style="color:var(--green)">高质量音色</span>':'');
+    l2='苹果只把<b>预装音色</b>开放给网页；你在「朗读内容 → 声音」里下载并选中的「优化音质」音色（如莉莉），<b>网页拿不到</b>——这是苹果的限制，不是设置问题。<br><b>想换更好听的声音 → 用上面的「☁️ 云端声音」。</b>';
+  }
   else{
     l1='当前用的是 <b>'+esc(cur?cur.name:'（系统默认）')+'</b>'
       +(hi?' <span style="color:var(--green)">高质量音色</span>':' <span style="color:var(--amber)">标准音色 · 偏机械</span>');
@@ -6370,31 +6394,211 @@ function voiceDiag(){
   var listTxt=zh.map(function(v){ return esc(String(v.name||'?'))+(v.default?' *':''); }).join('、');
   el.innerHTML='本机可用中文音色 <b>'+zh.length+'</b> 个：'+listTxt
     +'<br>'+l1+'<br>'+l2
-    +'<br><span style="color:var(--muted)">带 * 的是系统内置的默认音色；下载高质量音色包后，这里的名字会变多——变多就说明装上了。</span>'
     +'<br>音频通道：'+(sess
       ? '<span style="color:var(--green)">已按「媒体播放」声明，静音键不会静音朗读</span>'
       : (plat==='ios' ? '<span style="color:var(--amber)">系统较旧不支持该声明 —— 请把 iPad 侧边的静音键关掉</span>'
                       : '<span style="color:var(--muted)">本浏览器不提供该开关，一般不影响朗读</span>'));
+  try{ cloudBar(); }catch(_){}
   if(!gd) return;
   var tips={
-    ios:'想换声音（iPhone / iPad）：<br>设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话），选中你要的那个（如<b>「莉莉（优化音质）」</b>），回来点「🔄 重新检测本机音色」。<br>本机装了带<b>「优化音质」</b>字样的音色时，App 会优先用它；<b>没有高质量音色时，App 完全不指定音色，跟着你这个设置走</b>。',
+    ios:'为什么手机里换了音色、这里没变？<br>因为 <b>苹果只把「预装音色」开放给网页</b>——你在「朗读内容 → 声音」里下载并选中的「优化音质」音色（如莉莉）属于<b>可下载音色，网页一律拿不到</b>（苹果官方明确说明）。本机留给网页的普通话音色只有「婷婷」一个，<b>已经到顶了</b>。<br>想更好听：点上面的 <b>☁️ 云端声音</b>。',
     android:'想要换声音（安卓）：<br>设置 → 系统 → 语言和输入法 → 文字转语音 → 首选引擎选「Google 语音服务」，在这里可以试听和选音色；进它的设置里安装中文语音数据。改完回本页点「🔄 重新检测本机音色」。',
     mac:'想要换声音（Mac）：<br>系统设置 → 辅助功能 → 朗读内容 → 系统声音 → 选一个，或在「管理声音」里下载中文（普通话）的「增强 / 高级」音色。改完回本页点「🔄 重新检测本机音色」。',
     win:'想要换声音（Windows）：<br>设置 → 时间和语言 → 语音 → 管理语音 → 添加「中文（简体，中国）」语音包。改完回本页点「🔄 重新检测本机音色」。',
     other:'想要换声音：<br>在系统设置里搜「朗读内容 / 文字转语音」，选一个合适的，或下载带「增强 / 优化音质 / 高级」字样的中文语音包；改完回本页点「🔄 重新检测本机音色」。'
   };
-  gd.innerHTML=(hqN?'':'<b>不花钱也能明显变好听：在手机里下载高质量音色包（只需做一次），App 会自动用它。</b><br>')+(tips[plat]||tips.other);
+  gd.innerHTML=(tips[plat]||tips.other);
 }
 /* 试听：走的是孩子真正听到的那条链路（stripForTTS → ttsQueue → mkUtter），听到什么就是什么 */
 function voicePreview(){
-  if(typeof speechSynthesis==='undefined'){ toast('这台设备不支持网页朗读'); return; }
+  if(typeof speechSynthesis==='undefined' && !cloudTTSOn()){ toast('这台设备不支持网页朗读'); return; }
   try{
     applyAudioSession();
-    speechSynthesis.cancel(); speakTok++;
-    ttsQueue('我们来试听一下：1/4 加 1/6 等于多少？你看，分母不一样，先化成同分母的分数再算。')
-      .forEach(function(pp){ try{ speechSynthesis.speak(mkUtter(pp)); }catch(_){} });
+    const cloud=cloudTTSOn();
+    speechSynthesis.cancel(); if(cloud) cloudStop(); speakTok++;
+    const q = ttsQueue('我们来试听一下：1/4 加 1/6 等于多少？你看，分母不一样，先化成同分母的分数再算。', cloud?480:110);
+    if(cloud){ cloudPlay(q, {}); toast('正在试听云端声音'); return; }
+    q.forEach(function(pp){ try{ speechSynthesis.speak(mkUtter(pp)); }catch(_){} });
     toast('正在试听 —— 这就是孩子听到的声音');
   }catch(_){ toast('试听失败，这台设备可能不支持朗读'); }
+}
+
+/* ===== 云端语音合成实现（2026-10-09）=====
+   背景见文件头部 CLOUD_TTS_MODELS 的注释：苹果不把"可下载音色"给网页，本地路已到顶。
+   设计三原则：①复用 App 已有的 Key 与网关，不新增账号、不新增后端
+              ②云端任何一步失败 → 立刻整体回退本机合成，绝不静音
+              ③同一句话读第二次走缓存，不重复计费 */
+function cloudTTSOn(){ return !!(state && state.ttsCloud && state.key); }
+function ttsCloudBase(){ return (''+(((state&&state.base)||BASE))).replace(/\/+$/,''); }
+function ttsCloudModel(){ return (state&&state.ttsModel)||CLOUD_TTS_MODELS[0]; }
+function ttsCloudVoice(m){ return CLOUD_TTS_VOICE[m||ttsCloudModel()]||''; }
+/* 从任意形状的返回里把音频地址捞出来：阿里系接口回的是 JSON（output.audio.url），
+   第三方中转有时包成 OpenAI 的二进制流 —— 两种都得兜住。 */
+function findAudioUrl(o, depth){
+  depth = depth||0; if(o==null || depth>6) return '';
+  if(typeof o==='string') return /^https?:\/\//i.test(o) ? o : '';
+  if(Array.isArray(o)){ for(let i=0;i<o.length;i++){ const r=findAudioUrl(o[i],depth+1); if(r) return r; } return ''; }
+  if(typeof o==='object'){
+    const keys=Object.keys(o);
+    /* 先看名字像"音频地址"的键，避免误抓别的链接 */
+    for(let i=0;i<keys.length;i++){ const k=keys[i]; if(/url|audio|src|link|file/i.test(k)){ const r=findAudioUrl(o[k],depth+1); if(r) return r; } }
+    for(let i=0;i<keys.length;i++){ const r=findAudioUrl(o[keys[i]],depth+1); if(r) return r; }
+  }
+  return '';
+}
+async function ttsCloudOnce(text, plan){
+  const key=state&&state.key; if(!key) throw new Error('没填 Key');
+  const body={model:plan.model, input:String(text||'').slice(0,1000), response_format:'mp3'};
+  if(plan.voice) body.voice=plan.voice;
+  const res=await fetch(ttsCloudBase()+'/audio/speech',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok){
+    let m='HTTP '+res.status;
+    try{ const t=await res.text(); if(t) m+='：'+t.replace(/\s+/g,' ').slice(0,160); }catch(_){}
+    throw new Error(m);
+  }
+  const ct=(res.headers&&res.headers.get)?(res.headers.get('content-type')||''):'';
+  if(/^audio\//i.test(ct) || /octet-stream/i.test(ct)){
+    const blob=await res.blob();
+    if(!blob || !blob.size) throw new Error('拿到了空音频');
+    return URL.createObjectURL(blob);
+  }
+  const txt=await res.text();
+  let url='';
+  try{ url=findAudioUrl(JSON.parse(txt)); }catch(_){}
+  if(!url && /^https?:\/\//.test(String(txt||'').trim())) url=String(txt).trim();
+  if(url) return url;
+  throw new Error('返回里没有音频：'+String(txt||'').replace(/\s+/g,' ').slice(0,160));
+}
+/* 依次试：本模型带音色 → 本模型不带音色 → 另一个模型。中转站上不同模型的音色名不一样，
+   靠这一层把"音色名写错"整类失败消化掉，家长什么都不用管。 */
+async function ttsCloudFetch(text){
+  const m=ttsCloudModel();
+  const plans=[{model:m, voice:ttsCloudVoice(m)}];
+  if(ttsCloudVoice(m)) plans.push({model:m, voice:''});
+  const other=CLOUD_TTS_MODELS.filter(x=>x!==m)[0];
+  if(other) plans.push({model:other, voice:ttsCloudVoice(other)});
+  let last='';
+  for(let i=0;i<plans.length;i++){
+    try{ return await ttsCloudOnce(text, plans[i]); }
+    catch(e){ last=String((e&&e.message)||e); }
+  }
+  throw new Error(last||'云端合成失败');
+}
+const _ttsCloudCache = new Map();
+const _ttsCloudMax = 40;
+function ttsCloudAudio(text){
+  const ck=ttsCloudModel()+'|'+ttsCloudVoice(ttsCloudModel())+'|'+text;
+  if(_ttsCloudCache.has(ck)) return Promise.resolve(_ttsCloudCache.get(ck));
+  return ttsCloudFetch(text).then(function(src){
+    try{
+      _ttsCloudCache.set(ck,src);
+      while(_ttsCloudCache.size>_ttsCloudMax){
+        const k=_ttsCloudCache.keys().next().value; const v=_ttsCloudCache.get(k);
+        _ttsCloudCache.delete(k);
+        if(/^blob:/i.test(String(v))){ try{ URL.revokeObjectURL(v); }catch(_){} }
+      }
+    }catch(_){}
+    return src;
+  });
+}
+let _cloudAudio=null;
+function cloudAudioEl(){
+  if(!_cloudAudio){ try{ _cloudAudio=new Audio(); _cloudAudio.preload='auto'; }catch(_){ _cloudAudio=null; } }
+  return _cloudAudio;
+}
+function cloudStop(){
+  try{
+    if(_cloudAudio){ _cloudAudio.onended=null; _cloudAudio.onerror=null; _cloudAudio.pause(); _cloudAudio.removeAttribute('src'); }
+  }catch(_){}
+}
+/* 本机合成读一段：既是本地主路径的"一段"，也是云端失败后的回退路径 */
+function localSayOne(pp, myTok, nx){
+  try{
+    const u=mkUtter(pp); let done=false;
+    const fin=function(){ if(done) return; done=true; if(myTok!==speakTok) return; nx(); };
+    u.onend=fin; u.onerror=fin;
+    speechSynthesis.speak(u);
+  }catch(_){ nx(); }
+}
+/* 顺序播放一队文本：云端优先；**任一步失败立刻整体回退本机合成**（孩子的耳朵不能出现"静音"）。
+   cbs: {tok, onPart(i), onEnd()} */
+function cloudPlay(q, cbs){
+  cbs=cbs||{};
+  const myTok = (cbs.tok!=null)? cbs.tok : ++speakTok;
+  let i=0, dead=false;
+  applyAudioSession();
+  (function nextOne(){
+    if(myTok!==speakTok) return;
+    if(i>=q.length){ if(cbs.onEnd){ try{ cbs.onEnd(); }catch(_){} } return; }
+    const k=i++;
+    const nx=function(){ if(myTok!==speakTok) return; nextOne(); };
+    if(dead){ localSayOne(q[k], myTok, nx); return; }
+    ttsCloudAudio(q[k].t).then(function(src){
+      if(myTok!==speakTok) return;
+      if(cbs.onPart){ try{ cbs.onPart(k); }catch(_){} }
+      const a=cloudAudioEl();
+      if(!a){ dead=true; localSayOne(q[k], myTok, nx); return; }
+      a.onended=nx;
+      a.onerror=function(){ dead=true; localSayOne(q[k], myTok, nx); };
+      a.src=src;
+      const p=a.play();
+      if(p && p.catch) p.catch(function(){ dead=true; localSayOne(q[k], myTok, nx); });
+    }).catch(function(){ dead=true; localSayOne(q[k], myTok, nx); });
+  })();
+}
+/* 云端声音的开关 / 自检：点一次就真的发一次请求，通没通当场看得见，
+   最坏情况也只是"没接通"，孩子那边继续用本机声音，不受影响。 */
+function cloudBar(msg){
+  const box=document.getElementById('ttsCloudBox');
+  const btn=document.getElementById('btnCloud');
+  const on=!!(state&&state.ttsCloud);
+  if(btn) btn.textContent = on ? '☁️ 关闭云端声音（回到手机自带）' : '☁️ 试听云端声音（更像真人）';
+  if(!box) return;
+  box.innerHTML = (msg? msg+'<br>' : '')
+    + (on ? '<span style="color:var(--green)">☁️ 云端声音：已开启</span>（模型 '+esc(ttsCloudModel())+'，不受手机设置影响）'
+          : '<span style="color:var(--muted)">☁️ 云端声音：未开启 —— 现在用的是手机里预装的音色</span>');
+}
+async function cloudToggle(){
+  if(state&&state.ttsCloud){
+    state.ttsCloud=false; save(); cloudStop(); cloudBar('已关闭，孩子听到的回到手机自带音色。');
+    toast('已关闭云端声音'); return;
+  }
+  await cloudTry();
+}
+async function cloudTry(){
+  const box=document.getElementById('ttsCloudBox');
+  if(!state||!state.key){
+    if(box) box.innerHTML='<span style="color:var(--amber)">先在下面「AI 模型设置」里填好 Key —— 云端声音复用同一个 Key，不用另外申请。</span>';
+    toast('还没填 Key'); return;
+  }
+  const btn=document.getElementById('btnCloud');
+  if(btn){ btn.disabled=true; btn.textContent='正在请求云端合成…'; }
+  if(box) box.innerHTML='正在请求云端合成…（第一次通常 1~3 秒，请保持页面在前台）';
+  const t0=Date.now();
+  /* 结果文案统一交给 cloudBar 一起渲染：它还会把"当前开没开"那行补上。
+     ⚠️ 不能先写 box 再调 cloudBar()——cloudBar 是整块重写，会把这条结果吞掉（本轮踩过）。 */
+  let msg='';
+  try{
+    /* 走真实链路但**绕开缓存**，确保测的是"现在通不通" */
+    const src=await ttsCloudFetch('我们来试听一下：1/4 加 1/6 等于多少？你看，分母不一样，先化成同分母的分数再算。');
+    const a=cloudAudioEl();
+    if(!a) throw new Error('这台设备不支持音频播放');
+    a.onended=null; a.onerror=null; a.src=src;
+    await a.play();
+    state.ttsCloud=true; state.ttsModel=ttsCloudModel(); save();
+    msg='<span style="color:var(--green)">✅ 云端声音已接通</span>（模型 '+esc(ttsCloudModel())+'，用时 '+((Date.now()-t0)/1000).toFixed(1)+' 秒）。<br>刚才那句就是孩子以后听到的声音；数学符号照旧读成中文（「1/4」读作四分之一）。';
+    toast('云端声音已开启');
+  }catch(e){
+    msg='<span style="color:var(--amber)">⚠️ 云端没接通：'+esc(String((e&&e.message)||e))+'</span><br>不影响孩子使用，现在用的是手机自带音色。<br>把这句话发我，我按返回的真实形状接上。';
+    toast('云端没接通');
+  }finally{
+    if(btn) btn.disabled=false;
+    cloudBar(msg);
+  }
 }
 /* 是不是"高质量音色"：名字或系统标识里带高质量字样。
    苹果不上报音质档位，但**下载的「优化音质 / 增强」音色，名字会带出来**（如「莉莉（优化音质）」），
@@ -6462,7 +6666,10 @@ function pickVoice(lang){
   return pool.sort((a,b)=>score(b)-score(a))[0]||null;
 }
 /* 朗读分段：把一段文本拆成"同语言、不超 110 字"的队列，中英文分别用对应音色 */
-function ttsQueue(text){
+/* lim＝单段最长字数。本机引擎怕长段（会静默截断），所以默认 110；
+   云端合成不怕长，调用方传大一点（480）——少几次请求、听感更连贯。 */
+function ttsQueue(text, lim){
+  lim = lim || 110;
   applyAudioSession();   /* 每次真要出声前声明一次（幂等）：iOS 上这是"静音键也读得出声"的关键 */
   /* 原来只读前 500 字——讲解稍长就"讲到一半没声了"。现在整段都读，上限放宽到 4000 字防极端 */
   const clean = stripForTTS(text).slice(0,4000);
@@ -6485,16 +6692,16 @@ function ttsQueue(text){
   queue.forEach(pp=>{
     const t=String(pp.t||'');
     if(!t.trim()) return;
-    if(t.length<=110){ finalQ.push({lang:pp.lang,t:t.trim()}); return; }
+    if(t.length<=lim){ finalQ.push({lang:pp.lang,t:t.trim()}); return; }
     if(pp.lang==='en-US'){
       let cur='';
       t.split(/\s+/).filter(Boolean).forEach(w=>{
-        if(cur && (cur+' '+w).length>110){ finalQ.push({lang:pp.lang,t:cur}); cur=w; }
+        if(cur && (cur+' '+w).length>lim){ finalQ.push({lang:pp.lang,t:cur}); cur=w; }
         else cur = cur ? (cur+' '+w) : w;
       });
       if(cur) finalQ.push({lang:pp.lang,t:cur});
     }else{
-      for(let i=0;i<t.length;i+=110) finalQ.push({lang:pp.lang,t:t.slice(i,i+110)});
+      for(let i=0;i<t.length;i+=lim) finalQ.push({lang:pp.lang,t:t.slice(i,i+lim)});
     }
   });
   return finalQ;
@@ -6512,9 +6719,12 @@ function speak(text){
   /* 分步讲解由播放器逐步朗读，这里不再整段重复读（否则会读到两遍） */
   if(parseSteps(msgBody(text)).length>=2) return;
   try{
-    speechSynthesis.cancel();
+    const cloud=cloudTTSOn();
+    speechSynthesis.cancel(); if(cloud) cloudStop();
     speakTok++;
-    ttsQueue(text).forEach(pp=>{ speechSynthesis.speak(mkUtter(pp)); });
+    const q=ttsQueue(text, cloud?480:110);
+    if(cloud){ cloudPlay(q, {}); return; }
+    q.forEach(pp=>{ speechSynthesis.speak(mkUtter(pp)); });
   }catch(_){}
 }
 /* 逐句朗读：读完最后一段回调 onEnd（"这句读完才画下一笔"的驱动源）
@@ -6523,8 +6733,11 @@ function speakWith(text, onEnd){
   if(!state.tts) return;
   const myTok = ++speakTok;
   try{
-    const q = ttsQueue(text);
+    const cloud=cloudTTSOn();
+    const q = ttsQueue(text, cloud?480:110);
     if(!q.length){ if(onEnd) onEnd(); return; }
+    /* 云端轨道："audio 读完一队"直接回 onEnd；中途失败会自动转本机合成，不改变回调时序 */
+    if(cloud){ cloudStop(); cloudPlay(q, {tok:myTok, onEnd:onEnd}); return; }
     speechSynthesis.cancel();
     let i=0;
     (function nextOne(){
@@ -6543,6 +6756,24 @@ function speakWith(text, onEnd){
 function speakSeq(sents, onSent, onEnd){
   if(!state.tts){ if(onEnd) onEnd(); return; }
   const myTok = ++speakTok;
+  /* 云端轨道：一句一段地读，句间照样留停顿——"讲完一句停半秒"正是讲解味的来源 */
+  if(cloudTTSOn()){
+    cloudStop();
+    let ci=0;
+    (function nx(){
+      if(myTok!==speakTok) return;
+      if(ci>=sents.length){ if(onEnd){ try{ onEnd(); }catch(_){} } return; }
+      const ck=ci++;
+      if(onSent){ try{ onSent(ck); }catch(_){} }
+      const cq=ttsQueue(sents[ck],480);
+      if(!cq.length){ nx(); return; }
+      cloudPlay(cq, {tok:myTok, onEnd:function(){
+        const gap = String(sents[ck]||'').length > 24 ? 330 : 200;
+        setTimeout(function(){ if(myTok===speakTok) nx(); }, gap);
+      }});
+    })();
+    return;
+  }
   try{
     speechSynthesis.cancel();
     let i=0;
