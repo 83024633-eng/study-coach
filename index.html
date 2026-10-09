@@ -489,7 +489,7 @@ nav button.on{color:var(--accent); font-weight:600;}
     </div>
     <div class="card">
       <h3>🔊 语音朗读质量</h3>
-      <div class="hint" style="margin-bottom:6px">朗读是手机/平板自己合成的，<b>App 会自动挑一个最合适的普通话女声，不用你来选</b>。你在手机里换了声音，App 一般也会跟着变（下面会显示是跟谁走的）。系统里装了「增强 / 优化音质」音色，声音会明显更像真人。</div>
+      <div class="hint" style="margin-bottom:6px">朗读是手机/平板自己合成的，<b>音色以你手机里的设置为准</b>（设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话））。本机装了带「优化音质」字样的音色时，App 会优先用它；没有时就不指定音色，完全跟随你的设置。装了「优化音质」音色，声音会明显更像真人。</div>
       <div id="voiceDiag" style="font-size:13px;line-height:1.75">检测中…</div>
       <button class="btn btn-block" style="margin-top:10px" onclick="voicePreview()">▶︎ 试听孩子听到的声音</button>
       <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="voiceDiag()">🔄 重新检测本机音色</button>
@@ -6348,42 +6348,42 @@ function voiceDiag(){
     if(gd) gd.textContent='';
     return;
   }
-  var cur=pickVoice('zh-CN');
-  var nm=String(cur&&cur.name||'');
-  var hi=/premium|enhanced|neural|natural|siri|增强|优化|高品质|高级/i.test(nm);
-  /* 苹果平台不上报音质档位：装了「优化音质」包，getVoices() 返回的名字通常**还是「婷婷」**，
-     所以不能凭名字就判"偏机械"——那会变成一句冤枉话（家长明明装了，看到还这么说）。
-     苹果平台改成中性说明 + 让他去试听；安卓/Chrome 会真的带上 Google/高质量字样，照旧判定。 */
+  var cur=null; try{ cur=pickVoice('zh-CN'); }catch(_){}
+  var hi=isHqVoice(cur);
   var apple=(plat==='ios'||plat==='mac');
-  var verdict=cur
-    ? (hi?' <span style="color:var(--green)">高质量音色</span>'
-        : (apple?' <span style="color:var(--muted)">（苹果不上报音质档位，好坏请以「▶ 试听」为准）</span>'
-                : ' <span style="color:var(--amber)">标准音色 · 偏机械</span>'))
-    : '';
-  /* 说清楚"这个音色是谁定的"：跟着手机设置走 / App 自己挑的。
-     家长在手机里换了声音，最想知道的就是"到底生效没有"——看这一行即可。 */
-  var pf=state&&state.voicePref;
-  var fixed=!!(pf&&(pf.u||pf.n));
-  var sysDef=!!(cur&&cur.default===true);
-  var srcTxt=!cur?'':(fixed?'（App 内已固定）'
-    :(sysDef?'（跟随你手机「朗读内容 → 声音」里的选择）'
-            :'（App 自动挑的：本机没有标出系统默认音色）'));
-  el.innerHTML='本机可用中文音色 <b>'+zh.length+'</b> 个，当前用的是 <b>'+esc(cur?cur.name:'（系统默认）')+'</b>'+verdict
-    +'<br>这个音色是：'+srcTxt
-    +'<br><span style="color:var(--muted)">下载高质量音色包后，这个数字通常会变多——数字变了就说明装上了。</span>'
+  var pf=state&&state.voicePref, fixed=!!(pf&&(pf.u||pf.n));
+  var hqN=zh.filter(isHqVoice).length;
+  /* 如实说明"孩子听到的这个音色到底是谁定的"，三种情况分别说清楚：
+     ① App 内固定；② 苹果上交给系统「朗读内容 → 声音」决定（App 不指定音色）；
+     ③ App 自动挑的（安卓 / Chrome 上 voice.default 可信）。
+     —— 上一版在这里拿 voice.default 冒充"跟随手机设置"，是**错的**：苹果上报的 default 是内置音色，
+        跟家长在「朗读内容 → 声音」里选的不是一回事，会一直顶掉她的选择。 */
+  var l1,l2;
+  if(fixed){ l1='当前用的是 <b>'+esc(cur?cur.name:'')+'</b>'; l2='这个音色是：（App 内已固定）'; }
+  else if(apple && !cur){ l1='朗读音色：<b>跟随手机设置</b>'; l2='这个音色是：（跟随你手机「朗读内容 → 声音」里的选择）'; }
+  else if(apple){ l1='当前用的是 <b>'+esc(cur.name)+'</b> <span style="color:var(--green)">高质量音色</span>'; l2='这个音色是：（本机的高质量音色，App 自动挑的）'; }
+  else{
+    l1='当前用的是 <b>'+esc(cur?cur.name:'（系统默认）')+'</b>'
+      +(hi?' <span style="color:var(--green)">高质量音色</span>':' <span style="color:var(--amber)">标准音色 · 偏机械</span>');
+    l2='这个音色是：'+((cur&&cur.default===true)?'（跟随你手机「朗读内容 → 声音」里的选择）':'（App 自动挑的）');
+  }
+  var listTxt=zh.map(function(v){ return esc(String(v.name||'?'))+(v.default?' *':''); }).join('、');
+  el.innerHTML='本机可用中文音色 <b>'+zh.length+'</b> 个：'+listTxt
+    +'<br>'+l1+'<br>'+l2
+    +'<br><span style="color:var(--muted)">带 * 的是系统内置的默认音色；下载高质量音色包后，这里的名字会变多——变多就说明装上了。</span>'
     +'<br>音频通道：'+(sess
       ? '<span style="color:var(--green)">已按「媒体播放」声明，静音键不会静音朗读</span>'
       : (plat==='ios' ? '<span style="color:var(--amber)">系统较旧不支持该声明 —— 请把 iPad 侧边的静音键关掉</span>'
                       : '<span style="color:var(--muted)">本浏览器不提供该开关，一般不影响朗读</span>'));
   if(!gd) return;
   var tips={
-    ios:'换了声音没生效？看上面那行<b>「这个音色是」</b>：<br>· 显示<b>「跟随你手机里的选择」</b>→ 你在手机里换，孩子听到的就跟着换，改完点「🔄 重新检测本机音色」即可；<br>· 显示<b>「App 自动挑的」</b>→ 这台系统没把选择告诉网页（苹果常这样），此时以「▶ 试听」听到的为准，App 会自己挑最合适的普通话女声。<br>想要更自然的声音：设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话），下载带<b>「优化音质 / 增强」</b>字样的那个（要连 Wi-Fi），下完回本页点「🔄 重新检测本机音色」。',
+    ios:'想换声音（iPhone / iPad）：<br>设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话），选中你要的那个（如<b>「莉莉（优化音质）」</b>），回来点「🔄 重新检测本机音色」。<br>本机装了带<b>「优化音质」</b>字样的音色时，App 会优先用它；<b>没有高质量音色时，App 完全不指定音色，跟着你这个设置走</b>。',
     android:'想要换声音（安卓）：<br>设置 → 系统 → 语言和输入法 → 文字转语音 → 首选引擎选「Google 语音服务」，在这里可以试听和选音色；进它的设置里安装中文语音数据。改完回本页点「🔄 重新检测本机音色」。',
     mac:'想要换声音（Mac）：<br>系统设置 → 辅助功能 → 朗读内容 → 系统声音 → 选一个，或在「管理声音」里下载中文（普通话）的「增强 / 高级」音色。改完回本页点「🔄 重新检测本机音色」。',
     win:'想要换声音（Windows）：<br>设置 → 时间和语言 → 语音 → 管理语音 → 添加「中文（简体，中国）」语音包。改完回本页点「🔄 重新检测本机音色」。',
     other:'想要换声音：<br>在系统设置里搜「朗读内容 / 文字转语音」，选一个合适的，或下载带「增强 / 优化音质 / 高级」字样的中文语音包；改完回本页点「🔄 重新检测本机音色」。'
   };
-  gd.innerHTML=(hi?'':'<b>不花钱也能明显变好听：在手机里下载高质量音色包（只需做一次），App 会自动用它。</b><br>')+(tips[plat]||tips.other);
+  gd.innerHTML=(hqN?'':'<b>不花钱也能明显变好听：在手机里下载高质量音色包（只需做一次），App 会自动用它。</b><br>')+(tips[plat]||tips.other);
 }
 /* 试听：走的是孩子真正听到的那条链路（stripForTTS → ttsQueue → mkUtter），听到什么就是什么 */
 function voicePreview(){
@@ -6396,6 +6396,15 @@ function voicePreview(){
     toast('正在试听 —— 这就是孩子听到的声音');
   }catch(_){ toast('试听失败，这台设备可能不支持朗读'); }
 }
+/* 是不是"高质量音色"：名字或系统标识里带高质量字样。
+   苹果不上报音质档位，但**下载的「优化音质 / 增强」音色，名字会带出来**（如「莉莉（优化音质）」），
+   voiceURI（即 AVSpeechSynthesisVoice 的 identifier）里也常有 premium / enhanced。
+   中英双语一起匹配，免得只认英文、把中文机型的高质量音色漏掉。 */
+function isHqVoice(v){
+  if(!v) return false;
+  var s=String(v.name||'')+' '+String(v.voiceURI||'');
+  return /premium|enhanced|neural|natural|增强|优化|高品质|高级/i.test(s);
+}
 function pickVoice(lang){
   const vs = _voicesCache.length ? _voicesCache : (refreshVoices(), _voicesCache);
   if(!vs.length) return null;
@@ -6404,9 +6413,16 @@ function pickVoice(lang){
   if(!pool.length) return null;
   /* 音色优先级（孩子的耳朵只有一次机会，所以这里要稳）：
      ① 内部固定（无 UI，家长提需求时由我写进 state.voicePref；换设备/删音色匹配不到就往下走）
-     ② **系统里选定的默认音色** —— 家长在「设置 → 辅助功能 → 朗读内容 → 声音」里挑的那个。
-        家长的原话就是"我自己去手机端设置就行"，所以只要系统明确标了 default，就听她的。
-     ③ 下面的自动打分兜底：优先高质量，避开爷爷奶奶那类趣味音色，保证永远有声音、不会静音。 */
+     ② 【苹果设备】实测结论（2026-10-08）：家长在「设置 → 辅助功能 → 朗读内容 → 声音」里选了
+        「莉莉（优化音质）」，可 getVoices() 里 voice.default=true 的却是内置的「婷婷」——
+        **系统上报的 default，跟家长的选择根本不是一回事**，信它就会一直顶掉家长选的音色。
+        所以苹果上改成两级：
+          · 本机有带「优化音质 / 增强 / premium / enhanced / neural / natural」字样的音色 → 点名用它
+            （家长下载高质量音色包，本意就是要用它；同时也覆盖"Safari 自己回落到内置音色"的情况）；
+          · 一个都没有 → **返回 null（不指定音色）**，交给系统走「朗读内容 → 声音」设置，
+            家长在手机里换什么，孩子就听到什么。
+     ③ 非苹果（安卓 / Chrome / Edge）：voice.default 可信，优先系统默认音色。
+     ④ 最后是自动打分兜底：优先高质量，避开爷爷奶奶那类趣味音色，保证永远有声音、不会静音。 */
   try{
     const pf = state && state.voicePref;
     if(pf && (pf.u || pf.n)){
@@ -6417,11 +6433,10 @@ function pickVoice(lang){
       if(hit) return hit;
     }
   }catch(_){}
-  const sysDefault = pool.filter(v=> v.default===true)[0];
-  if(sysDefault) return sysDefault;
   const score = v=>{
     const n=(v.name||'').toLowerCase(); let s=0;
-    if(/premium/.test(n)) s+=6; else if(/enhanced/.test(n)) s+=5; else if(/neural|natural/.test(n)) s+=4; else if(/google/.test(n)) s+=3; else if(/siri/.test(n)) s+=2;
+    /* 高质量优先：中英双语都要认——苹果的中文音色名会带「优化音质」 */
+    if(/premium|enhanced|优化|增强|高品质|高级/.test(n)) s+=6; else if(/neural|natural/.test(n)) s+=4; else if(/google/.test(n)) s+=3; else if(/siri/.test(n)) s+=2;
     if(isEn && /samantha|ava|allison|zoe|daniel|tessa/i.test(v.name)) s+=2;
     if(!isEn && /tingting|ting-ting|yu-shu|shanshan|xiaoxiao|yunxi/i.test(v.name)) s+=2;
     const vl=(v.lang||'').replace('_','-').toLowerCase();
@@ -6433,6 +6448,17 @@ function pickVoice(lang){
     if(/grandma|grandpa|eddy|rocko|shelley|sandy|bells|boing|bubbles|jester|superstar|trinoids|whisper|zarvox|bahh|cellos|wobble|junior|\breed\b|\bflo\b|bad news|good news|pipe organ/i.test(n)) s-=6;
     return s;
   };
+  /* 【苹果】`voice.default` 不可信（原因见上方 ②），所以先看有没有"高质量音色"可用：
+     有 → 点名用它；没有 → 返回 null，即**不指定音色**，交给系统「朗读内容 → 声音」决定。 */
+  let apple=false;
+  try{ const _p=voicePlatform(); apple=(_p==='ios'||_p==='mac'); }catch(_){}
+  if(apple){
+    const hq=pool.filter(isHqVoice);
+    if(hq.length) return hq.slice().sort((a,b)=>score(b)-score(a))[0]||null;
+    return null;
+  }
+  const sysDefault = pool.filter(v=> v.default===true)[0];
+  if(sysDefault) return sysDefault;
   return pool.sort((a,b)=>score(b)-score(a))[0]||null;
 }
 /* 朗读分段：把一段文本拆成"同语言、不超 110 字"的队列，中英文分别用对应音色 */
