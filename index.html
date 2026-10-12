@@ -489,7 +489,7 @@ nav button.on{color:var(--accent); font-weight:600;}
     </div>
     <div class="card">
       <h3>🔊 语音朗读质量</h3>
-      <div class="hint" style="margin-bottom:6px">朗读有两条路：<b>本机合成</b>（手机自带的音色，音质已经到顶了）和 <b>云端合成</b>（更接近真人，不受手机设置影响）。想让孩子听得舒服些，点下面那个按钮试一下云端——<b>通不通当场就能看到，没接通也不影响孩子用。</b></div>
+      <div class="hint" style="margin-bottom:6px">朗读用<b>云端合成</b>（更接近真人，不受手机设置影响）——<b>默认就是开着的</b>，填好 Key 之后孩子听到的自动就是云端声音。云端万一没接通，会自动退回手机自带的音色，<b>绝不会没声</b>；想换回手机自带声音，点下面的按钮关掉即可。</div>
       <div id="ttsCloudBox" class="hint" style="margin-top:6px"></div>
       <button class="btn btn-p btn-block" style="margin-top:8px" id="btnCloud" onclick="cloudToggle()">☁️ 试听云端声音（更像真人）</button>
       <div id="voiceDiag" style="font-size:13px;line-height:1.75;margin-top:12px">检测中…</div>
@@ -557,6 +557,16 @@ const DEFAULT_VISION = 'gemini-3.6-flash'; /* 拍照识别默认；gemini-3.5-fl
    ③同一句话读第二次走缓存，不重复计费。 */
 const CLOUD_TTS_MODELS = ['qwen3-tts-flash','cosyvoice-v3.5-flash']; /* 网关公开清单上已有的两个语音模型 */
 const CLOUD_TTS_VOICE = {'qwen3-tts-flash':'Cherry','cosyvoice-v3.5-flash':'longwan'};
+/* 云端分段与总量（2026-10-12 家长反馈"云端声音没读全，只读了几行"后定的口径）：
+   · CLOUD_TTS_CHUNK：一次请求合成多少字。**按"句"切完还要把相邻短句合并到这个上限**——
+     不合并的话，一段 4000 字的讲解会被拆成 120+ 次请求，每句之间都要等一次网络往返，
+     听感就是"断断续续、读两句就没了"。150 字对 TTS 模型也是安全区（不会被静默截断）。
+   · CLOUD_TTS_MAXLEN：一段讲解最多读多少字。原来是硬编码 4000，**长讲解的后半截直接被丢掉**
+     （实测 6036 字的文本只读出 3709 字，丢了 2327 字），这就是"没读全"的真因。
+     本机引擎保守，仍限 4000；云端放宽到 20000。 */
+const CLOUD_TTS_CHUNK = 150;
+const CLOUD_TTS_MAXLEN = 20000;
+const LOCAL_TTS_MAXLEN = 4000;
 
 const GRADES = ['初一','四年级'];
 const SUBJECT = {math:['数学','b'],chinese:['语文','b'],english:['英语','b'],physics:['物理','a'],chem:['化学','a'],bio:['生物','t'],hist:['历史','t'],geo:['地理','t'],politics:['道法','a'],other:['其他','b']};
@@ -593,7 +603,9 @@ function blankProfile(){
   return {name:'', wrongs:[], recites:[], reviews:{}, streak:0, lastDate:'', heat:{}, mastered:0, recMastered:0, tasks:{}, chat:{socratic:[],feynman:[],recite:[],reading:[],thinking:[],english:[],interest:[]}, books:[], interests:[], thinkingStats:{level:1,solved:0,history:[]}, lastReview:'', textbook:{}, hwReviews:[], ledger:{}, kpPool:{}, probes:[], exams:[], verify:[], verified:[]};
 }
 function defaultState(){
-  const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', visionModel:DEFAULT_VISION, proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null, voicePref:null, ttsCloud:false, ttsModel:''};
+  const s = {key:DEFAULT_KEY, base:BASE, model:DEFAULT_MODEL, proModel:'glm-5', visionModel:DEFAULT_VISION, proCooldown:0, usage:{d:'',t:0,c:0}, active:'初一', profiles:{}, supabase:{url:'https://1457361115-69je3z5dnh.ap-guangzhou.tencentscf.com',key:''}, familyCode:'', tts:true, guard:null, voicePref:null, ttsCloud:true, ttsModel:'', cloudChoice:false};
+  /* ttsCloud 默认 true（家长要求"直接使用云端声音"）；
+     cloudChoice 记录"家长是否亲手表态过"——没表态过就跟随默认，表态过就尊重他的选择。 */
   GRADES.forEach(g=>{ s.profiles[g]=blankProfile(); });
   s.profiles['初一'].name='大宝'; s.profiles['四年级'].name='小宝';
   return s;
@@ -620,6 +632,9 @@ function load(){
         /* Key 不再内置：本地没有时由 cloudAdoptKey 从私有云同步自动获取 */
         if(!merged.proModel || merged.proModel==='deepseek-v4') merged.proModel='glm-5'; /* deepseek-v4在中转站无可用渠道，自动迁移到glm-5 */
         if(!merged.visionModel || /^(glm-(4\.5|5)v|gemini-3\.5-flash)/.test(merged.visionModel)) merged.visionModel=DEFAULT_VISION; /* glm-5v/glm-4.5v/gemini-3.5-flash 渠道均已停用，自动迁移 */
+        /* 云端声音改为默认开启（2026-10-12）：老档案里的 ttsCloud:false 是"旧默认值"留下的，
+           不是家长的选择。只有 cloudChoice 为真（他亲手点过开关）才保留 false。 */
+        if(!merged.cloudChoice) merged.ttsCloud = true;
         GRADES.forEach(g=>{
           const pf = merged.profiles[g];
           pf.recites = pf.recites || [];
@@ -685,14 +700,20 @@ function trimAllChat(st, keep){
 function save(){
   let raw=null;
   try{ slimChatImages(state, 3); raw = JSON.stringify(state); }catch(_){}
-  /* 4M 字符≈逼近配额：先全清聊天图片，再精简历史条数（错题本等核心数据不动） */
-  if(raw && raw.length > 4000000){ try{ slimChatImages(state, 0); raw = JSON.stringify(state); }catch(_){} }
-  if(raw && raw.length > 4000000){ try{ trimAllChat(state, 80); raw = JSON.stringify(state); }catch(_){} }
-  try{
-    if(raw!=null) localStorage.setItem(LS_KEY, raw);
-  }catch(e){
-    try{ toast('⚠️ 手机存储写入失败，请到「我的」页点「同步/取回」备份，并清理浏览器缓存'); }catch(_){}
+  /* 阈值口径：localStorage 配额≈5MB，Safari 按 **UTF-16 双字节**计，2.6M 字符≈5.2MB 已经顶到天花板；
+     原来的 4M 字符≈8MB 早就超了，所以家长手机上会弹"存储写入失败"（2026-10-12 截图反馈）。
+     先清聊天图片，再精简历史条数（错题本/知识账本等核心数据一律不动）。 */
+  const CAP = 2600000;
+  if(raw && raw.length > CAP){ try{ slimChatImages(state, 0); raw = JSON.stringify(state); }catch(_){} }
+  if(raw && raw.length > CAP){ try{ trimAllChat(state, 80); raw = JSON.stringify(state); }catch(_){} }
+  let ok=false;
+  try{ if(raw!=null){ localStorage.setItem(LS_KEY, raw); ok=true; } }catch(e){}
+  /* 还是写不进 → 再激进瘦一次并重试。宁可少留点聊天记录，也不能让**所有**设置都存不下去
+     （一次写失败 = 之后所有改动全部丢失，那才是真正伤孩子数据的情况；云端同步另有备份）。 */
+  if(!ok){
+    try{ slimChatImages(state, 0); trimAllChat(state, 40); raw = JSON.stringify(state); localStorage.setItem(LS_KEY, raw); ok=true; }catch(_){}
   }
+  if(!ok){ try{ toast('⚠️ 手机存储写入失败，请到「我的」页点「同步/取回」备份，并清理浏览器缓存'); }catch(_){} }
   cloudAutoPush();
 }
 function p(){ return state.profiles[state.active]; }
@@ -1932,8 +1953,7 @@ function stpStop(){
   stpTok++; speakTok++;
   if(stpPlaying.timer){ clearTimeout(stpPlaying.timer); stpPlaying.timer=null; }
   stpPlaying = null;
-  try{ speechSynthesis.cancel(); }catch(_){}
-  try{ cloudStop(); }catch(_){}
+  quietAll();                                /* 停口＝两条轨道一起停（原来只 stop 本机，云端残留会继续响） */
   stpMark(idx, null);                          /* 停口就熄灯 */
   var m = stpMsgObj(idx);
   stpApply(idx, (m && typeof m.scur==='number') ? m.scur : 1);
@@ -6415,8 +6435,8 @@ function voicePreview(){
   try{
     applyAudioSession();
     const cloud=cloudTTSOn();
-    speechSynthesis.cancel(); if(cloud) cloudStop(); speakTok++;
-    const q = ttsQueue('我们来试听一下：1/4 加 1/6 等于多少？你看，分母不一样，先化成同分母的分数再算。', cloud?480:110);
+    quietAll(); speakTok++;
+    const q = ttsQueue('我们来试听一下：1/4 加 1/6 等于多少？你看，分母不一样，先化成同分母的分数再算。', cloud?CLOUD_TTS_CHUNK:110, cloud?CLOUD_TTS_MAXLEN:LOCAL_TTS_MAXLEN, cloud);
     if(cloud){ cloudPlay(q, {}); toast('正在试听云端声音'); return; }
     q.forEach(function(pp){ try{ speechSynthesis.speak(mkUtter(pp)); }catch(_){} });
     toast('正在试听 —— 这就是孩子听到的声音');
@@ -6428,7 +6448,13 @@ function voicePreview(){
    设计三原则：①复用 App 已有的 Key 与网关，不新增账号、不新增后端
               ②云端任何一步失败 → 立刻整体回退本机合成，绝不静音
               ③同一句话读第二次走缓存，不重复计费 */
-function cloudTTSOn(){ return !!(state && state.ttsCloud && state.key); }
+/* 2026-10-12 起：云端声音**默认开启**（家长要求"直接使用云端声音"）。
+   判定口径：填了 Key 且没有被手动关掉、且本次会话没被熔断 → 就用云端。
+   `state.ttsCloud` 仍保留：显式关掉（点按钮）会写成 false，此时不再自动开启。 */
+let _cloudFails=0;      /* 连续失败计数（会话级） */
+let _cloudDead=false;   /* 熔断：本次会话不再尝试云端，直到手动重试 */
+function cloudTTSOn(){ return !!(state && state.key && state.ttsCloud!==false && !_cloudDead); }
+function cloudReset(){ _cloudDead=false; _cloudFails=0; }   /* 复位熔断：家长点「试听/重试」时用 */
 function ttsCloudBase(){ return (''+(((state&&state.base)||BASE))).replace(/\/+$/,''); }
 function ttsCloudModel(){ return (state&&state.ttsModel)||CLOUD_TTS_MODELS[0]; }
 function ttsCloudVoice(m){ return CLOUD_TTS_VOICE[m||ttsCloudModel()]||''; }
@@ -6490,10 +6516,14 @@ async function ttsCloudFetch(text){
 }
 const _ttsCloudCache = new Map();
 const _ttsCloudMax = 40;
+/* 正在飞的请求：同一句话可能被"预取"和"真的要播"几乎同时叫到，
+   没有这张表就会**对着网关发两次同样的请求**（白花钱、还抢带宽）。 */
+const _ttsCloudInflight = new Map();
 function ttsCloudAudio(text){
   const ck=ttsCloudModel()+'|'+ttsCloudVoice(ttsCloudModel())+'|'+text;
   if(_ttsCloudCache.has(ck)) return Promise.resolve(_ttsCloudCache.get(ck));
-  return ttsCloudFetch(text).then(function(src){
+  if(_ttsCloudInflight.has(ck)) return _ttsCloudInflight.get(ck);
+  const p = ttsCloudFetch(text).then(function(src){
     try{
       _ttsCloudCache.set(ck,src);
       while(_ttsCloudCache.size>_ttsCloudMax){
@@ -6502,52 +6532,91 @@ function ttsCloudAudio(text){
         if(/^blob:/i.test(String(v))){ try{ URL.revokeObjectURL(v); }catch(_){} }
       }
     }catch(_){}
+    _ttsCloudInflight.delete(ck);
     return src;
-  });
+  }, function(e){ _ttsCloudInflight.delete(ck); throw e; });
+  _ttsCloudInflight.set(ck, p);
+  return p;
 }
 let _cloudAudio=null;
+let _cloudGen=0;      /* 云端播放代次：两条链共用一个 <audio>，只准最新一代碰它 */
 function cloudAudioEl(){
   if(!_cloudAudio){ try{ _cloudAudio=new Audio(); _cloudAudio.preload='auto'; }catch(_){ _cloudAudio=null; } }
   return _cloudAudio;
 }
 function cloudStop(){
   try{
-    if(_cloudAudio){ _cloudAudio.onended=null; _cloudAudio.onerror=null; _cloudAudio.pause(); _cloudAudio.removeAttribute('src'); }
+    if(_cloudAudio){ _cloudAudio.onended=null; _cloudAudio.onerror=null; _cloudAudio.onplay=null; _cloudAudio.pause(); _cloudAudio.removeAttribute('src'); }
   }catch(_){}
 }
-/* 本机合成读一段：既是本地主路径的"一段"，也是云端失败后的回退路径 */
+/* ===== 朗读互斥闸门（2026-10-12）=====
+   家长反馈：开了云端声音后，"云端声音和苹果自带声音会重叠"。
+   根因：云端走 <audio>、本机走 speechSynthesis，是**两个互不相干的发声通道**，
+   浏览器不会自动互斥——只要有一条轨道漏掉"先把另一条停掉"，两条就一起响。
+   原来的漏点：`speakWith` / `speakSeq` 的云端分支只调了 cloudStop()，**没有 speechSynthesis.cancel()**，
+   于是残留/回退出来的本机朗读会跟云端同时出声。
+   铁律：**谁要出声，先让对方闭嘴**。quietAll() 由所有朗读入口调用；
+   cloudPlay / localSayOne 内部还各有一道"开播瞬间再静音对方"的保险。 */
+function quietAll(){
+  try{ speechSynthesis.cancel(); }catch(_){}
+  try{ cloudStop(); }catch(_){}
+}
+/* 本机合成读一段：既是本地主路径的"一段"，也是云端失败后的回退路径
+   ⚠️ 两处要害：①过期令牌一律不出声（被打断后旧链的兜底仍会走到这里，出声就会和新的叠在一起）
+              ②出声前先 cloudStop()——本机要响，云端必须让路 */
 function localSayOne(pp, myTok, nx){
   try{
+    if(myTok!=null && myTok!==speakTok) return;      /* 已被新的朗读顶掉 → 一个字都不出 */
+    try{ cloudStop(); }catch(_){}                    /* 本机出声 → 先把云端停掉（两轨绝不同响） */
     const u=mkUtter(pp); let done=false;
-    const fin=function(){ if(done) return; done=true; if(myTok!==speakTok) return; nx(); };
+    const fin=function(){ if(done) return; done=true; if(myTok!=null && myTok!==speakTok) return; nx(); };
     u.onend=fin; u.onerror=fin;
     speechSynthesis.speak(u);
-  }catch(_){ nx(); }
+  }catch(_){ if(myTok==null || myTok===speakTok) nx(); }
 }
 /* 顺序播放一队文本：云端优先；**任一步失败立刻整体回退本机合成**（孩子的耳朵不能出现"静音"）。
    cbs: {tok, onPart(i), onEnd()} */
 function cloudPlay(q, cbs){
   cbs=cbs||{};
   const myTok = (cbs.tok!=null)? cbs.tok : ++speakTok;
+  const myGen = ++_cloudGen;      /* 只准最新一代操作共享播放器，防两条链互抢 */
   let i=0, dead=false;
   applyAudioSession();
+  quietAll();                     /* 云端要出声 → 先把本机合成停掉（两轨绝不同响） */
   (function nextOne(){
-    if(myTok!==speakTok) return;
+    if(myTok!==speakTok || myGen!==_cloudGen) return;
     if(i>=q.length){ if(cbs.onEnd){ try{ cbs.onEnd(); }catch(_){} } return; }
     const k=i++;
-    const nx=function(){ if(myTok!==speakTok) return; nextOne(); };
-    if(dead){ localSayOne(q[k], myTok, nx); return; }
+    /* 一句只准收尾一次：onended / onerror / play().catch 三个口子各触发一遍的话，
+       同一句会被读两遍（听感就是"两个声音叠在一起"）。 */
+    let cloudDone=false;
+    const go=function(){ if(myTok!==speakTok || myGen!==_cloudGen) return; nextOne(); };
+    const cloudEnd=function(){ if(cloudDone) return; cloudDone=true; go(); };
+    const cloudFail=function(){
+      if(cloudDone) return; cloudDone=true; dead=true;
+      /* 熔断计数：云端整体不通时，不必每条消息都先白试三次请求（又慢又费）。
+         连续两轮失败 → 本次会话自动切回本机，卡片上说明并给「重试」。 */
+      _cloudFails++;
+      if(_cloudFails>=2 && !_cloudDead){ _cloudDead=true; try{ cloudBar(); }catch(_){} }
+      localSayOne(q[k], myTok, go);
+    };
+    if(dead){ localSayOne(q[k], myTok, go); return; }
     ttsCloudAudio(q[k].t).then(function(src){
-      if(myTok!==speakTok) return;
+      if(myTok!==speakTok || myGen!==_cloudGen) return;
       if(cbs.onPart){ try{ cbs.onPart(k); }catch(_){} }
+      /* 这一段已经拿到手了 → 顺手把下一段也取回来（不阻塞、失败无所谓，真正需要时若没命中缓存会照常重试）。
+         放在"本段成功之后"而不是之前：否则一段不通会把自己的失败算成两次，熔断会被误触发。 */
+      if(q[k+1]){ try{ ttsCloudAudio(q[k+1].t).catch(function(){}); }catch(_){} }
       const a=cloudAudioEl();
-      if(!a){ dead=true; localSayOne(q[k], myTok, nx); return; }
-      a.onended=nx;
-      a.onerror=function(){ dead=true; localSayOne(q[k], myTok, nx); };
+      if(!a){ cloudFail(); return; }
+      a.onended=cloudEnd;
+      a.onerror=cloudFail;
+      /* 最后一道保险：只要云端真的开始出声，本机立刻闭嘴（iOS 上 cancel 偶尔慢半拍） */
+      a.onplay=function(){ try{ speechSynthesis.cancel(); }catch(_){} _cloudFails=0; };
       a.src=src;
       const p=a.play();
-      if(p && p.catch) p.catch(function(){ dead=true; localSayOne(q[k], myTok, nx); });
-    }).catch(function(){ dead=true; localSayOne(q[k], myTok, nx); });
+      if(p && p.catch) p.catch(function(){ cloudFail(); });   /* 自动播放被拦 / 被下一次播放打断 → 交给本机 */
+    }).catch(function(){ if(myTok!==speakTok || myGen!==_cloudGen) return; cloudFail(); });
   })();
 }
 /* 云端声音的开关 / 自检：点一次就真的发一次请求，通没通当场看得见，
@@ -6555,21 +6624,27 @@ function cloudPlay(q, cbs){
 function cloudBar(msg){
   const box=document.getElementById('ttsCloudBox');
   const btn=document.getElementById('btnCloud');
-  const on=!!(state&&state.ttsCloud);
-  if(btn) btn.textContent = on ? '☁️ 关闭云端声音（回到手机自带）' : '☁️ 试听云端声音（更像真人）';
+  const on=cloudTTSOn();                       /* 以"此刻真的会不会用云端"为准，而不是单看 state 字段 */
+  const off=!!(state&&state.ttsCloud===false);
+  if(btn) btn.textContent = (on||_cloudDead) ? '☁️ 关闭云端声音（回到手机自带）' : '☁️ 试听云端声音（更像真人）';
   if(!box) return;
   box.innerHTML = (msg? msg+'<br>' : '')
-    + (on ? '<span style="color:var(--green)">☁️ 云端声音：已开启</span>（模型 '+esc(ttsCloudModel())+'，不受手机设置影响）'
-          : '<span style="color:var(--muted)">☁️ 云端声音：未开启 —— 现在用的是手机里预装的音色</span>');
+    + (on ? '<span style="color:var(--green)">☁️ 云端声音：已开启</span>（默认开启 · 模型 '+esc(ttsCloudModel())+'，不受手机设置影响；已与手机自带声音互斥，不会同时出声）'
+        : (_cloudDead ? '<span style="color:var(--amber)">☁️ 云端声音：本次已自动切回手机自带</span>（云端连续两次没接通，不再反复白试，孩子那边照常有声）—— 想再试一次，点上面那个按钮。'
+        : (off ? '<span style="color:var(--muted)">☁️ 云端声音：已手动关闭 —— 现在用的是手机里预装的音色</span>'
+               : '<span style="color:var(--muted)">☁️ 云端声音：未开启 —— 先在下面「AI 模型设置」里填好 Key，它会自动用上</span>')));
 }
 async function cloudToggle(){
-  if(state&&state.ttsCloud){
-    state.ttsCloud=false; save(); cloudStop(); cloudBar('已关闭，孩子听到的回到手机自带音色。');
+  /* 熔断中：这个按钮的含义是"再试一次"，不能当成"关掉"——否则家长想重试反而把云端关了 */
+  if(_cloudDead){ cloudReset(); await cloudTry(); return; }
+  if(state&&state.ttsCloud!==false){
+    state.ttsCloud=false; state.cloudChoice=true; _cloudDead=false; _cloudFails=0; save(); cloudStop(); cloudBar('已关闭，孩子听到的回到手机自带音色。');
     toast('已关闭云端声音'); return;
   }
   await cloudTry();
 }
 async function cloudTry(){
+  cloudReset();                       /* 手动点「试听/重试」＝真的再试一次，先把熔断清掉 */
   const box=document.getElementById('ttsCloudBox');
   if(!state||!state.key){
     if(box) box.innerHTML='<span style="color:var(--amber)">先在下面「AI 模型设置」里填好 Key —— 云端声音复用同一个 Key，不用另外申请。</span>';
@@ -6589,11 +6664,12 @@ async function cloudTry(){
     if(!a) throw new Error('这台设备不支持音频播放');
     a.onended=null; a.onerror=null; a.src=src;
     await a.play();
-    state.ttsCloud=true; state.ttsModel=ttsCloudModel(); save();
+    state.ttsCloud=true; state.cloudChoice=true; state.ttsModel=ttsCloudModel(); _cloudDead=false; _cloudFails=0; save();
     msg='<span style="color:var(--green)">✅ 云端声音已接通</span>（模型 '+esc(ttsCloudModel())+'，用时 '+((Date.now()-t0)/1000).toFixed(1)+' 秒）。<br>刚才那句就是孩子以后听到的声音；数学符号照旧读成中文（「1/4」读作四分之一）。';
     toast('云端声音已开启');
   }catch(e){
     msg='<span style="color:var(--amber)">⚠️ 云端没接通：'+esc(String((e&&e.message)||e))+'</span><br>不影响孩子使用，现在用的是手机自带音色。<br>把这句话发我，我按返回的真实形状接上。';
+    _cloudFails++; if(_cloudFails>=2) _cloudDead=true;
     toast('云端没接通');
   }finally{
     if(btn) btn.disabled=false;
@@ -6668,11 +6744,14 @@ function pickVoice(lang){
 /* 朗读分段：把一段文本拆成"同语言、不超 110 字"的队列，中英文分别用对应音色 */
 /* lim＝单段最长字数。本机引擎怕长段（会静默截断），所以默认 110；
    云端合成不怕长，调用方传大一点（480）——少几次请求、听感更连贯。 */
-function ttsQueue(text, lim){
+/* lim＝单段最长字数；cap＝整段文本最多读多少字；merge＝是否把相邻"同类语言"的短句合并到 lim
+   （合并专给云端用：请求数少一个数量级，句间等待也少一个数量级） */
+function ttsQueue(text, lim, cap, merge){
   lim = lim || 110;
+  cap = cap || LOCAL_TTS_MAXLEN;
   applyAudioSession();   /* 每次真要出声前声明一次（幂等）：iOS 上这是"静音键也读得出声"的关键 */
-  /* 原来只读前 500 字——讲解稍长就"讲到一半没声了"。现在整段都读，上限放宽到 4000 字防极端 */
-  const clean = stripForTTS(text).slice(0,4000);
+  /* 整段都要读：本机引擎保守限 4000 字；云端放宽（原来硬编码 4000 会把长讲解的后半截整段丢掉） */
+  const clean = stripForTTS(text).slice(0,cap);
   if(!clean) return [];
   /* 先按停顿标记拆句（朗读之间引擎自带小停顿），句内再按中/英文分段：
      英文词句用标准美音朗读，中文用最自然的中文音色 */
@@ -6687,8 +6766,8 @@ function ttsQueue(text, lim){
       else { cur={lang, t:s}; queue.push(cur); }
     });
   });
-  /* 单段过长时部分引擎会静默截断或整段吞掉 → 再按 110 字切碎，保证一个字都不漏 */
-  const finalQ=[];
+  /* 单段过长时部分引擎会静默截断或整段吞掉 → 再按 lim 切碎，保证一个字都不漏 */
+  let finalQ=[];
   queue.forEach(pp=>{
     const t=String(pp.t||'');
     if(!t.trim()) return;
@@ -6704,6 +6783,21 @@ function ttsQueue(text, lim){
       for(let i=0;i<t.length;i+=lim) finalQ.push({lang:pp.lang,t:t.slice(i,i+lim)});
     }
   });
+  /* 云端：把相邻的短段并起来。中文讲解天然是"一句一段"（一二十字），
+     不合并的话一段 4000 字要发 120+ 次请求，每句都等一次网络——既慢又费，听感还断断续续。
+     合并只在"同语言"之间做，英文段不会被并进中文段。
+     ⚠️ 合并**必须补一个停顿符**：stripForTTS 已经把标点都清成空格了，直接首尾相接会把两句话
+        黏成一个长句、读起来赶。中文补「，」、英文补「, 」——云端是神经语音，只会停顿、不会把标点念出来。 */
+  if(merge){
+    const merged=[];
+    finalQ.forEach(pp=>{
+      const last=merged[merged.length-1];
+      const sep = pp.lang==='en-US' ? ', ' : '，';
+      if(last && last.lang===pp.lang && (last.t.length+sep.length+pp.t.length)<=lim){ last.t += sep+pp.t; }
+      else merged.push({lang:pp.lang, t:pp.t});
+    });
+    finalQ = merged;
+  }
   return finalQ;
 }
 function mkUtter(pp){
@@ -6720,9 +6814,9 @@ function speak(text){
   if(parseSteps(msgBody(text)).length>=2) return;
   try{
     const cloud=cloudTTSOn();
-    speechSynthesis.cancel(); if(cloud) cloudStop();
+    quietAll();                    /* 两轨互斥：新的一次朗读开始，先把之前所有声源关掉 */
     speakTok++;
-    const q=ttsQueue(text, cloud?480:110);
+    const q=ttsQueue(text, cloud?CLOUD_TTS_CHUNK:110, cloud?CLOUD_TTS_MAXLEN:LOCAL_TTS_MAXLEN, cloud);
     if(cloud){ cloudPlay(q, {}); return; }
     q.forEach(pp=>{ speechSynthesis.speak(mkUtter(pp)); });
   }catch(_){}
@@ -6734,11 +6828,11 @@ function speakWith(text, onEnd){
   const myTok = ++speakTok;
   try{
     const cloud=cloudTTSOn();
-    const q = ttsQueue(text, cloud?480:110);
+    const q = ttsQueue(text, cloud?CLOUD_TTS_CHUNK:110, cloud?CLOUD_TTS_MAXLEN:LOCAL_TTS_MAXLEN, cloud);
     if(!q.length){ if(onEnd) onEnd(); return; }
     /* 云端轨道："audio 读完一队"直接回 onEnd；中途失败会自动转本机合成，不改变回调时序 */
-    if(cloud){ cloudStop(); cloudPlay(q, {tok:myTok, onEnd:onEnd}); return; }
-    speechSynthesis.cancel();
+    if(cloud){ quietAll(); cloudPlay(q, {tok:myTok, onEnd:onEnd}); return; }
+    quietAll();                    /* ⚠️ 原来这里只 cancel 本机：云端残留的 <audio> 不会被停 → 就是"两个声音重叠"的来源 */
     let i=0;
     (function nextOne(){
       if(myTok!==speakTok) return;                  /* 被暂停/打断 → 立刻停链，不继续读 */
@@ -6758,16 +6852,24 @@ function speakSeq(sents, onSent, onEnd){
   const myTok = ++speakTok;
   /* 云端轨道：一句一段地读，句间照样留停顿——"讲完一句停半秒"正是讲解味的来源 */
   if(cloudTTSOn()){
-    cloudStop();
+    quietAll();                  /* 两轨互斥：云端接手前，先把本机可能残留的那句停掉 */
     let ci=0;
     (function nx(){
       if(myTok!==speakTok) return;
       if(ci>=sents.length){ if(onEnd){ try{ onEnd(); }catch(_){} } return; }
       const ck=ci++;
       if(onSent){ try{ onSent(ck); }catch(_){} }
-      const cq=ttsQueue(sents[ck],480);
+      const cq=ttsQueue(sents[ck], CLOUD_TTS_CHUNK, CLOUD_TTS_MAXLEN, false);
       if(!cq.length){ nx(); return; }
-      cloudPlay(cq, {tok:myTok, onEnd:function(){
+      /* 预先取下一句：分步讲解是"一句一段"地读，句间都等一次网络往返会明显发顿 */
+      const preNext=function(){
+        const nxt=sents[ck+1]; if(!nxt) return;
+        try{
+          const nq=ttsQueue(nxt, CLOUD_TTS_CHUNK, CLOUD_TTS_MAXLEN, false);
+          if(nq.length) ttsCloudAudio(nq[0].t).catch(function(){});
+        }catch(_){}
+      };
+      cloudPlay(cq, {tok:myTok, onPart:preNext, onEnd:function(){
         const gap = String(sents[ck]||'').length > 24 ? 330 : 200;
         setTimeout(function(){ if(myTok===speakTok) nx(); }, gap);
       }});
@@ -6775,7 +6877,7 @@ function speakSeq(sents, onSent, onEnd){
     return;
   }
   try{
-    speechSynthesis.cancel();
+    quietAll();                  /* 两轨互斥（同上）：本机轨道也要先把云端停掉 */
     let i=0;
     (function nextSent(){
       if(myTok!==speakTok) return;
